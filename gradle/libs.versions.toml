@@ -72,6 +72,7 @@ leakCanaryVersion = "2.10"
 lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
 okhttpVersion = "4.12.0"
+brotliVersion = "0.1.2"
 playServicesCronetVersion = "18.0.1"
 playServicesTfliteVersion = "16.1.0"
 protobufVersion = "4.31.1"
@@ -160,6 +161,7 @@ mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mo
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
 okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+brotli-dec = { group = "org.brotli", name = "dec", version.ref = "brotliVersion" }
 play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
 play-services-tflite-java = { group = "com.google.android.gms", name = "play-services-tflite-java", version.ref = "playServicesTfliteVersion" }
 play-services-tflite-support = { group = "com.google.android.gms", name = "play-services-tflite-support", version.ref = "playServicesTfliteVersion" }

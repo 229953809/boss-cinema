@@ -194,6 +194,8 @@ object Media3Modules {
           allowKt = false,
         ),
       "lib-ui" to Media3Module("libraries/ui", "media3-ui", "Media3 UI module"),
+      "lib-ui-danmaku" to
+        Media3Module("libraries/ui_danmaku", "media3-ui-danmaku", "Media3 UI Danmaku module"),
       "lib-ui-compose" to
         Media3Module("libraries/ui_compose", "media3-ui-compose", "Media3 UI Compose module"),
       "lib-ui-compose-material3" to

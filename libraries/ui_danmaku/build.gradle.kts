@@ -1,4 +1,4 @@
-// Copyright (C) 2016 The Android Open Source Project
+// Copyright (C) 2026 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,24 +16,15 @@ plugins {
   id("media3.publish")
 }
 
-android {
-  namespace = "androidx.media3.ui"
-
-  lint { baseline = file("lint-baseline.xml") }
-
-  sourceSets {
-    getByName("androidTest").assets.directories.add("../test_data/src/test/assets")
-    getByName("test").assets.directories.add("../test_data/src/test/assets/")
-  }
-}
+android { namespace = "androidx.media3.ui.danmaku" }
 
 dependencies {
   api(project(":lib-common"))
-  api(project(":lib-ui-danmaku"))
+  api(project(":lib-datasource"))
+  api(project(":lib-datasource-okhttp"))
+  api(libs.okhttp)
   implementation(libs.androidx.annotation)
-  implementation(libs.androidx.recyclerview)
-  testImplementation(project(":lib-exoplayer"))
-  testImplementation(project(":test-utils-robolectric"))
-  testImplementation(project(":test-utils"))
-  testImplementation(libs.robolectric)
+  implementation(libs.brotli.dec)
+  compileOnly(libs.checkerframework.qual)
+  compileOnly(libs.kotlin.annotations.jvm)
 }
