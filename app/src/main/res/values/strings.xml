@@ -284,6 +284,7 @@
     <string name="setting_one_key_sync">One-key sync</string>
     <string name="setting_incognito">Incognito mode</string>
     <string name="setting_drive_check">Drive link check</string>
+    <string name="setting_audio_source">Audio source config</string>
     <string name="setting_theme_color">Theme color</string>
     <string name="setting_auto">Auto</string>
     <string name="setting_custom">Custom</string>
@@ -441,6 +442,10 @@
     <string name="dialog_edit">Edit</string>
     <string name="dialog_positive">OK</string>
     <string name="dialog_negative">Cancel</string>
+    <string name="dialog_audio_site_rules">Audio source rules: enabled sources or keywords, separated by ;. Default: [音];[听]</string>
+    <string name="dialog_audio_site_manage">Select audio sources</string>
+    <string name="dialog_audio_site_default">Default [音]/[听]</string>
+
     <string name="dialog_reset">Reset</string>
     <string name="dialog_select_title">Select chapter</string>
     <string name="dialog_config_hint">Please enter the config…</string>

@@ -283,6 +283,7 @@
     <string name="setting_one_key_sync">一鍵同步</string>
     <string name="setting_incognito">無痕模式</string>
     <string name="setting_drive_check">網盤檢測</string>
+    <string name="setting_audio_source">音訊源配置</string>
     <string name="setting_theme_color">主題色彩</string>
     <string name="setting_auto">自動</string>
     <string name="setting_custom">自訂</string>
@@ -440,6 +441,9 @@
     <string name="dialog_edit">修改</string>
     <string name="dialog_positive">確定</string>
     <string name="dialog_negative">取消</string>
+    <string name="dialog_audio_site_rules">音訊源規則:關聯站源或關鍵詞,用 ; 分隔。預設:[音];[听]</string>
+    <string name="dialog_audio_site_manage">選擇音訊源</string>
+    <string name="dialog_audio_site_default">預設 [音]/[听]</string>
     <string name="dialog_reset">重置</string>
     <string name="dialog_select_title">選擇章節</string>
     <string name="dialog_config_hint">請輸入配置…</string>
