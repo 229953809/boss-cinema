@@ -99,6 +99,8 @@ import java.util.Objects;
 
 public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback {
 
+    private static final int SHORT_DRAMA_SCALE = 4;
+
     private ActivityVideoBinding mBinding;
     private ViewGroup.LayoutParams mFrameParams;
     private Observer<Result> mObserveDetail;
@@ -1386,6 +1388,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 recordPlayHealth(true, "");
                 hideProgress();
                 player().reset();
+                applyShortDramaMode();
                 break;
             case Player.STATE_ENDED:
                 checkEnded(true);
@@ -1592,6 +1595,21 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setFullscreen(boolean fullscreen) {
         this.fullscreen = fullscreen;
         mBinding.control.action.fullscreen.setText(fullscreen ? R.string.play_exit_fullscreen : R.string.play_fullscreen);
+    }
+
+    private void applyShortDramaMode() {
+        Site site = getSite();
+        if (!Setting.isShortDramaSiteEnabled(site == null ? getKey() : site.getKey(), site == null ? "" : site.getName())) return;
+        if (!isFullscreen()) enterFullscreen();
+        setPreviewScale(SHORT_DRAMA_SCALE);
+        hideInfo();
+    }
+
+    private void setPreviewScale(int scale) {
+        String[] array = ResUtil.getStringArray(R.array.select_scale);
+        if (scale < 0 || scale >= array.length) return;
+        mBinding.exo.setResizeMode(scale);
+        mBinding.control.action.scale.setText(array[scale]);
     }
 
     private boolean isInitAuto() {
