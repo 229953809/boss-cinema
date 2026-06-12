@@ -26,6 +26,7 @@ public class ShortDramaSourceDialog {
     private AlertDialog dialog;
     private EditText rulesEdit;
     private Runnable onDismiss;
+    private List<String> disabledSites = new ArrayList<>();
 
     public static ShortDramaSourceDialog create(FragmentActivity activity) {
         return new ShortDramaSourceDialog(activity);
@@ -47,6 +48,7 @@ public class ShortDramaSourceDialog {
 
         ShortDramaConfig config = ShortDramaConfig.objectFrom(Setting.getShortDramaConfig());
         rulesEdit.setText(config.getDisplayRulesWithNames());
+        disabledSites = new ArrayList<>(config.getDisabledSites());
         manageBtn.setOnClickListener(v -> showSiteManage());
 
         dialog = new MaterialAlertDialogBuilder(activity)
@@ -62,7 +64,7 @@ public class ShortDramaSourceDialog {
 
     private void onSave(DialogInterface d, int which) {
         List<String> rules = extractKeys(rulesEdit.getText().toString());
-        String json = "{\"configured\":true,\"enabledSites\":" + toJsonArray(rules) + "}";
+        String json = "{\"configured\":true,\"enabledSites\":" + toJsonArray(rules) + ",\"disabledSites\":" + toJsonArray(disabledSites) + "}";
         Setting.putShortDramaConfig(ShortDramaConfig.objectFrom(json).toJson());
     }
 
@@ -70,31 +72,53 @@ public class ShortDramaSourceDialog {
         List<Site> sites = VodConfig.get().getSites().stream().filter(s -> s != null && !s.isEmpty()).toList();
         if (sites.isEmpty()) return;
 
-        List<String> current = splitRules(rulesEdit.getText().toString());
+        List<String> enabledRules = splitRules(rulesEdit.getText().toString());
+
         String[] labels = new String[sites.size()];
         boolean[] checked = new boolean[sites.size()];
 
         for (int i = 0; i < sites.size(); i++) {
             Site site = sites.get(i);
             labels[i] = TextUtils.isEmpty(site.getName()) ? site.getKey() : site.getName() + "  " + site.getKey();
-            checked[i] = matchesRule(current, site);
+            boolean inBlacklist = disabledSites.contains(site.getKey());
+            boolean matchedByRule = matchesRule(enabledRules, site);
+            checked[i] = matchedByRule && !inBlacklist;
         }
 
         new MaterialAlertDialogBuilder(activity)
                 .setTitle(R.string.dialog_short_drama_site_manage)
                 .setMultiChoiceItems(labels, checked, (d, which, isChecked) -> checked[which] = isChecked)
-                .setPositiveButton(R.string.dialog_positive, (d, w) -> {
-                    List<String> selected = new ArrayList<>();
-                    for (int i = 0; i < sites.size(); i++)
-                        if (checked[i]) selected.add(displayName(sites.get(i)));
-                    // 合并已有的关键词规则（非站点条目）
-                    for (String rule : splitRules(rulesEdit.getText().toString())) {
-                        if (findSite(rule) == null && !selected.contains(rule)) selected.add(rule);
-                    }
-                    rulesEdit.setText(String.join(";", selected));
-                })
+                .setPositiveButton(R.string.dialog_positive, (d, w) -> applySiteManage(sites, enabledRules, checked))
                 .setNegativeButton(R.string.dialog_negative, null)
                 .show();
+    }
+
+    // 应用站点管理结果：更新输入框规则与黑名单（暂存，由主弹窗"确定"统一保存）
+    private void applySiteManage(List<Site> sites, List<String> enabledRules, boolean[] checked) {
+        List<String> newEnabled = new ArrayList<>();
+        // 保留输入框里的关键词（非站点条目）
+        for (String rule : enabledRules) {
+            if (findSite(rule) == null) newEnabled.add(rule);
+        }
+
+        for (int i = 0; i < sites.size(); i++) {
+            Site site = sites.get(i);
+            String key = site.getKey();
+            boolean nowChecked = checked[i];
+            boolean isExplicitlyEnabled = enabledRules.contains(key) || enabledRules.contains(displayName(site));
+            boolean matchedByKeyword = matchesRule(enabledRules, site) && !isExplicitlyEnabled;
+
+            if (nowChecked) {
+                // 勾选：从黑名单移除，若不被关键词匹配则显式加入 enabledSites
+                disabledSites.remove(key);
+                if (!matchedByKeyword && !newEnabled.contains(displayName(site))) newEnabled.add(displayName(site));
+            } else if (matchedByKeyword) {
+                // 取消勾选 + 被关键词匹配 → 加入黑名单（手动加的会因上面未加入而自动移除）
+                if (!disabledSites.contains(key)) disabledSites.add(key);
+            }
+        }
+
+        rulesEdit.setText(toDisplayText(newEnabled));
     }
 
     private boolean matchesRule(List<String> rules, Site site) {

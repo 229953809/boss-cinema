@@ -16,6 +16,8 @@ public class ShortDramaConfig {
 
     @SerializedName(value = "enabledSites", alternate = {"siteKeys", "sites", "matchSites"})
     private List<String> enabledSites;
+    @SerializedName("disabledSites")
+    private List<String> disabledSites;
     @SerializedName("configured")
     private Boolean configured;
 
@@ -30,6 +32,7 @@ public class ShortDramaConfig {
 
     public ShortDramaConfig sanitize() {
         enabledSites = cleanList(enabledSites);
+        disabledSites = cleanList(disabledSites);
         if (configured == null) configured = !enabledSites.isEmpty();
         return this;
     }
@@ -42,10 +45,23 @@ public class ShortDramaConfig {
         return Boolean.TRUE.equals(configured);
     }
 
+    public List<String> getDisabledSites() {
+        return disabledSites == null ? new ArrayList<>() : disabledSites;
+    }
+
     public boolean isSiteEnabled(String key, String name) {
         sanitize();
+        if (isBlacklisted(key)) return false;
         List<String> rules = !enabledSites.isEmpty() ? enabledSites : DEFAULT_ENABLED_RULES;
         return matches(rules, key) || matches(rules, name);
+    }
+
+    private boolean isBlacklisted(String key) {
+        if (TextUtils.isEmpty(key)) return false;
+        for (String item : getDisabledSites()) {
+            if (key.equalsIgnoreCase(item.trim())) return true;
+        }
+        return false;
     }
 
     public String getDisplayRules() {
@@ -60,6 +76,16 @@ public class ShortDramaConfig {
         for (String rule : rules) {
             Site site = findSite(rule);
             display.add(site != null ? getSiteName(site) : rule);
+        }
+        return String.join(";", display);
+    }
+
+    public String getDisplayDisabledSites() {
+        if (disabledSites == null || disabledSites.isEmpty()) return "";
+        List<String> display = new ArrayList<>();
+        for (String key : disabledSites) {
+            Site site = findSite(key);
+            display.add(site != null ? getSiteName(site) : key);
         }
         return String.join(";", display);
     }
