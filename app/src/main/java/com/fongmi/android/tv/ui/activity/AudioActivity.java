@@ -578,16 +578,7 @@ public class AudioActivity extends PlaybackActivity {
         }
         AudioMiniPlayer.activate(buildMiniState(), service());
         service().setNavigationCallback(null, null);
-        binding.playlistPanel.setVisibility(View.GONE);
-        binding.audioContent.animate()
-                .scaleX(0.78f)
-                .scaleY(0.78f)
-                .translationX(ResUtil.dp2px(90))
-                .translationY(ResUtil.dp2px(70))
-                .alpha(0f)
-                .setDuration(180)
-                .withEndAction(this::finish)
-                .start();
+        finish();
     }
 
     private AudioMiniPlayer.State buildMiniState() {
