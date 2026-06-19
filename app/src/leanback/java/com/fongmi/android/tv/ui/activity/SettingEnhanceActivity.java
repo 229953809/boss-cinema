@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.viewbinding.ViewBinding;
 
@@ -14,6 +15,7 @@ import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.gitcloud.GitCloudAccountStore;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
+import com.fongmi.android.tv.remote.RemoteStore;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.databinding.ActivitySettingEnhanceBinding;
 import com.fongmi.android.tv.setting.CustomCspSetting;
@@ -29,6 +31,7 @@ import com.fongmi.android.tv.ui.dialog.GitCloudDialog;
 import com.fongmi.android.tv.ui.dialog.LoginStateLearnDialog;
 import com.fongmi.android.tv.ui.dialog.ManagePageDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
+import com.fongmi.android.tv.ui.dialog.RemoteTrustDialog;
 import com.fongmi.android.tv.ui.dialog.ShellProxyDialog;
 import com.fongmi.android.tv.ui.dialog.SiteHealthDialog;
 import com.fongmi.android.tv.ui.dialog.ViewingRecordSyncDialog;
@@ -62,7 +65,8 @@ public class SettingEnhanceActivity extends BaseActivity {
 
     @Override
     protected void initView(Bundle savedInstanceState) {
-        mBinding.driveCheck.requestFocus();
+        reorderItems();
+        mBinding.customCsp.requestFocus();
         mBinding.tmdbModel.setVisibility(View.GONE);
         mBinding.detailThemeMode.setVisibility(View.GONE);
         setText();
@@ -82,10 +86,12 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
         mBinding.webHomeExtension.setOnClickListener(view -> WebHomeExtensionDialog.show(this, this::setText));
         mBinding.webHomeExtension.setOnLongClickListener(this::clearWebHomeExtension);
+        mBinding.webHomeFullscreen.setOnClickListener(this::setWebHomeFullscreen);
         mBinding.cspWarmup.setOnClickListener(this::setCspWarmup);
         mBinding.playbackArtworkWall.setOnClickListener(this::setPlaybackArtworkWall);
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
+        mBinding.remoteTrust.setOnClickListener(view -> RemoteTrustDialog.show(this, this::setText));
         mBinding.gitCloud.setOnClickListener(view -> GitCloudDialog.show(this, this::setText));
         mBinding.shellProxy.setOnClickListener(view -> ShellProxyDialog.show(this, this::setText));
         mBinding.shellProxy.setOnLongClickListener(v -> false);
@@ -98,6 +104,36 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.oneKeySync.setOnClickListener(v -> OneKeySyncDialog.create().show(this));
     }
 
+    private void reorderItems() {
+        ViewGroup parent = (ViewGroup) mBinding.customCsp.getParent();
+        View[] order = {
+                mBinding.customCsp,
+                mBinding.webHomeExtension,
+                mBinding.gitCloud,
+                mBinding.remoteTrust,
+                mBinding.oneKeySync,
+                mBinding.loginState,
+                mBinding.shellProxy,
+                mBinding.shellProxyConfig,
+                mBinding.managePage,
+                mBinding.webHomeFullscreen,
+                mBinding.cspWarmup,
+                mBinding.playbackArtworkWall,
+                mBinding.driveCheck,
+                mBinding.audioSource,
+                mBinding.shortDramaSource,
+                mBinding.tmdbSource,
+                mBinding.tmdbModel,
+                mBinding.detailInteractionMode,
+                mBinding.detailThemeMode,
+                mBinding.siteHealthSort,
+                mBinding.debugLog,
+                mBinding.playbackWebhook
+        };
+        for (View view : order) parent.removeView(view);
+        for (View view : order) parent.addView(view);
+    }
+
     private void setText() {
         mBinding.driveCheckText.setText(getSwitch(Setting.isDriveCheck()));
         mBinding.audioSourceText.setText(getSwitch(!AudioConfig.objectFrom(Setting.getAudioConfig()).getDisplayRules().isEmpty()));
@@ -108,10 +144,12 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.siteHealthSortText.setText(getSwitch(Setting.isSiteHealthSort()));
         WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
         mBinding.webHomeExtensionText.setText(getSwitch(Setting.isWebHomeExtension()) + " · " + webHomeExtension.readyCount + "/" + webHomeExtension.installedCount);
+        mBinding.webHomeFullscreenText.setText(getSwitch(Setting.isWebHomeFullscreen()));
         mBinding.cspWarmupText.setText(getSwitch(Setting.isCspWarmup()));
         mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
         mBinding.playbackWebhookText.setText(ViewingRecordSyncStore.summary(this));
         mBinding.managePageText.setText(R.string.manage_page_web);
+        mBinding.remoteTrustText.setText(RemoteStore.summary(this));
         mBinding.gitCloudText.setText(getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
         mBinding.shellProxyConfigText.setText(getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
@@ -179,6 +217,11 @@ public class SettingEnhanceActivity extends BaseActivity {
     private void setPlaybackArtworkWall(View view) {
         Setting.putPlaybackArtworkWall(!Setting.isPlaybackArtworkWall());
         mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
+    }
+
+    private void setWebHomeFullscreen(View view) {
+        Setting.putWebHomeFullscreen(!Setting.isWebHomeFullscreen());
+        mBinding.webHomeFullscreenText.setText(getSwitch(Setting.isWebHomeFullscreen()));
     }
 
     private void setCspWarmup(View view) {

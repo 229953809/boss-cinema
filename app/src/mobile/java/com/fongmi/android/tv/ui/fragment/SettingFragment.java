@@ -29,6 +29,7 @@ import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.activity.HomeActivity;
 import com.fongmi.android.tv.ui.base.BaseFragment;
+import com.fongmi.android.tv.ui.dialog.AboutDialog;
 import com.fongmi.android.tv.ui.dialog.ConfigDialog;
 import com.fongmi.android.tv.ui.dialog.HistoryDialog;
 import com.fongmi.android.tv.ui.dialog.LiveDialog;
@@ -270,7 +271,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
 
     private void onVersion(View view) {
-        Updater.create().force().start(requireActivity());
+        AboutDialog.show(requireActivity(), () -> Updater.create().force().start(requireActivity()));
     }
 
     private void setWallDefault(View view) {

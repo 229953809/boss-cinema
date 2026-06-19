@@ -25,15 +25,13 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.ts.TsExtractor;
 
 import com.fongmi.android.tv.App;
-import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Path;
-
-import java.util.Map;
 
 public class MediaSourceFactory implements MediaSource.Factory {
 
     private final DefaultMediaSourceFactory defaultMediaSourceFactory;
+    private DefaultMediaSourceFactory directMediaSourceFactory;
     private HttpDataSource.Factory httpDataSourceFactory;
     private DataSource.Factory dataSourceFactory;
     private ExtractorsFactory extractorsFactory;
@@ -64,12 +62,10 @@ public class MediaSourceFactory implements MediaSource.Factory {
     @NonNull
     @Override
     public MediaSource createMediaSource(@NonNull MediaItem mediaItem) {
-        Map<String, String> headers = ExoUtil.extractHeaders(mediaItem);
-        getHttpDataSourceFactory().setDefaultRequestProperties(headers);
+        getHttpDataSourceFactory().setDefaultRequestProperties(ExoUtil.extractHeaders(mediaItem));
         String url = mediaItem.requestMetadata.mediaUri != null ? mediaItem.requestMetadata.mediaUri.toString() : "";
-        String mimeType = mediaItem.localConfiguration == null ? null : mediaItem.localConfiguration.mimeType;
-        SpiderDebug.log("exo-source", "create mediaId=%s url=%s mime=%s headers=%s", mediaItem.mediaId, url, mimeType, headers);
         if (url.contains("***") && url.contains("|||")) return createConcatenatingMediaSource(mediaItem, url);
+        if (isLocalProxy(url)) return getDirectMediaSourceFactory().createMediaSource(mediaItem);
         else return defaultMediaSourceFactory.createMediaSource(mediaItem);
     }
 
@@ -92,6 +88,11 @@ public class MediaSourceFactory implements MediaSource.Factory {
         return dataSourceFactory;
     }
 
+    private DefaultMediaSourceFactory getDirectMediaSourceFactory() {
+        if (directMediaSourceFactory == null) directMediaSourceFactory = new DefaultMediaSourceFactory(new DefaultDataSource.Factory(App.get(), getHttpDataSourceFactory()), getExtractorsFactory());
+        return directMediaSourceFactory;
+    }
+
     private CacheDataSource.Factory getCacheDataSource(DataSource.Factory upstreamFactory) {
         return new CacheDataSource.Factory().setCache(getCache()).setUpstreamDataSourceFactory(upstreamFactory).setCacheWriteDataSinkFactory(null).setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
     }
@@ -99,6 +100,10 @@ public class MediaSourceFactory implements MediaSource.Factory {
     private HttpDataSource.Factory getHttpDataSourceFactory() {
         if (httpDataSourceFactory == null) httpDataSourceFactory = new OkHttpDataSource.Factory(OkHttp.player());
         return httpDataSourceFactory;
+    }
+
+    private static boolean isLocalProxy(String url) {
+        return url.startsWith("http://127.0.0.1") || url.startsWith("http://localhost");
     }
 
     private static SimpleCache getCache() {

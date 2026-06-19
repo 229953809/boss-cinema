@@ -2252,6 +2252,7 @@
       pointer-events: none;
       overflow: hidden;
       background: transparent;
+      opacity: 0;
     }
 
     html.native-mobile-app #detailSheet:not(.detail-large) .detail-cover::after {
@@ -2719,6 +2720,7 @@
       right: auto;
       left: auto;
       z-index: auto;
+      opacity: 1;
       width: 100%;
       max-width: 100%;
       height: 56.25vw;
@@ -4781,8 +4783,9 @@
     const HOT_REFRESH_BACKFILL_MS = 900;
     const HOT_PRUNE_BATCH = 1000;
     const HOT_RENDER_LIMIT = 1000;
-    const UI_SNAPSHOT_TTL_MS = 2 * 60 * 60 * 1000;
-    const PAN_PLAYBACK_RETURN_TTL_MS = 10 * 60 * 1000;
+    const RETURN_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+    const UI_SNAPSHOT_TTL_MS = RETURN_CONTEXT_TTL_MS;
+    const PAN_PLAYBACK_RETURN_TTL_MS = RETURN_CONTEXT_TTL_MS;
     const DELETE_REPUBLISH_BLOCK_MS = 24 * 60 * 60 * 1000;
     const DELETE_TOMBSTONE_TTL_MS = HOT_WINDOW_MS + HOT_DAY_SECONDS * 1000;
     const AUTO_BLOCK_SCAN_SCREENS = 3;
@@ -8971,6 +8974,10 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       };
     }
 
+    function refreshHomeReturnTimestamp() {
+      if (state.homeReturn) state.homeReturn.at = Date.now();
+    }
+
     function findHomeReturnMediaTarget(saved, focus) {
       const key = focus.key || saved.mediaKey || "";
       const candidates = key ? Array.from(document.querySelectorAll(".app .card[data-media-key]"))
@@ -9024,7 +9031,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
     function restoreHomeReturn() {
       const saved = state.homeReturn;
       if (!saved) return false;
-      if (Date.now() - Number(saved.at || 0) > 10 * 60 * 1000) {
+      if (Date.now() - Number(saved.at || 0) > RETURN_CONTEXT_TTL_MS) {
         state.homeReturn = null;
         return false;
       }
@@ -9300,7 +9307,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       const image = $("detailImage");
       const land = String(landscape || "").trim();
       const post = String(poster || "").trim();
-      const allowPoster = opts.allowPoster !== false;
+      const allowPoster = opts.allowPoster === true;
       const usePoster = allowPoster && (!land || isSameImageSource(land, post));
       const src = usePoster ? post || land : land;
       const bgSrc = src ? displayImage(src, { size: usePoster ? "w780" : "w1280" }) : "";
@@ -9984,7 +9991,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
         item.landscape = detailLandscape;
         item.pic = item.pic || posterFallback;
         setDetailCoverCarousel(detailLandscapes, posterFallback, { allowPoster: false });
-      } else if (posterFallback) {
+      } else {
         item.landscape = "";
         item.pic = item.pic || posterFallback;
         setDetailCoverCarousel([], posterFallback, { allowPoster: true, keepLoading: false });
@@ -10888,6 +10895,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       const detail = $("detailSheet");
       const list = $("panResultList");
       const key = item && item.key || state.pan.focusKey || "";
+      refreshHomeReturnTimestamp();
       state.pan.playbackReturn = {
         key,
         activeType: state.pan.activeType || "",
@@ -11277,6 +11285,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
     function rememberDetailReturn(target) {
       const detail = $("detailSheet");
       if (!detail || !detail.classList.contains("active")) return;
+      refreshHomeReturnTimestamp();
       state.detailReturn = {
         scrollTop: Math.round(detail.scrollTop || 0),
         targetId: target && target.id || document.activeElement && document.activeElement.id || "detailSearchBtn",
@@ -11288,7 +11297,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
     function restoreDetailReturn() {
       const saved = state.detailReturn;
       if (!saved) return false;
-      if (Date.now() - Number(saved.at || 0) > 10 * 60 * 1000) {
+      if (Date.now() - Number(saved.at || 0) > RETURN_CONTEXT_TTL_MS) {
         state.detailReturn = null;
         return false;
       }
