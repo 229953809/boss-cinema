@@ -16,6 +16,7 @@ import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.ui.adapter.TmdbCastAdapter;
 import com.fongmi.android.tv.ui.helper.TmdbUIAdapter;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.google.android.material.button.MaterialButton;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -47,6 +48,14 @@ public class TmdbHeaderView {
         void onImagesLoaded();
     }
 
+    public interface ActionListener {
+        void onChangeSource();
+
+        void onRematch();
+
+        void onKeep();
+    }
+
     private final Activity activity;
     private final ViewGroup scrollContainer;
     private View headerRoot;
@@ -56,6 +65,7 @@ public class TmdbHeaderView {
     private com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter recommendationAdapter;
 
     private OnImagesLoadedListener imagesLoadedListener;
+    private ActionListener actionListener;
 
     // 幻灯片相关
     private ImageView backdropView;
@@ -76,6 +86,10 @@ public class TmdbHeaderView {
         this.imagesLoadedListener = listener;
     }
 
+    public void setActionListener(ActionListener listener) {
+        this.actionListener = listener;
+    }
+
     /**
      * 获取头部根视图
      */
@@ -93,6 +107,15 @@ public class TmdbHeaderView {
         // 初始隐藏，等 bind 完成后再显示
         headerRoot.setVisibility(View.GONE);
         setupRecyclerViews();
+        setupActions();
+    }
+
+    public void setKeepSelected(boolean selected) {
+        if (headerRoot == null) return;
+        MaterialButton keep = headerRoot.findViewById(R.id.tmdbKeep);
+        if (keep == null) return;
+        keep.setSelected(selected);
+        keep.setText(selected ? R.string.keep_add : R.string.keep);
     }
 
     /**
@@ -263,6 +286,18 @@ public class TmdbHeaderView {
         recommendationAdapter = new com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter();
         recommendationAdapter.setOnItemClickListener(this::onRecommendationClick);
         recommendationsRv.setAdapter(recommendationAdapter);
+    }
+
+    private void setupActions() {
+        headerRoot.findViewById(R.id.tmdbChangeSource).setOnClickListener(view -> {
+            if (actionListener != null) actionListener.onChangeSource();
+        });
+        headerRoot.findViewById(R.id.tmdbRematch).setOnClickListener(view -> {
+            if (actionListener != null) actionListener.onRematch();
+        });
+        headerRoot.findViewById(R.id.tmdbKeep).setOnClickListener(view -> {
+            if (actionListener != null) actionListener.onKeep();
+        });
     }
 
     /**

@@ -14,6 +14,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
+import com.fongmi.android.tv.utils.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -135,6 +136,10 @@ public class TmdbPersonWorkAdapter extends RecyclerView.Adapter<TmdbPersonWorkAd
 
         ViewHolder(View view) {
             super(view);
+            if (!Util.isLeanback()) {
+                itemView.setFocusable(false);
+                itemView.setFocusableInTouchMode(false);
+            }
             poster = view.findViewById(R.id.poster);
             title = view.findViewById(R.id.title);
             character = view.findViewById(R.id.character);

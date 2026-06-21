@@ -1,14 +1,16 @@
 package com.fongmi.android.tv.ui.adapter;
 
+import android.view.View;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.Flag;
-import com.fongmi.android.tv.databinding.AdapterFlagBinding;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,6 +20,7 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
 
     private final OnClickListener listener;
     private final List<Flag> mItems;
+    private boolean tmdbStyle;
 
     public FlagAdapter(OnClickListener listener) {
         this.listener = listener;
@@ -27,6 +30,12 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
     public interface OnClickListener {
 
         void onItemClick(Flag item);
+    }
+
+    public void setTmdbStyle(boolean tmdbStyle) {
+        if (this.tmdbStyle == tmdbStyle) return;
+        this.tmdbStyle = tmdbStyle;
+        notifyItemRangeChanged(0, getItemCount());
     }
 
     public void addAll(List<Flag> items) {
@@ -80,27 +89,33 @@ public class FlagAdapter extends RecyclerView.Adapter<FlagAdapter.ViewHolder> {
         return mItems.size();
     }
 
+    @Override
+    public int getItemViewType(int position) {
+        return tmdbStyle ? 1 : 0;
+    }
+
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return new ViewHolder(AdapterFlagBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false));
+        int layout = viewType == 1 ? R.layout.adapter_flag_tmdb : R.layout.adapter_flag;
+        return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(layout, parent, false));
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Flag item = mItems.get(position);
-        holder.binding.text.setText(item.getShow());
-        holder.binding.text.setSelected(item.isSelected());
-        holder.binding.text.setOnClickListener(v -> listener.onItemClick(item));
+        holder.text.setText(item.getShow());
+        holder.text.setSelected(item.isSelected());
+        holder.text.setOnClickListener(v -> listener.onItemClick(item));
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {
 
-        private final AdapterFlagBinding binding;
+        private final TextView text;
 
-        ViewHolder(@NonNull AdapterFlagBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
+        ViewHolder(@NonNull View itemView) {
+            super(itemView);
+            this.text = itemView.findViewById(R.id.text);
         }
     }
 }

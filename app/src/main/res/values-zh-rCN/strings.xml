@@ -936,6 +936,13 @@
         <item>2个</item>
     </string-array>
 
+    <string-array name="select_tmdb_match_mode">
+        <item>严格</item>
+        <item>智能</item>
+        <item>严格 + 弹窗</item>
+        <item>智能 + 弹窗</item>
+    </string-array>
+
     <string-array name="select_site_column">
         <item>单行</item>
         <item>双行</item>
@@ -976,6 +983,7 @@
     <string name="setting_tmdb_source">TMDB 数据配置</string>
     <string name="setting_tmdb_model">TMDB 交互模型</string>
     <string name="setting_tmdb_model_native">原生增强</string>
+    <string name="setting_tmdb_match_mode">TMDB 匹配模式</string>
     <string name="setting_detail_open_mode">详情页模式</string>
     <string name="setting_detail_open_original">原始详情</string>
     <string name="setting_detail_open_native">TMDB 内嵌增强</string>
@@ -984,6 +992,16 @@
     <string name="setting_configured">已配置</string>
     <string name="setting_unconfigured">未配置</string>
     <string name="detail_tmdb_need_key">请先配置 TMDB 数据</string>
+    <string name="detail_tmdb_empty">暂无 TMDB 数据</string>
+    <string name="detail_tmdb_match_title">匹配 TMDB 条目</string>
+    <string name="detail_tmdb_rematch">TMDB 匹配</string>
+    <string name="detail_tmdb_match_saved">已记录 TMDB 匹配</string>
+    <string name="detail_tmdb_searching">正在搜索 TMDB...</string>
+    <string name="detail_tmdb_search_hint">搜索标题</string>
+    <string name="detail_tmdb_search_action">搜索</string>
+    <string name="detail_tmdb_result_count">共 %1$d 条</string>
+    <string name="detail_tmdb_skip">跳过</string>
+    <string name="detail_tmdb_site_disabled">当前站源未启用 TMDB 匹配</string>
     <string name="dialog_tmdb_api_key_label">TMDB API Key 或 Access Token</string>
     <string name="dialog_tmdb_api_key_hint">输入 API Key 或 v4 Access Token</string>
     <string name="dialog_tmdb_api_key_tip">免费获取 API Key: https://www.themoviedb.org/settings/api</string>

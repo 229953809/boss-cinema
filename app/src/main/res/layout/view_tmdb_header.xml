@@ -168,6 +168,73 @@
         tools:text="王林是一个普通的少年……"
         tools:visibility="visible" />
 
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:overScrollMode="never"
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:scrollbars="none">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/tmdbActions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tmdbChangeSource"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="72dp"
+                android:text="@string/play_change"
+                android:textAllCaps="false"
+                android:textColor="@color/tmdb_action_button_text"
+                android:textSize="13sp"
+                app:backgroundTint="@color/tmdb_action_button_bg"
+                app:cornerRadius="20dp"
+                app:strokeColor="@color/tmdb_action_button_stroke"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tmdbKeep"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:minWidth="72dp"
+                android:text="@string/keep"
+                android:textAllCaps="false"
+                android:textColor="@color/tmdb_action_button_text"
+                android:textSize="13sp"
+                app:backgroundTint="@color/tmdb_action_button_bg"
+                app:cornerRadius="20dp"
+                app:strokeColor="@color/tmdb_action_button_stroke"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/tmdbRematch"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:minWidth="88dp"
+                android:text="@string/detail_tmdb_rematch"
+                android:textAllCaps="false"
+                android:textColor="@color/tmdb_action_button_text"
+                android:textSize="13sp"
+                app:backgroundTint="@color/tmdb_action_button_bg"
+                app:cornerRadius="20dp"
+                app:strokeColor="@color/tmdb_action_button_stroke"
+                app:strokeWidth="1dp" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </HorizontalScrollView>
+
     <!-- 站源/线路/选集容器（移到演员上方） -->
     <androidx.appcompat.widget.LinearLayoutCompat
         android:id="@+id/tmdbPlaybackControls"

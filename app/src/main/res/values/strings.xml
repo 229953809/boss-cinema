@@ -951,6 +951,13 @@
         <item>2 items</item>
     </string-array>
 
+    <string-array name="select_tmdb_match_mode">
+        <item>Strict</item>
+        <item>Smart</item>
+        <item>Strict + dialog</item>
+        <item>Smart + dialog</item>
+    </string-array>
+
     <string-array name="select_site_column">
         <item>Single row</item>
         <item>Double row</item>
@@ -991,6 +998,7 @@
     <string name="setting_tmdb_source">TMDB data config</string>
     <string name="setting_tmdb_model">TMDB interaction model</string>
     <string name="setting_tmdb_model_native">Native enhancement</string>
+    <string name="setting_tmdb_match_mode">TMDB match mode</string>
     <string name="setting_detail_open_mode">Detail page mode</string>
     <string name="setting_detail_open_original">Original detail</string>
     <string name="setting_detail_open_native">TMDB embedded enhancement</string>
@@ -999,6 +1007,16 @@
     <string name="setting_configured">Configured</string>
     <string name="setting_unconfigured">Unconfigured</string>
     <string name="detail_tmdb_need_key">Configure TMDB data first</string>
+    <string name="detail_tmdb_empty">No TMDB data</string>
+    <string name="detail_tmdb_match_title">Match TMDB title</string>
+    <string name="detail_tmdb_rematch">TMDB match</string>
+    <string name="detail_tmdb_match_saved">TMDB match saved</string>
+    <string name="detail_tmdb_searching">Searching TMDB...</string>
+    <string name="detail_tmdb_search_hint">Search title</string>
+    <string name="detail_tmdb_search_action">Search</string>
+    <string name="detail_tmdb_result_count">%1$d results</string>
+    <string name="detail_tmdb_skip">Skip</string>
+    <string name="detail_tmdb_site_disabled">TMDB matching is disabled for this source</string>
     <string name="dialog_tmdb_api_key_label">TMDB API Key or Access Token</string>
     <string name="dialog_tmdb_api_key_hint">Enter API Key or v4 Access Token</string>
     <string name="dialog_tmdb_api_key_tip">Get your free API key at: https://www.themoviedb.org/settings/api</string>

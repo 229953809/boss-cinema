@@ -21,6 +21,7 @@ public class SettingPersonalFragment extends BaseFragment {
     private String[] searchUi;
     private String[] searchColumn;
     private String[] siteColumn;
+    private String[] tmdbMatchMode;
 
     public static SettingPersonalFragment newInstance() {
         return new SettingPersonalFragment();
@@ -44,6 +45,7 @@ public class SettingPersonalFragment extends BaseFragment {
     protected void initEvent() {
         mBinding.searchThread.setOnClickListener(this::setSearchThread);
         mBinding.playBackToDetail.setOnClickListener(this::setPlayBackToDetail);
+        mBinding.tmdbMatchMode.setOnClickListener(this::setTmdbMatchMode);
         mBinding.searchUi.setOnClickListener(this::setSearchUi);
         mBinding.searchColumn.setOnClickListener(this::setSearchColumn);
         mBinding.siteColumn.setOnClickListener(this::setSiteColumn);
@@ -52,6 +54,7 @@ public class SettingPersonalFragment extends BaseFragment {
     private void setText() {
         mBinding.searchThreadText.setText(String.valueOf(Setting.getSearchThread()));
         mBinding.playBackToDetailText.setText(getSwitch(Setting.isPlayBackToDetail()));
+        mBinding.tmdbMatchModeText.setText((tmdbMatchMode = getResources().getStringArray(R.array.select_tmdb_match_mode))[Setting.getTmdbMatchMode()]);
         mBinding.searchUiText.setText((searchUi = getResources().getStringArray(R.array.select_search_ui))[Setting.getSearchUi()]);
         mBinding.searchColumnText.setText(getSearchColumnText());
         mBinding.siteColumnText.setText((siteColumn = getResources().getStringArray(R.array.select_site_column))[Setting.getSiteColumn() - 1]);
@@ -76,6 +79,11 @@ public class SettingPersonalFragment extends BaseFragment {
 
     private void setPlayBackToDetail(View view) {
         Setting.putPlayBackToDetail(!Setting.isPlayBackToDetail());
+        setText();
+    }
+
+    private void setTmdbMatchMode(View view) {
+        Setting.putTmdbMatchMode((Setting.getTmdbMatchMode() + 1) % tmdbMatchMode.length);
         setText();
     }
 

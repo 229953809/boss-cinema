@@ -58,6 +58,7 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Sub;
 import com.fongmi.android.tv.bean.Track;
+import com.fongmi.android.tv.bean.TmdbItem;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.db.AppDatabase;
@@ -92,6 +93,7 @@ import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
 import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
+import com.fongmi.android.tv.ui.dialog.TmdbSearchDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.Clock;
@@ -163,9 +165,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     // TMDB 模式相关字段
     private com.fongmi.android.tv.ui.helper.TmdbUIAdapter mTmdbUIAdapter;
     private com.fongmi.android.tv.ui.custom.TmdbHeaderView mTmdbHeaderView;
+    private Vod mVod;
     private boolean mTmdbContentLoaded = false;
     private boolean mTmdbFallbackToNative = false;
     private boolean mTmdbControlsMoved = false;
+    private boolean mTmdbAutoDialogShown = false;
+    private int mTmdbDialogGeneration;
     private final List<TmdbMovedView> mTmdbMovedViews = new ArrayList<>();
 
     public static void push(FragmentActivity activity, String text) {
@@ -646,11 +651,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setDetail(Vod item) {
+        mVod = item;
         item.checkPic(getPic());
         item.checkName(getName());
         boolean tmdbMode = hasTmdbDetailAdapter();
         mTmdbFallbackToNative = false;
         mTmdbContentLoaded = false;
+        mTmdbAutoDialogShown = false;
         if (tmdbMode) {
             hideTmdbHeader();
             mBinding.videoShadow.setVisibility(View.GONE);
@@ -683,6 +690,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         checkHistory(item);
         checkFlag(item);
         checkKeepImg();
+        updateTmdbKeepState();
         setText(item);
         updateKeep();
 
@@ -993,6 +1001,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (keep != null) keep.delete();
         else createKeep();
         checkKeepImg();
+        updateTmdbKeepState();
     }
 
     private void checkPlay() {
@@ -1538,6 +1547,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void checkKeepImg() {
         mBinding.control.keep.setImageResource(Keep.find(getHistoryKey()) == null ? R.drawable.ic_control_keep_off : R.drawable.ic_control_keep_on);
+        updateTmdbKeepState();
     }
 
     private void checkLockImg() {
@@ -1573,6 +1583,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateVod(Vod item) {
+        mVod = item;
         boolean id = !item.getId().isEmpty();
         boolean pic = !item.getPic().isEmpty();
         boolean name = !item.getName().isEmpty();
@@ -1599,9 +1610,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 moveFlagAndEpisodeToTmdb();
                 mBinding.progressLayout.showContent();
                 mTmdbHeaderView.bind(mTmdbUIAdapter);
+                updateTmdbKeepState();
             } else {
                 android.util.Log.d("VideoActivity", "TMDB 加载失败，回退到原生详情");
                 showNativeDetailFallback(item);
+                if (shouldShowAutoTmdbMatchDialog(item)) showManualTmdbMatchDialog();
             }
         }
     }
@@ -1981,6 +1994,22 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         ViewGroup scrollContainer = (ViewGroup) mBinding.scroll.getChildAt(0);
         mTmdbHeaderView = new com.fongmi.android.tv.ui.custom.TmdbHeaderView(this, scrollContainer);
         mTmdbHeaderView.inflate();
+        mTmdbHeaderView.setActionListener(new com.fongmi.android.tv.ui.custom.TmdbHeaderView.ActionListener() {
+            @Override
+            public void onChangeSource() {
+                onChange();
+            }
+
+            @Override
+            public void onRematch() {
+                showManualTmdbMatchDialog();
+            }
+
+            @Override
+            public void onKeep() {
+                VideoActivity.this.onKeep();
+            }
+        });
 
         // 设置图片加载完成监听器
         mTmdbHeaderView.setOnImagesLoadedListener(new com.fongmi.android.tv.ui.custom.TmdbHeaderView.OnImagesLoadedListener() {
@@ -2020,6 +2049,101 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         hideProgress();
     }
 
+    private boolean shouldShowAutoTmdbMatchDialog(Vod item) {
+        if (item == null || mTmdbAutoDialogShown) return false;
+        if (!Setting.isTmdbMatchDialog() || getTmdbItem() != null) return false;
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isReady()) return false;
+        mTmdbAutoDialogShown = true;
+        return true;
+    }
+
+    private void showManualTmdbMatchDialog() {
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isReady()) {
+            Notify.show(R.string.detail_tmdb_need_key);
+            return;
+        }
+        if (!isTmdbSourceEnabled()) {
+            Notify.show(R.string.detail_tmdb_site_disabled);
+            return;
+        }
+        String query = getTmdbSearchQuery();
+        if (TextUtils.isEmpty(query)) {
+            Notify.show(R.string.detail_tmdb_empty);
+            return;
+        }
+        Notify.show(R.string.detail_tmdb_searching);
+        int generation = ++mTmdbDialogGeneration;
+        Task.execute(() -> {
+            try {
+                List<TmdbItem> items = mTmdbUIAdapter.search(query, mVod);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed() || generation != mTmdbDialogGeneration) return;
+                    showTmdbMatchDialog(query, items);
+                });
+            } catch (Throwable e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed() || generation != mTmdbDialogGeneration) return;
+                    Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_tmdb_empty) : e.getMessage());
+                });
+            }
+        });
+    }
+
+    private void showTmdbMatchDialog(String query, List<TmdbItem> items) {
+        TmdbSearchDialog.create(this)
+                .title(getString(R.string.detail_tmdb_match_title))
+                .query(query)
+                .items(items)
+                .listener(this::applyManualTmdb)
+                .searchListener(this::searchTmdb)
+                .show();
+    }
+
+    private void searchTmdb(String keyword, TmdbSearchDialog dialog) {
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isReady()) return;
+        dialog.loading();
+        int generation = ++mTmdbDialogGeneration;
+        Task.execute(() -> {
+            try {
+                List<TmdbItem> items = mTmdbUIAdapter.search(keyword, mVod);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed() || generation != mTmdbDialogGeneration) return;
+                    dialog.updateItems(items);
+                });
+            } catch (Throwable e) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed() || generation != mTmdbDialogGeneration) return;
+                    dialog.updateItems(new ArrayList<>());
+                    Notify.show(TextUtils.isEmpty(e.getMessage()) ? getString(R.string.detail_tmdb_empty) : e.getMessage());
+                });
+            }
+        });
+    }
+
+    private void applyManualTmdb(TmdbItem item) {
+        if (mTmdbUIAdapter == null || mVod == null || item == null) return;
+        mTmdbDialogGeneration++;
+        mTmdbFallbackToNative = false;
+        mTmdbContentLoaded = false;
+        hideTmdbHeader();
+        mBinding.videoShadow.setVisibility(View.GONE);
+        mBinding.progressLayout.showProgress();
+        mTmdbUIAdapter.load(item, mVod);
+        Notify.show(R.string.detail_tmdb_match_saved);
+    }
+
+    private String getTmdbSearchQuery() {
+        if (mTmdbUIAdapter != null && mTmdbUIAdapter.getTmdbItem() != null && !TextUtils.isEmpty(mTmdbUIAdapter.getTmdbItem().getTitle())) {
+            return mTmdbUIAdapter.getTmdbItem().getTitle();
+        }
+        String name = mVod != null && !TextUtils.isEmpty(mVod.getName()) ? mVod.getName() : getName();
+        return mTmdbUIAdapter == null ? name : mTmdbUIAdapter.cleanSearchQuery(name);
+    }
+
+    private void updateTmdbKeepState() {
+        if (mTmdbHeaderView != null) mTmdbHeaderView.setKeepSelected(Keep.find(getHistoryKey()) != null);
+    }
+
     private void moveFlagAndEpisodeToTmdb() {
         // 将站源、线路和选集移到 TMDB 头部的 playback controls 容器中
         if (mTmdbHeaderView == null) return;
@@ -2032,6 +2156,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
         // 移除旧内容
         playbackControls.removeAllViews();
+        setTmdbFlagStyle(true);
 
         for (View view : getTmdbMovableViews()) {
             rememberTmdbMovedView(view);
@@ -2044,12 +2169,20 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void restoreFlagAndEpisodeFromTmdb() {
         if (!mTmdbControlsMoved) return;
+        setTmdbFlagStyle(false);
         for (TmdbMovedView item : mTmdbMovedViews) {
             ViewGroup parent = (ViewGroup) item.view.getParent();
             if (parent != null) parent.removeView(item.view);
             item.parent.addView(item.view, Math.min(item.index, item.parent.getChildCount()), item.layoutParams);
         }
         mTmdbControlsMoved = false;
+    }
+
+    private void setTmdbFlagStyle(boolean enabled) {
+        mFlagAdapter.setTmdbStyle(enabled);
+        mBinding.flag.setAdapter(null);
+        mBinding.flag.setAdapter(mFlagAdapter);
+        scrollToPosition(mBinding.flag, mFlagAdapter.getPosition());
     }
 
     private void rememberTmdbMovedView(View view) {

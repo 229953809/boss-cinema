@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbItem;
+import com.fongmi.android.tv.utils.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,10 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
+            if (!Util.isLeanback()) {
+                itemView.setFocusable(false);
+                itemView.setFocusableInTouchMode(false);
+            }
             poster = itemView.findViewById(R.id.poster);
             title = itemView.findViewById(R.id.title);
             rating = itemView.findViewById(R.id.rating);

@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.TmdbPerson;
+import com.fongmi.android.tv.utils.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +62,10 @@ public class TmdbCastAdapter extends RecyclerView.Adapter<TmdbCastAdapter.ViewHo
 
         public ViewHolder(@NonNull android.view.View itemView) {
             super(itemView);
+            if (!Util.isLeanback()) {
+                itemView.setFocusable(false);
+                itemView.setFocusableInTouchMode(false);
+            }
             profile = itemView.findViewById(R.id.profile);
             name = itemView.findViewById(R.id.name);
             role = itemView.findViewById(R.id.role);

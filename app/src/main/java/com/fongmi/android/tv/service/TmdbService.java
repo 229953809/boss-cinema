@@ -69,10 +69,12 @@ public class TmdbService {
             String backdropPath = string(object, "backdrop_path");
             String title = "movie".equals(mediaType) ? string(object, "title", "name") : string(object, "name", "title");
             String date = "movie".equals(mediaType) ? string(object, "release_date") : string(object, "first_air_date");
+            String language = string(object, "original_language");
+            String country = firstString(array(object, "origin_country"));
             double voteAverage = object.has("vote_average") && !object.get("vote_average").isJsonNull() ? object.get("vote_average").getAsDouble() : 0.0;
             String vote = voteAverage > 0 ? String.format(Locale.US, "%.1f", voteAverage) : "";
             String subtitle = buildSubtitle(mediaType, date, vote);
-            items.add(new TmdbItem(object.get("id").getAsInt(), mediaType, title, subtitle, string(object, "overview"), image(config.getImageBase(), posterPath), image(config.getBackdropBase(), backdropPath), "", voteAverage));
+            items.add(new TmdbItem(object.get("id").getAsInt(), mediaType, title, subtitle, string(object, "overview"), image(config.getImageBase(), posterPath), image(config.getBackdropBase(), backdropPath), "", voteAverage, language, country));
         }
         return items;
     }
@@ -526,6 +528,15 @@ public class TmdbService {
                 String value = object.get(key).getAsString();
                 if (!TextUtils.isEmpty(value)) return value.trim();
             }
+        }
+        return "";
+    }
+
+    private String firstString(JsonArray array) {
+        for (JsonElement element : array) {
+            if (element == null || element.isJsonNull()) continue;
+            String value = element.getAsString();
+            if (!TextUtils.isEmpty(value)) return value.trim();
         }
         return "";
     }

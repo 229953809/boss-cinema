@@ -17,6 +17,8 @@ public class TmdbItem implements Serializable {
     private final String backdropUrl;
     private final String credit;
     private final double rating;
+    private final String originalLanguage;
+    private final String originCountry;
 
     public TmdbItem(int tmdbId, String mediaType, String title, String subtitle, String overview, String posterUrl, String backdropUrl) {
         this(tmdbId, mediaType, title, subtitle, overview, posterUrl, backdropUrl, "", 0.0);
@@ -27,6 +29,10 @@ public class TmdbItem implements Serializable {
     }
 
     public TmdbItem(int tmdbId, String mediaType, String title, String subtitle, String overview, String posterUrl, String backdropUrl, String credit, double rating) {
+        this(tmdbId, mediaType, title, subtitle, overview, posterUrl, backdropUrl, credit, rating, "", "");
+    }
+
+    public TmdbItem(int tmdbId, String mediaType, String title, String subtitle, String overview, String posterUrl, String backdropUrl, String credit, double rating, String originalLanguage, String originCountry) {
         this.tmdbId = tmdbId;
         this.mediaType = mediaType;
         this.title = title;
@@ -36,6 +42,8 @@ public class TmdbItem implements Serializable {
         this.backdropUrl = backdropUrl;
         this.credit = credit;
         this.rating = rating;
+        this.originalLanguage = originalLanguage;
+        this.originCountry = originCountry;
     }
 
     public int getTmdbId() {
@@ -72,6 +80,14 @@ public class TmdbItem implements Serializable {
 
     public double getRating() {
         return rating;
+    }
+
+    public String getOriginalLanguage() {
+        return TextUtils.isEmpty(originalLanguage) ? "" : originalLanguage;
+    }
+
+    public String getOriginCountry() {
+        return TextUtils.isEmpty(originCountry) ? "" : originCountry;
     }
 
     public boolean isTv() {

@@ -16,6 +16,7 @@ import com.fongmi.android.tv.BuildConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
+import com.fongmi.android.tv.bean.TmdbMatchCache;
 import com.fongmi.android.tv.utils.WebViewUtil;
 import com.github.catvod.crawler.DebugLogStore;
 import com.github.catvod.crawler.SpiderDebug;
@@ -24,6 +25,10 @@ import com.github.catvod.utils.Prefers;
 public class Setting {
 
     public static final int TMDB_MODEL_NATIVE = 0;
+    public static final int TMDB_MATCH_STRICT = 0;
+    public static final int TMDB_MATCH_SMART = 1;
+    public static final int TMDB_MATCH_STRICT_DIALOG = 2;
+    public static final int TMDB_MATCH_SMART_DIALOG = 3;
     public static final int DETAIL_INTERACTION_SYSTEM = 0;
     public static final int DETAIL_INTERACTION_ORIGINAL = 1;
     public static final int DETAIL_THEME_CURRENT = 0;
@@ -386,6 +391,14 @@ public class Setting {
         return com.fongmi.android.tv.bean.TmdbConfig.objectFrom(getTmdbConfig()).isSiteEnabled(key, name);
     }
 
+    public static TmdbMatchCache getTmdbMatchCache() {
+        return TmdbMatchCache.objectFrom(Prefers.getString("tmdb_match_cache"));
+    }
+
+    public static void putTmdbMatchCache(TmdbMatchCache cache) {
+        Prefers.put("tmdb_match_cache", App.gson().toJson(cache));
+    }
+
     public static boolean isTmdbEnabled() {
         return Prefers.getBoolean("tmdb_enabled", false);
     }
@@ -437,11 +450,28 @@ public class Setting {
     }
 
     public static int getTmdbMatchMode() {
-        return getTmdbModel();
+        if (Prefers.getPrefers().contains("tmdb_match_mode")) return clampTmdbMatchMode(Prefers.getInt("tmdb_match_mode", TMDB_MATCH_SMART));
+        if (Prefers.getPrefers().contains("tmdb_match_dialog")) return Prefers.getBoolean("tmdb_match_dialog", true) ? TMDB_MATCH_STRICT_DIALOG : TMDB_MATCH_STRICT;
+        return TMDB_MATCH_SMART;
     }
 
     public static void putTmdbMatchMode(int mode) {
-        putTmdbModel(mode);
+        Prefers.put("tmdb_match_mode", clampTmdbMatchMode(mode));
+    }
+
+    public static boolean isTmdbSmartMatch() {
+        int mode = getTmdbMatchMode();
+        return mode == TMDB_MATCH_SMART || mode == TMDB_MATCH_SMART_DIALOG;
+    }
+
+    public static boolean isTmdbMatchDialog() {
+        int mode = getTmdbMatchMode();
+        return mode == TMDB_MATCH_STRICT_DIALOG || mode == TMDB_MATCH_SMART_DIALOG;
+    }
+
+    private static int clampTmdbMatchMode(int mode) {
+        if (mode == TMDB_MATCH_STRICT || mode == TMDB_MATCH_SMART || mode == TMDB_MATCH_STRICT_DIALOG || mode == TMDB_MATCH_SMART_DIALOG) return mode;
+        return TMDB_MATCH_SMART;
     }
 
     public static boolean isTmdbDetailBackdropSlide() {

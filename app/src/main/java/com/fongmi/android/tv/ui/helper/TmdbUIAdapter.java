@@ -8,6 +8,7 @@ import com.fongmi.android.tv.bean.Flag;
 import com.fongmi.android.tv.bean.TmdbConfig;
 import com.fongmi.android.tv.bean.TmdbEpisode;
 import com.fongmi.android.tv.bean.TmdbItem;
+import com.fongmi.android.tv.bean.TmdbMatchCache;
 import com.fongmi.android.tv.bean.TmdbPerson;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.event.RefreshEvent;
@@ -80,6 +81,7 @@ public class TmdbUIAdapter {
         if (item == null) return;
         resetLoadState();
         this.tmdbItem = item;
+        saveMatch(vod, item);
         loadDetail(vod);
     }
 
@@ -101,16 +103,31 @@ public class TmdbUIAdapter {
             return;
         }
         Task.execute(() -> {
-            TmdbItem matched = tmdbMatcher.searchAndMatch(videoName);
+            TmdbItem matched = getCachedMatch(vod);
+            if (matched != null) SpiderDebug.log("tmdb", "use cached match title=%s", matched.getTitle());
+            if (matched == null) matched = tmdbMatcher.searchAndMatch(videoName, vod);
             if (matched == null) {
                 SpiderDebug.log("tmdb", "auto match miss name=%s", videoName);
                 tmdbItem = null;
                 notifyLoadComplete(vod);
                 return;
             }
+            saveMatch(vod, matched);
             tmdbItem = matched;
             loadDetailSync(vod);
         });
+    }
+
+    public List<TmdbItem> search(String keyword) throws Exception {
+        return search(keyword, null);
+    }
+
+    public List<TmdbItem> search(String keyword, Vod vod) throws Exception {
+        return tmdbMatcher.search(keyword, vod);
+    }
+
+    public String cleanSearchQuery(String keyword) {
+        return tmdbMatcher.cleanVideoName(keyword);
     }
 
     private void loadDetail(Vod vod) {
@@ -153,6 +170,32 @@ public class TmdbUIAdapter {
         if (vod != null) {
             activity.runOnUiThread(() -> RefreshEvent.vod(vod));
         }
+    }
+
+    private TmdbItem getCachedMatch(Vod vod) {
+        if (vod == null) return null;
+        return Setting.getTmdbMatchCache().find(cacheSiteKey(vod), cacheVodId(vod));
+    }
+
+    private void saveMatch(Vod vod, TmdbItem item) {
+        if (vod == null || item == null || item.getTmdbId() <= 0) return;
+        TmdbMatchCache cache = Setting.getTmdbMatchCache();
+        cache.put(cacheSiteKey(vod), cacheVodId(vod), item);
+        Setting.putTmdbMatchCache(cache);
+    }
+
+    private String cacheSiteKey(Vod vod) {
+        String siteKey = vod == null ? "" : vod.getSiteKey();
+        if (!TextUtils.isEmpty(siteKey)) return siteKey;
+        String fallback = activity == null || activity.getIntent() == null ? "" : activity.getIntent().getStringExtra("key");
+        return TextUtils.isEmpty(fallback) ? "" : fallback;
+    }
+
+    private String cacheVodId(Vod vod) {
+        String vodId = vod == null ? "" : vod.getId();
+        if (!TextUtils.isEmpty(vodId)) return vodId;
+        String fallback = activity == null || activity.getIntent() == null ? "" : activity.getIntent().getStringExtra("id");
+        return TextUtils.isEmpty(fallback) ? "" : fallback;
     }
 
     /**
