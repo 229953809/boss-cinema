@@ -331,7 +331,7 @@ public class TmdbMatcher {
     private boolean tmdbSeasonYearMatches(TmdbItem item, int seasonNumber, int sourceYear) {
         if (item == null || seasonNumber <= 0 || sourceYear <= 0 || !"tv".equalsIgnoreCase(item.getMediaType())) return false;
         try {
-            JsonObject detail = tmdbService.detail(item, tmdbConfig);
+            JsonObject detail = tmdbService.detail(item, tmdbConfig, false);
             return tmdbSeasonYear(detail, seasonNumber) == sourceYear;
         } catch (Throwable ignored) {
             return false;

@@ -81,10 +81,12 @@ public class TmdbService {
     }
 
     public JsonObject detail(@NonNull TmdbItem item, @NonNull TmdbConfig config) throws Exception {
+        return detail(item, config, true);
+    }
+
+    public JsonObject detail(@NonNull TmdbItem item, @NonNull TmdbConfig config, boolean includeRelated) throws Exception {
         ensureReady(config);
-        String append = "tv".equalsIgnoreCase(item.getMediaType())
-                ? "images,credits,aggregate_credits,recommendations,similar,translations,external_ids,content_ratings"
-                : "images,credits,recommendations,similar,translations,external_ids,release_dates";
+        String append = detailAppend(item, includeRelated);
         HttpUrl url = apiBuilder(config.getApiBase() + "/" + item.getMediaType() + "/" + item.getTmdbId(), config)
                 .addQueryParameter("language", config.getLanguage())
                 .addQueryParameter("append_to_response", append)
@@ -96,6 +98,14 @@ public class TmdbService {
             if (!response.isSuccessful()) throw new IllegalStateException("TMDB 详情失败: HTTP " + response.code());
             return App.gson().fromJson(response.body().string(), JsonObject.class);
         }
+    }
+
+    private String detailAppend(@NonNull TmdbItem item, boolean includeRelated) {
+        boolean tv = "tv".equalsIgnoreCase(item.getMediaType());
+        String append = tv
+                ? "images,credits,aggregate_credits,translations,external_ids,content_ratings"
+                : "images,credits,translations,external_ids,release_dates";
+        return includeRelated ? append + ",recommendations,similar" : append;
     }
 
     public JsonObject season(@NonNull TmdbItem item, int seasonNumber, @NonNull TmdbConfig config) throws Exception {

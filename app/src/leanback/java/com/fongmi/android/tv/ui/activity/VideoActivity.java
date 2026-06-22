@@ -149,6 +149,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private Runnable mTmdbDetailTimeout;
     private boolean mTmdbDetailLoading;
     private boolean mTmdbDetailRevealed;
+    private boolean mTmdbDetailFieldsApplied;
     private int mPersonalRecommendationGeneration;
 
     // TMDB 模式相关字段
@@ -692,6 +693,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         clearNativePersonalRecommendations();
         mBinding.tmdbOverview.setText("");
         mBinding.tmdbOverview.setVisibility(View.GONE);
+        mTmdbDetailFieldsApplied = false;
         View ratingsLabel = mBinding.getRoot().findViewById(R.id.tmdbOmdbRatingsLabel);
         View ratings = mBinding.getRoot().findViewById(R.id.tmdbOmdbRatings);
         if (ratingsLabel != null) ratingsLabel.setVisibility(View.GONE);
@@ -761,6 +763,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setDetail(Vod item) {
         mVod = item;
         mTmdbAutoDialogShown = false;
+        mTmdbDetailFieldsApplied = false;
         item.checkPic(getPic());
         item.checkName(getName());
         boolean loadTmdbDetail = shouldLoadTmdbDetail();
@@ -815,6 +818,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     // TMDB 数据成功返回：揭开内容（仅一次）并应用 TMDB 字段（每次都应用）
     private void finishTmdbDetail() {
         revealTmdbDetail();
+        if (mTmdbDetailFieldsApplied) return;
+        mTmdbDetailFieldsApplied = true;
         applyTmdbDetailFields();
     }
 
@@ -2676,7 +2681,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!TextUtils.isEmpty(imdbRating)) {
             String votes = optOmdbString(jsonObj, "imdbVotes");
             String text = buildImdbRatingText(imdbRating, votes);
-            chips.add(new String[]{"IMDb", text, "#F5C518"});
+            chips.add(new String[]{"IMDB", text, "#F5C518"});
         }
 
         if (jsonObj.has("Ratings") && jsonObj.get("Ratings").isJsonArray()) {

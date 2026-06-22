@@ -206,18 +206,16 @@ public class TmdbUIAdapter {
 
     private void loadDetailSync(Vod vod, TmdbItem item, int generation) {
         try {
-            JsonObject detail = tmdbService.detail(item, tmdbConfig);
+            JsonObject detail = tmdbService.detail(item, tmdbConfig, false);
             List<TmdbPerson> cast = tmdbService.cast(detail, tmdbConfig);
-            List<TmdbItem> rankedRecommendations = PersonalRecommendationService.rankTmdbItemsForContext(detail, tmdbService.recommendations(detail, tmdbConfig), tmdbService.similar(detail, tmdbConfig), Integer.MAX_VALUE);
-            PersonalRecommendationService service = new PersonalRecommendationService(tmdbService, tmdbConfig);
-            PersonalRecommendationService.RecommendationPages personalPages = service.loadPage(vod, item, detail, 0, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
             if (!isCurrentGeneration(generation)) return;
             this.vod = vod;
             tmdbDetail = detail;
             tmdbCast = cast;
-            recommendations = rankedRecommendations;
+            recommendations = new ArrayList<>();
             recommendationPage = 1;
-            recommendationHasMore = hasMoreTmdbRelatedPages(detail, "recommendations") || hasMoreTmdbRelatedPages(detail, "similar");
+            recommendationHasMore = false;
+            PersonalRecommendationService.RecommendationPages personalPages = PersonalRecommendationService.RecommendationPages.empty();
             personalTmdbPage = personalPages.getTmdb();
             personalDoubanPage = personalPages.getDouban();
             personalTmdbRecommendations = personalTmdbPage.getItems();
@@ -225,18 +223,83 @@ public class TmdbUIAdapter {
             loaded = true;
             if (vod != null) {
                 enrichVod(vod, item, detail);
-                // 如果是电视剧，自动获取并应用集数信息
-                if (item.isTv()) {
-                    applyEpisodeTitles(vod, item);
-                }
                 if (!isCurrentGeneration(generation)) return;
-                activity.runOnUiThread(() -> RefreshEvent.vod(vod));
+                notifyVodChanged(vod, generation);
             }
-            SpiderDebug.log("tmdb", "detail loaded title=%s cast=%d personalTmdb=%d personalDouban=%d", item.getTitle(), getCast().size(), personalTmdbRecommendations == null ? 0 : personalTmdbRecommendations.size(), personalDoubanRecommendations == null ? 0 : personalDoubanRecommendations.size());
+            loadEpisodeTitlesAsync(vod, item, generation);
+            loadRelatedRecommendationsAsync(vod, item, detail, generation);
+            loadPersonalRecommendationsAsync(vod, item, detail, generation);
+            SpiderDebug.log("tmdb", "detail core loaded title=%s cast=%d", item.getTitle(), getCast().size());
         } catch (Exception e) {
             SpiderDebug.log("tmdb", "detail load failed: %s", e.getMessage());
             notifyLoadComplete(vod, generation);
         }
+    }
+
+    private void notifyVodChanged(Vod vod, int generation) {
+        if (vod == null || !isCurrentGeneration(generation)) return;
+        activity.runOnUiThread(() -> {
+            if (isCurrentGeneration(generation)) RefreshEvent.vod(vod);
+        });
+    }
+
+    private void loadEpisodeTitlesAsync(Vod vod, TmdbItem item, int generation) {
+        if (vod == null || item == null || !item.isTv()) return;
+        Task.execute(() -> {
+            boolean changed = applyEpisodeTitles(vod, item);
+            if (changed) notifyVodChanged(vod, generation);
+        });
+    }
+
+    private void loadRelatedRecommendationsAsync(Vod vod, TmdbItem item, JsonObject detail, int generation) {
+        if (item == null || detail == null) return;
+        recommendationLoading = true;
+        Task.execute(() -> {
+            List<TmdbItem> ranked = new ArrayList<>();
+            boolean more = false;
+            try {
+                List<TmdbItem> pageRecommendations = tmdbService.recommendations(item, tmdbConfig, 1);
+                List<TmdbItem> pageSimilar = tmdbService.similar(item, tmdbConfig, 1);
+                ranked = PersonalRecommendationService.rankTmdbItemsForContext(detail, pageRecommendations, pageSimilar, Integer.MAX_VALUE);
+                more = !pageRecommendations.isEmpty() || !pageSimilar.isEmpty();
+            } catch (Throwable e) {
+                SpiderDebug.log("tmdb", "initial recommendations failed error=%s", e.getMessage());
+            }
+            List<TmdbItem> loadedItems = ranked;
+            boolean hasMore = more;
+            activity.runOnUiThread(() -> {
+                if (!isCurrentGeneration(generation)) return;
+                recommendationLoading = false;
+                recommendations = loadedItems;
+                recommendationPage = 1;
+                recommendationHasMore = hasMore;
+                if (vod != null && !loadedItems.isEmpty()) RefreshEvent.vod(vod);
+            });
+        });
+    }
+
+    private void loadPersonalRecommendationsAsync(Vod vod, TmdbItem item, JsonObject detail, int generation) {
+        if (vod == null || !Setting.isPersonalRecommendation()) return;
+        personalRefreshLoading = true;
+        Task.execute(() -> {
+            PersonalRecommendationService.RecommendationPages pages = PersonalRecommendationService.RecommendationPages.empty();
+            try {
+                PersonalRecommendationService service = new PersonalRecommendationService(tmdbService, tmdbConfig);
+                pages = service.loadPage(vod, item, detail, 0, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+            } catch (Throwable e) {
+                SpiderDebug.log("tmdb", "initial personal recommendations failed error=%s", e.getMessage());
+            }
+            PersonalRecommendationService.RecommendationPages loadedPages = pages;
+            activity.runOnUiThread(() -> {
+                if (!isCurrentGeneration(generation)) return;
+                personalRefreshLoading = false;
+                personalTmdbPage = loadedPages.getTmdb();
+                personalDoubanPage = loadedPages.getDouban();
+                personalTmdbRecommendations = personalTmdbPage.getItems();
+                personalDoubanRecommendations = personalDoubanPage.getItems();
+                if (vod != null && (!personalTmdbRecommendations.isEmpty() || !personalDoubanRecommendations.isEmpty())) RefreshEvent.vod(vod);
+            });
+        });
     }
 
     private void notifyLoadComplete(Vod vod, int generation) {
@@ -311,8 +374,8 @@ public class TmdbUIAdapter {
     /**
      * 获取并应用 TMDB 集数标题到 Vod（仅针对电视剧）。
      */
-    private void applyEpisodeTitles(Vod vod, TmdbItem item) {
-        if (vod == null || item == null || vod.getFlags() == null) return;
+    private boolean applyEpisodeTitles(Vod vod, TmdbItem item) {
+        if (vod == null || item == null || vod.getFlags() == null) return false;
         try {
             // 尝试获取第1季
             JsonObject season = null;
@@ -331,29 +394,34 @@ public class TmdbUIAdapter {
                 }
             }
 
-            if (season == null) return;
+            if (season == null) return false;
 
             List<TmdbEpisode> episodes = tmdbService.episodes(season, tmdbConfig, item.getTmdbId(), seasonNumber);
-            if (episodes.isEmpty()) return;
+            if (episodes.isEmpty()) return false;
 
             // 先排序集数
             com.fongmi.android.tv.utils.TmdbEpisodeSorter.sort(vod);
 
             // 应用标题到每个 Episode
+            boolean changed = false;
             for (Flag flag : vod.getFlags()) {
                 for (Episode episode : flag.getEpisodes()) {
                     TmdbEpisode tmdbEp = findEpisodeByNumber(episodes, episode.getNumber());
                     if (tmdbEp != null) {
+                        if (episode.getTmdbEpisode() == null) changed = true;
                         episode.setTmdbEpisode(tmdbEp);
                         if (!tmdbEp.getTitle().isEmpty() && !episode.getDisplayName().contains(tmdbEp.getTitle())) {
                             episode.setDisplayName(episode.getNumber() + ". " + tmdbEp.getTitle());
+                            changed = true;
                         }
                     }
                 }
             }
             SpiderDebug.log("tmdb", "应用集数标题: %d 集", episodes.size());
+            return changed;
         } catch (Exception e) {
             SpiderDebug.log("tmdb", "获取集数信息失败: %s", e.getMessage());
+            return false;
         }
     }
 

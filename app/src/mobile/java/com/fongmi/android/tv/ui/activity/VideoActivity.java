@@ -698,10 +698,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mTmdbAutoDialogShown = false;
         if (tmdbMode) {
             hideTmdbHeader();
+            mBinding.quick.setVisibility(View.GONE);
+            mBinding.search.setVisibility(View.GONE);
             if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);
             mBinding.progressLayout.showProgress();
         } else {
             restoreFlagAndEpisodeFromTmdb();
+            mBinding.search.setVisibility(View.VISIBLE);
             if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.VISIBLE);
             android.util.Log.d("VideoActivity", "setDetail - 调用 showContent()");
             mBinding.progressLayout.showContent();
@@ -1986,9 +1989,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void setSearch(Result result) {
         List<Vod> items = result.getList();
         items.removeIf(this::mismatch);
-        mBinding.quick.setVisibility(View.VISIBLE);
+        boolean showQuick = !shouldUseTmdbDetailLayout();
+        mBinding.quick.setVisibility(showQuick ? View.VISIBLE : View.GONE);
         mQuickAdapter.addAll(items);
-        if (revealManualSearch && !items.isEmpty()) {
+        if (!showQuick) revealManualSearch = false;
+        if (showQuick && revealManualSearch && !items.isEmpty()) {
             revealManualSearch = false;
             mBinding.quick.post(() -> mBinding.scroll.smoothScrollTo(0, mBinding.quick.getTop()));
         }
@@ -2100,6 +2105,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
         // TMDB 模式下：隐藏原生内容元素（但保持容器可见，因为 TMDB 内容也在里面）
         mBinding.contentLayout.setVisibility(View.GONE);
+        mBinding.quick.setVisibility(View.GONE);
+        mBinding.search.setVisibility(View.GONE);
         if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.GONE);  // 隐藏播放器下方的阴影
 
         // 设置 ScrollView 背景为黑色（与 TMDB 头部一致）
@@ -2119,6 +2126,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mTmdbContentLoaded = true;
         hideTmdbHeader();
         restoreFlagAndEpisodeFromTmdb();
+        mBinding.search.setVisibility(View.VISIBLE);
         if (mBinding.videoShadow != null) mBinding.videoShadow.setVisibility(View.VISIBLE);
         setText(item);
         mBinding.progressLayout.showContent();
@@ -2382,7 +2390,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private View[] getTmdbMovableViews() {
         return new View[]{
                 mBinding.site,
-                mBinding.flagText,
+                mBinding.flagTitleBar,
                 mBinding.flag,
                 mBinding.episodeTitleBar,
                 mBinding.episode,

@@ -24,6 +24,12 @@ public class VideoActivityLayoutTest {
             "episodeTitleBar",
             "episodeViewMode"
     );
+    private static final List<String> REQUIRED_TMDB_MOVABLE_IDS = Arrays.asList(
+            "flagTitleBar",
+            "flag",
+            "episodeTitleBar",
+            "episode"
+    );
 
     @Test
     public void mobileActivityVideoLayoutsExposeEpisodeModeControls() throws Exception {
@@ -36,6 +42,22 @@ public class VideoActivityLayoutTest {
         for (Path layoutFile : layoutFiles) {
             Set<String> ids = collectAndroidIds(layoutFile.toFile());
             for (String requiredId : REQUIRED_EPISODE_IDS) {
+                assertTrue(layoutFile + " is missing @+id/" + requiredId, ids.contains(requiredId));
+            }
+        }
+    }
+
+    @Test
+    public void mobileActivityVideoLayoutsExposeTmdbMovableContainers() throws Exception {
+        List<Path> layoutFiles = Files.walk(findMobileResPath())
+                .filter(path -> path.getFileName().toString().equals("activity_video.xml"))
+                .filter(path -> path.getParent().getFileName().toString().startsWith("layout"))
+                .collect(Collectors.toList());
+
+        assertFalse("No mobile activity_video.xml layouts found", layoutFiles.isEmpty());
+        for (Path layoutFile : layoutFiles) {
+            Set<String> ids = collectAndroidIds(layoutFile.toFile());
+            for (String requiredId : REQUIRED_TMDB_MOVABLE_IDS) {
                 assertTrue(layoutFile + " is missing @+id/" + requiredId, ids.contains(requiredId));
             }
         }

@@ -188,6 +188,7 @@
                         tools:text="演員：FongMi" />
 
                     <androidx.appcompat.widget.LinearLayoutCompat
+                        android:id="@+id/flagTitleBar"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"

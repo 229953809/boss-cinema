@@ -71,6 +71,7 @@ public class TmdbHeaderView {
     private boolean loadingRecommendations;
     private boolean loadingPersonalTmdbRecommendations;
     private boolean loadingPersonalDoubanRecommendations;
+    private final java.util.Map<String, java.util.List<String[]>> omdbRatingCache = new java.util.HashMap<>();
 
     private OnImagesLoadedListener imagesLoadedListener;
     private ActionListener actionListener;
@@ -559,8 +560,15 @@ public class TmdbHeaderView {
         String omdbApiKey = tmdbConfig.getOmdbApiKey();
         if (TextUtils.isEmpty(omdbApiKey)) return;
 
-        container.setTag(imdbId);
-        fetchRatingChipsForDisplay(imdbId, omdbApiKey, container, baseChips);
+        String cacheKey = omdbRatingCacheKey(imdbId, omdbApiKey);
+        java.util.List<String[]> cachedChips = getCachedOmdbRatingChips(cacheKey);
+        if (cachedChips != null) {
+            renderRatingChips(container, mergeRatingChips(baseChips, cachedChips));
+            return;
+        }
+
+        container.setTag(cacheKey);
+        fetchRatingChipsForDisplay(imdbId, omdbApiKey, cacheKey, container, baseChips);
     }
 
     /**
@@ -594,7 +602,7 @@ public class TmdbHeaderView {
         return chip;
     }
 
-    private void fetchRatingChipsForDisplay(String imdbId, String omdbApiKey, ViewGroup container, List<String[]> baseChips) {
+    private void fetchRatingChipsForDisplay(String imdbId, String omdbApiKey, String cacheKey, ViewGroup container, List<String[]> baseChips) {
         com.fongmi.android.tv.utils.Task.execute(() -> {
             try {
                 String url = "https://www.omdbapi.com/?i=" + imdbId + "&apikey=" + omdbApiKey;
@@ -611,13 +619,14 @@ public class TmdbHeaderView {
                 com.google.gson.JsonObject jsonObj = new com.google.gson.JsonParser().parse(json).getAsJsonObject();
                 if (jsonObj.has("Response") && "False".equals(jsonObj.get("Response").getAsString())) return;
 
-                List<String[]> chips = new ArrayList<>(baseChips);
-                chips.addAll(buildRatingChips(jsonObj));
+                List<String[]> omdbChips = buildRatingChips(jsonObj);
+                putCachedOmdbRatingChips(cacheKey, omdbChips);
+                List<String[]> chips = mergeRatingChips(baseChips, omdbChips);
                 if (chips.isEmpty()) return;
 
                 activity.runOnUiThread(() -> {
                     if (headerRoot == null) return;
-                    if (!(container.getTag() instanceof String) || !imdbId.equals(container.getTag())) return;
+                    if (!(container.getTag() instanceof String) || !cacheKey.equals(container.getTag())) return;
                     renderRatingChips(container, chips);
                 });
             } catch (Exception e) {
@@ -657,6 +666,7 @@ public class TmdbHeaderView {
         label.setVisibility(View.GONE);
         scroll.setVisibility(View.GONE);
         container.removeAllViews();
+        container.setTag(null);
 
         JsonObject detail = adapter.getTmdbDetail();
         if (detail == null) {
@@ -685,14 +695,22 @@ public class TmdbHeaderView {
             return;
         }
 
+        String cacheKey = omdbRatingCacheKey(imdbId, omdbApiKey);
+        java.util.List<String[]> cachedChips = getCachedOmdbRatingChips(cacheKey);
+        if (cachedChips != null) {
+            renderSourceRatingChips(label, scroll, container, cachedChips);
+            return;
+        }
+
+        container.setTag(cacheKey);
         android.util.Log.d("TmdbHeaderView", "OMDB 评分开始请求，imdbId=" + imdbId);
-        fetchOmdbRatings(imdbId, omdbApiKey, label, scroll, container);
+        fetchOmdbRatings(imdbId, omdbApiKey, cacheKey, label, scroll, container);
     }
 
     /**
      * 异步请求 OMDB 并渲染多来源评分。匹配不到数据时保持隐藏。
      */
-    private void fetchOmdbRatings(String imdbId, String omdbApiKey, com.google.android.material.textview.MaterialTextView label, View scroll, ViewGroup container) {
+    private void fetchOmdbRatings(String imdbId, String omdbApiKey, String cacheKey, com.google.android.material.textview.MaterialTextView label, View scroll, ViewGroup container) {
         com.fongmi.android.tv.utils.Task.execute(() -> {
             try {
                 String url = "https://www.omdbapi.com/?i=" + imdbId + "&apikey=" + omdbApiKey;
@@ -716,22 +734,58 @@ public class TmdbHeaderView {
                 }
 
                 final java.util.List<String[]> chips = buildRatingChips(jsonObj);
+                putCachedOmdbRatingChips(cacheKey, chips);
                 android.util.Log.d("TmdbHeaderView", "OMDB 评分卡片数=" + chips.size());
                 if (chips.isEmpty()) return;
 
                 activity.runOnUiThread(() -> {
                     if (headerRoot == null) return;
-                    container.removeAllViews();
-                    for (String[] chip : chips) {
-                        container.addView(createSourceRatingChip(chip[0], chip[1], chip[2]));
-                    }
-                    label.setVisibility(View.VISIBLE);
-                    scroll.setVisibility(View.VISIBLE);
+                    if (!(container.getTag() instanceof String) || !cacheKey.equals(container.getTag())) return;
+                    renderSourceRatingChips(label, scroll, container, chips);
                 });
             } catch (Exception e) {
                 android.util.Log.w("TmdbHeaderView", "获取 OMDB 评分失败: " + e.getMessage());
             }
         });
+    }
+
+    private void renderSourceRatingChips(com.google.android.material.textview.MaterialTextView label, View scroll, ViewGroup container, java.util.List<String[]> chips) {
+        container.removeAllViews();
+        if (chips == null || chips.isEmpty()) {
+            label.setVisibility(View.GONE);
+            scroll.setVisibility(View.GONE);
+            return;
+        }
+        for (String[] chip : chips) {
+            container.addView(createSourceRatingChip(chip[0], chip[1], chip[2]));
+        }
+        label.setVisibility(View.VISIBLE);
+        scroll.setVisibility(View.VISIBLE);
+    }
+
+    private String omdbRatingCacheKey(String imdbId, String omdbApiKey) {
+        return imdbId + "|" + omdbApiKey;
+    }
+
+    private java.util.List<String[]> getCachedOmdbRatingChips(String key) {
+        synchronized (omdbRatingCache) {
+            java.util.List<String[]> chips = omdbRatingCache.get(key);
+            return chips == null ? null : new ArrayList<>(chips);
+        }
+    }
+
+    private void putCachedOmdbRatingChips(String key, java.util.List<String[]> chips) {
+        if (TextUtils.isEmpty(key) || chips == null || chips.isEmpty()) return;
+        synchronized (omdbRatingCache) {
+            omdbRatingCache.put(key, new ArrayList<>(chips));
+        }
+    }
+
+    private List<String[]> mergeRatingChips(List<String[]> baseChips, List<String[]> omdbChips) {
+        List<String[]> merged = new ArrayList<>();
+        if (baseChips != null) merged.addAll(baseChips);
+        if (omdbChips != null) merged.addAll(omdbChips);
+        return merged;
     }
 
     /**
@@ -745,7 +799,7 @@ public class TmdbHeaderView {
         if (!TextUtils.isEmpty(imdbRating)) {
             String votes = optString(jsonObj, "imdbVotes");
             String text = buildImdbRatingText(imdbRating, votes);
-            chips.add(new String[]{"IMDb", text, "#F5C518"});
+            chips.add(new String[]{"IMDB", text, "#F5C518"});
         }
 
         // Ratings 数组中的烂番茄、Metacritic 等来源
@@ -906,7 +960,7 @@ public class TmdbHeaderView {
         if (!TextUtils.isEmpty(imdbId)) {
             String imdbUrl = "https://www.imdb.com/title/" + imdbId;
             android.util.Log.d("TmdbHeaderView", "Adding IMDB link: " + imdbId);
-            imdbRatingView = addExternalLink(container, "IMDb", imdbUrl, null);
+            imdbRatingView = addExternalLink(container, "IMDB", imdbUrl, null);
             linkCount++;
         }
 
@@ -1067,7 +1121,7 @@ public class TmdbHeaderView {
                 String rottenRating = "";
                 String metacriticRating = "";
                 for (String[] chip : buildRatingChips(jsonObj)) {
-                    if ("IMDb".equals(chip[0])) imdbRating = chip[1];
+                    if ("IMDB".equals(chip[0])) imdbRating = chip[1];
                     else if ("烂番茄".equals(chip[0])) rottenRating = chip[1];
                     else if ("Metacritic".equals(chip[0]) || "Metascore".equals(chip[0])) metacriticRating = chip[1];
                 }
