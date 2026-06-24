@@ -16,13 +16,29 @@ import java.util.Locale;
 public class TmdbRecommendationPresenter extends Presenter {
 
     private final OnClickListener mListener;
+    private final OnLongClickListener mLongClickListener;
+    private final OnFocusListener mFocusListener;
 
     public TmdbRecommendationPresenter(OnClickListener listener) {
+        this(listener, null, null);
+    }
+
+    public TmdbRecommendationPresenter(OnClickListener listener, OnLongClickListener longClickListener, OnFocusListener focusListener) {
         this.mListener = listener;
+        this.mLongClickListener = longClickListener;
+        this.mFocusListener = focusListener;
     }
 
     public interface OnClickListener {
         void onItemClick(TmdbItem item);
+    }
+
+    public interface OnLongClickListener {
+        boolean onItemLongClick(TmdbItem item);
+    }
+
+    public interface OnFocusListener {
+        void onItemFocus(TmdbItem item, boolean focused);
     }
 
     @Override
@@ -48,10 +64,16 @@ public class TmdbRecommendationPresenter extends Presenter {
         setOnClickListener(holder, view -> {
             if (mListener != null) mListener.onItemClick(tmdbItem);
         });
+        holder.view.setOnLongClickListener(view -> mLongClickListener != null && mLongClickListener.onItemLongClick(tmdbItem));
+        holder.view.setOnFocusChangeListener((view, focused) -> {
+            if (mFocusListener != null) mFocusListener.onItemFocus(tmdbItem, focused);
+        });
     }
 
     @Override
     public void onUnbindViewHolder(Presenter.ViewHolder viewHolder) {
+        viewHolder.view.setOnLongClickListener(null);
+        viewHolder.view.setOnFocusChangeListener(null);
     }
 
     public static class ViewHolder extends Presenter.ViewHolder {

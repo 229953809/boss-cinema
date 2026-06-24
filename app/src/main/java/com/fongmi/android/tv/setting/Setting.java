@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.BuildConfig;
+import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
 import com.fongmi.android.tv.bean.TmdbConfig;
@@ -464,6 +465,18 @@ public class Setting {
 
     public static boolean isTmdbSiteEnabled(String key, String name) {
         return com.fongmi.android.tv.bean.TmdbConfig.objectFrom(getTmdbConfig()).isSiteEnabled(key, name);
+    }
+
+    public static String getAiConfig() {
+        return Prefers.getString("ai_config");
+    }
+
+    public static void putAiConfig(String value) {
+        Prefers.put("ai_config", value);
+    }
+
+    public static boolean isAiConfigReady() {
+        return AiConfig.objectFrom(getAiConfig()).isReady();
     }
 
     public static TmdbMatchCache getTmdbMatchCache() {

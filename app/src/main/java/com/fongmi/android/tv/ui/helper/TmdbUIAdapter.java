@@ -51,8 +51,10 @@ public class TmdbUIAdapter {
     private List<TmdbItem> recommendations;
     private List<TmdbItem> personalTmdbRecommendations;
     private List<TmdbItem> personalDoubanRecommendations;
+    private List<TmdbItem> personalAiRecommendations;
     private PersonalRecommendationService.RecommendationPage personalTmdbPage;
     private PersonalRecommendationService.RecommendationPage personalDoubanPage;
+    private PersonalRecommendationService.RecommendationPage personalAiPage;
     private Vod vod;
     private int recommendationPage;
     private boolean recommendationHasMore;
@@ -60,11 +62,17 @@ public class TmdbUIAdapter {
     private boolean personalTmdbLoading;
     private boolean personalDoubanLoading;
     private boolean personalRefreshLoading;
+    private boolean personalAiLoading;
     private boolean loaded;
     private volatile int loadGeneration;
+    private PersonalAiUpdateListener personalAiUpdateListener;
 
     public interface LoadMoreCallback {
         void onLoaded(boolean changed);
+    }
+
+    public interface PersonalAiUpdateListener {
+        void onPersonalAiRecommendationsUpdated();
     }
 
     public TmdbUIAdapter(Activity activity) {
@@ -80,6 +88,10 @@ public class TmdbUIAdapter {
 
     public boolean isLoaded() {
         return loaded;
+    }
+
+    public void setPersonalAiUpdateListener(PersonalAiUpdateListener listener) {
+        this.personalAiUpdateListener = listener;
     }
 
     public TmdbItem getTmdbItem() {
@@ -101,6 +113,12 @@ public class TmdbUIAdapter {
 
     public List<TmdbItem> getPersonalDoubanRecommendations() {
         return getPersonalRecommendations(personalDoubanRecommendations, getPersonalTmdbRecommendations(), true);
+    }
+
+    public List<TmdbItem> getPersonalAiRecommendations() {
+        List<TmdbItem> source = new ArrayList<>(getPersonalTmdbRecommendations());
+        source.addAll(getPersonalDoubanRecommendations());
+        return getPersonalRecommendations(personalAiRecommendations, source, true);
     }
 
     private List<TmdbItem> getPersonalRecommendations(List<TmdbItem> personalRecommendations, List<TmdbItem> sourceRecommendations, boolean excludeCurrentRecommendations) {
@@ -197,8 +215,10 @@ public class TmdbUIAdapter {
         recommendations = null;
         personalTmdbRecommendations = null;
         personalDoubanRecommendations = null;
+        personalAiRecommendations = null;
         personalTmdbPage = null;
         personalDoubanPage = null;
+        personalAiPage = null;
         vod = null;
         recommendationPage = 1;
         recommendationHasMore = false;
@@ -206,6 +226,7 @@ public class TmdbUIAdapter {
         personalTmdbLoading = false;
         personalDoubanLoading = false;
         personalRefreshLoading = false;
+        personalAiLoading = false;
         loaded = false;
         return generation;
     }
@@ -234,8 +255,10 @@ public class TmdbUIAdapter {
             PersonalRecommendationService.RecommendationPages personalPages = PersonalRecommendationService.RecommendationPages.empty();
             personalTmdbPage = personalPages.getTmdb();
             personalDoubanPage = personalPages.getDouban();
+            personalAiPage = personalPages.getAi();
             personalTmdbRecommendations = personalTmdbPage.getItems();
             personalDoubanRecommendations = personalDoubanPage.getItems();
+            personalAiRecommendations = personalAiPage.getItems();
             loaded = true;
             if (vod != null) {
                 long enrichStart = System.currentTimeMillis();
@@ -333,6 +356,38 @@ public class TmdbUIAdapter {
                 if (vod != null && (!personalTmdbRecommendations.isEmpty() || !personalDoubanRecommendations.isEmpty())) RefreshEvent.vod(vod);
             });
         });
+        loadPersonalAiRecommendationsAsync(vod, item, generation);
+    }
+
+    private void loadPersonalAiRecommendationsAsync(Vod vod, TmdbItem item, int generation) {
+        if (vod == null || !Setting.isPersonalRecommendation() || personalAiLoading) return;
+        personalAiLoading = true;
+        Task.execute(() -> {
+            long start = System.currentTimeMillis();
+            PersonalRecommendationService.RecommendationPage page;
+            try {
+                page = new PersonalRecommendationService(tmdbService, tmdbConfig).loadAiPage(vod, item, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+            } catch (Throwable e) {
+                SpiderDebug.log("tmdb", "initial personal ai recommendations failed error=%s", e.getMessage());
+                page = PersonalRecommendationService.RecommendationPage.empty("");
+            }
+            PersonalRecommendationService.RecommendationPage loadedPage = page;
+            SpiderDebug.log("tmdb", "personal ai recommendations async cost=%dms count=%d title=%s", System.currentTimeMillis() - start, loadedPage.getItems().size(), item == null ? "" : item.getTitle());
+            activity.runOnUiThread(() -> {
+                if (!isCurrentGeneration(generation)) {
+                    personalAiLoading = false;
+                    return;
+                }
+                personalAiLoading = false;
+                personalAiPage = loadedPage;
+                personalAiRecommendations = personalAiPage.getItems();
+                notifyPersonalAiRecommendationsUpdated();
+            });
+        });
+    }
+
+    private void notifyPersonalAiRecommendationsUpdated() {
+        if (personalAiUpdateListener != null) personalAiUpdateListener.onPersonalAiRecommendationsUpdated();
     }
 
     private void notifyLoadComplete(Vod vod, int generation) {
@@ -586,6 +641,10 @@ public class TmdbUIAdapter {
         return personalDoubanPage != null && personalDoubanPage.hasMore();
     }
 
+    public boolean hasMorePersonalAiRecommendations() {
+        return personalAiPage != null && personalAiPage.hasMore();
+    }
+
     public void loadMoreRecommendations(LoadMoreCallback callback) {
         if (recommendationLoading || !recommendationHasMore || tmdbItem == null || tmdbDetail == null) {
             if (callback != null) callback.onLoaded(false);
@@ -626,6 +685,10 @@ public class TmdbUIAdapter {
         loadMorePersonalRecommendations(false, callback);
     }
 
+    public void loadMorePersonalAiRecommendations(LoadMoreCallback callback) {
+        if (callback != null) callback.onLoaded(false);
+    }
+
     public void refreshPersonalRecommendations(LoadMoreCallback callback) {
         if (personalRefreshLoading || tmdbDetail == null) {
             if (callback != null) callback.onLoaded(false);
@@ -636,21 +699,26 @@ public class TmdbUIAdapter {
         Task.execute(() -> {
             boolean changed = false;
             PersonalRecommendationService.RecommendationPages pages = PersonalRecommendationService.RecommendationPages.empty();
+            boolean aiChanged = false;
             try {
                 PersonalRecommendationService service = new PersonalRecommendationService(tmdbService, tmdbConfig);
                 String tmdbFingerprint = service.historyFingerprint(vod, true);
                 String doubanFingerprint = service.historyFingerprint(vod, false);
+                String aiFingerprint = service.aiFingerprint(vod, tmdbItem);
                 boolean sameTmdb = personalTmdbPage != null && personalTmdbPage.getHistoryFingerprint().equals(tmdbFingerprint);
                 boolean sameDouban = personalDoubanPage != null && personalDoubanPage.getHistoryFingerprint().equals(doubanFingerprint);
+                boolean sameAi = personalAiPage != null && personalAiPage.getHistoryFingerprint().equals(aiFingerprint);
                 if (!sameTmdb || !sameDouban) {
                     pages = service.loadPage(vod, tmdbItem, tmdbDetail, 0, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
                     changed = true;
                 }
+                aiChanged = !sameAi;
             } catch (Throwable e) {
                 SpiderDebug.log("tmdb", "refresh personal recommendations failed error=%s", e.getMessage());
             }
             PersonalRecommendationService.RecommendationPages loadedPages = pages;
             boolean hasChanged = changed;
+            boolean hasAiChanged = aiChanged;
             activity.runOnUiThread(() -> {
                 if (!isCurrentGeneration(generation)) return;
                 personalRefreshLoading = false;
@@ -661,6 +729,7 @@ public class TmdbUIAdapter {
                     personalDoubanRecommendations = personalDoubanPage.getItems();
                 }
                 if (callback != null) callback.onLoaded(hasChanged);
+                if (hasAiChanged) loadPersonalAiRecommendationsAsync(vod, tmdbItem, generation);
             });
         });
     }

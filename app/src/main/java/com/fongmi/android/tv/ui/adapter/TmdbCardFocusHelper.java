@@ -12,14 +12,25 @@ final class TmdbCardFocusHelper {
     private TmdbCardFocusHelper() {
     }
 
+    interface FocusCallback {
+        void onFocus(boolean focused);
+    }
+
     static void bind(MaterialCardView card, int backgroundColor, int strokeColor) {
         bind(card, backgroundColor, strokeColor, 1);
     }
 
     static void bind(MaterialCardView card, int backgroundColor, int strokeColor, int strokeWidthDp) {
+        bind(card, backgroundColor, strokeColor, strokeWidthDp, null);
+    }
+
+    static void bind(MaterialCardView card, int backgroundColor, int strokeColor, int strokeWidthDp, FocusCallback callback) {
         card.setOnFocusChangeListener(null);
         apply(card, card.hasFocus(), backgroundColor, strokeColor, strokeWidthDp);
-        card.setOnFocusChangeListener((view, focused) -> apply(card, focused, backgroundColor, strokeColor, strokeWidthDp));
+        card.setOnFocusChangeListener((view, focused) -> {
+            apply(card, focused, backgroundColor, strokeColor, strokeWidthDp);
+            if (callback != null) callback.onFocus(focused);
+        });
     }
 
     private static void apply(MaterialCardView card, boolean focused, int backgroundColor, int strokeColor, int strokeWidthDp) {

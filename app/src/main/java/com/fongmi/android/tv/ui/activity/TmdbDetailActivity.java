@@ -174,6 +174,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private final List<TmdbItem> relatedItems = new ArrayList<>();
     private final List<TmdbItem> personalTmdbItems = new ArrayList<>();
     private final List<TmdbItem> personalDoubanItems = new ArrayList<>();
+    private final List<TmdbItem> personalAiItems = new ArrayList<>();
     private final Map<Integer, TmdbEpisode> tmdbEpisodes = new HashMap<>();
     private final List<Integer> seasonNumbers = new ArrayList<>();
     private final Map<Integer, Integer> seasonEpisodeCounts = new HashMap<>();
@@ -210,6 +211,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private TmdbRailAdapter relatedAdapter;
     private TmdbRailAdapter personalTmdbAdapter;
     private TmdbRailAdapter personalDoubanAdapter;
+    private TmdbRailAdapter personalAiAdapter;
     private boolean overviewExpanded;
     private boolean useParse;
     private boolean inlineStarted;
@@ -428,6 +430,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         tmdbEpisodePhotos.clear();
         personalTmdbItems.clear();
         personalDoubanItems.clear();
+        personalAiItems.clear();
         if (service() != null) {
             player().stop();
             player().clear();
@@ -447,6 +450,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         relatedAdapter.setItems(new ArrayList<>());
         personalTmdbAdapter.setItems(new ArrayList<>());
         personalDoubanAdapter.setItems(new ArrayList<>());
+        personalAiAdapter.setItems(new ArrayList<>());
         binding.tmdbStatus.setVisibility(View.GONE);
         bindInitialArtwork();
     }
@@ -513,11 +517,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         relatedAdapter = new TmdbRailAdapter(this::openRelatedItem);
         personalTmdbAdapter = new TmdbRailAdapter(this::openRelatedItem);
         personalDoubanAdapter = new TmdbRailAdapter(this::openRelatedItem);
+        personalAiAdapter = new TmdbRailAdapter(this::openRelatedItem);
+        personalAiAdapter.setOnItemLongClickListener(item -> {
+            com.fongmi.android.tv.ui.dialog.AiRecommendationInfoDialog.show(this, item);
+            return true;
+        });
         castAdapter.setCinema(isCinemaMode());
         creatorAdapter.setCinema(isCinemaMode());
         relatedAdapter.setCinema(isCinemaMode());
         personalTmdbAdapter.setCinema(isCinemaMode());
         personalDoubanAdapter.setCinema(isCinemaMode());
+        personalAiAdapter.setCinema(isCinemaMode());
         setDetailAdaptersLight(resolveLightTheme());
         updateEpisodeLayoutManager();
         binding.episodeContainer.setNestedScrollingEnabled(false);
@@ -540,6 +550,9 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.personalDoubanList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         binding.personalDoubanList.setNestedScrollingEnabled(false);
         binding.personalDoubanList.setAdapter(personalDoubanAdapter);
+        binding.personalAiList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        binding.personalAiList.setNestedScrollingEnabled(false);
+        binding.personalAiList.setAdapter(personalAiAdapter);
         applyDetailTheme();
     }
 
@@ -1007,6 +1020,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (relatedAdapter != null) relatedAdapter.setLight(light);
         if (personalTmdbAdapter != null) personalTmdbAdapter.setLight(light);
         if (personalDoubanAdapter != null) personalDoubanAdapter.setLight(light);
+        if (personalAiAdapter != null) personalAiAdapter.setLight(light);
     }
 
     private void tintTmdbSectionTitles(ThemeColors colors) {
@@ -1016,7 +1030,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 binding.creatorTitle,
                 binding.relatedTitle,
                 binding.personalTmdbTitle,
-                binding.personalDoubanTitle
+                binding.personalDoubanTitle,
+                binding.personalAiTitle
         };
         int color = isCinemaMode() ? 0xFFFFFFFF : colors.primary;
         for (TextView title : titles) {
@@ -1089,6 +1104,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setHeightDp(binding.relatedList, 262);
         setHeightDp(binding.personalTmdbList, 262);
         setHeightDp(binding.personalDoubanList, 262);
+        setHeightDp(binding.personalAiList, 262);
     }
 
     private int defaultHeroSpacerHeightDp() {
@@ -1130,11 +1146,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         setHeightDp(binding.relatedList, compact ? 184 : 190);
         setHeightDp(binding.personalTmdbList, compact ? 184 : 190);
         setHeightDp(binding.personalDoubanList, compact ? 184 : 190);
+        setHeightDp(binding.personalAiList, compact ? 184 : 190);
         if (castAdapter != null) castAdapter.setCinema(true);
         if (creatorAdapter != null) creatorAdapter.setCinema(true);
         if (relatedAdapter != null) relatedAdapter.setCinema(true);
         if (personalTmdbAdapter != null) personalTmdbAdapter.setCinema(true);
         if (personalDoubanAdapter != null) personalDoubanAdapter.setCinema(true);
+        if (personalAiAdapter != null) personalAiAdapter.setCinema(true);
     }
 
     private boolean isCompactWidth() {
@@ -1560,10 +1578,32 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
                 personalTmdbItems.addAll(finalPersonalTmdb);
                 personalDoubanItems.clear();
                 personalDoubanItems.addAll(finalPersonalDouban);
+                personalAiItems.clear();
                 detailTmdbPhotos.clear();
                 detailTmdbPhotos.addAll(finalPhotos);
                 refreshBackdropSlideshow();
                 bindSeasonTmdbMedia(selectedSeasonNumber);
+                bindTmdbSection();
+                loadTmdbPersonalAi(bundle, currentVod, finalRelated, finalPersonalTmdb, finalPersonalDouban, generation);
+            });
+        });
+    }
+
+    private void loadTmdbPersonalAi(TmdbBundle bundle, Vod currentVod, List<TmdbItem> related, List<TmdbItem> personalTmdb, List<TmdbItem> personalDouban, int generation) {
+        if (!Setting.isPersonalRecommendation() || bundle == null || bundle.item() == null) return;
+        Task.execute(() -> {
+            List<TmdbItem> personalAi = new ArrayList<>();
+            try {
+                PersonalRecommendationService.RecommendationPage page = new PersonalRecommendationService(tmdbService, tmdbConfig).loadAiPage(currentVod, bundle.item(), PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+                personalAi = TmdbRecommendationRows.personalAi(page.getItems(), related, personalTmdb, personalDouban);
+            } catch (Throwable e) {
+                SpiderDebug.log("tmdb", "detail personal ai failed error=%s", e.getMessage());
+            }
+            List<TmdbItem> finalPersonalAi = personalAi;
+            runOnAliveUi(() -> {
+                if (generation != loadGeneration || bundle.item() != matchedTmdbItem) return;
+                personalAiItems.clear();
+                personalAiItems.addAll(finalPersonalAi);
                 bindTmdbSection();
             });
         });
@@ -1587,6 +1627,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         if (bundle != null) relatedItems.addAll(bundle.related());
         personalTmdbItems.clear();
         personalDoubanItems.clear();
+        personalAiItems.clear();
         tmdbEpisodes.clear();
         seasonNumbers.clear();
         if (bundle != null) seasonNumbers.addAll(bundle.seasons());
@@ -2616,7 +2657,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         boolean hasRelated = !relatedItems.isEmpty();
         boolean hasPersonalTmdb = !personalTmdbItems.isEmpty();
         boolean hasPersonalDouban = !personalDoubanItems.isEmpty();
-        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban || matchedTmdbDetail != null || canMatchTmdb() ? View.VISIBLE : View.GONE);
+        boolean hasPersonalAi = !personalAiItems.isEmpty();
+        binding.tmdbSection.setVisibility(hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban || hasPersonalAi || matchedTmdbDetail != null || canMatchTmdb() ? View.VISIBLE : View.GONE);
 
         binding.episodePhotoTitle.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
         binding.episodePhotoList.setVisibility(hasPhotos ? View.VISIBLE : View.GONE);
@@ -2647,13 +2689,18 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         binding.personalDoubanList.setVisibility(hasPersonalDouban ? View.VISIBLE : View.GONE);
         personalDoubanAdapter.setItems(personalDoubanItems);
 
+        setTopMargin(binding.personalAiTitle, hasPhotos || hasCast || hasCreators || hasRelated || hasPersonalTmdb || hasPersonalDouban ? 20 : 0);
+        binding.personalAiTitle.setVisibility(hasPersonalAi ? View.VISIBLE : View.GONE);
+        binding.personalAiList.setVisibility(hasPersonalAi ? View.VISIBLE : View.GONE);
+        personalAiAdapter.setItems(personalAiItems);
+
         if (!tmdbConfig.isReady()) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_need_key);
         } else if (!isTmdbAllowedForCurrentSite()) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_site_disabled);
-        } else if (!hasPhotos && !hasCast && !hasCreators && !hasRelated && !hasPersonalTmdb && !hasPersonalDouban) {
+        } else if (!hasPhotos && !hasCast && !hasCreators && !hasRelated && !hasPersonalTmdb && !hasPersonalDouban && !hasPersonalAi) {
             binding.tmdbStatus.setVisibility(View.VISIBLE);
             binding.tmdbStatus.setText(R.string.detail_tmdb_empty);
         } else {

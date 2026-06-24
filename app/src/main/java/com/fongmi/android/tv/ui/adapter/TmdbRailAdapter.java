@@ -26,13 +26,22 @@ public class TmdbRailAdapter extends RecyclerView.Adapter<TmdbRailAdapter.ViewHo
         void onItemClick(TmdbItem item);
     }
 
+    public interface LongClickListener {
+        boolean onItemLongClick(TmdbItem item);
+    }
+
     private final Listener listener;
     private final List<TmdbItem> items = new ArrayList<>();
+    private LongClickListener longClickListener;
     private boolean cinema;
     private boolean light;
 
     public TmdbRailAdapter(Listener listener) {
         this.listener = listener;
+    }
+
+    public void setOnItemLongClickListener(LongClickListener listener) {
+        this.longClickListener = listener;
     }
 
     public void setItems(List<TmdbItem> values) {
@@ -80,6 +89,7 @@ public class TmdbRailAdapter extends RecyclerView.Adapter<TmdbRailAdapter.ViewHo
         String image = cinema && !TextUtils.isEmpty(item.getBackdropUrl()) ? item.getBackdropUrl() : item.getPosterUrl();
         ImgUtil.load(item.getTitle(), image, holder.poster);
         holder.root.setOnClickListener(view -> listener.onItemClick(item));
+        holder.root.setOnLongClickListener(view -> longClickListener != null && longClickListener.onItemLongClick(item));
     }
 
     @Override

@@ -70,6 +70,7 @@ public class TmdbHeaderView {
             R.id.tmdbRecommendationsLabel,
             R.id.tmdbPersonalTmdbRecommendationsLabel,
             R.id.tmdbPersonalDoubanRecommendationsLabel,
+            R.id.tmdbPersonalAiRecommendationsLabel,
             R.id.tmdbOmdbRatingsLabel
     };
 
@@ -96,6 +97,7 @@ public class TmdbHeaderView {
     private TmdbCastAdapter crewAdapter;
     private com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter personalTmdbRecommendationAdapter;
     private com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter personalDoubanRecommendationAdapter;
+    private com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter personalAiRecommendationAdapter;
     private com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter recommendationAdapter;
     private TmdbUIAdapter boundAdapter;
     private boolean loadingRecommendations;
@@ -301,6 +303,7 @@ public class TmdbHeaderView {
         // 个性推荐
         bindRecommendationRow(R.id.tmdbPersonalTmdbRecommendationsLabel, R.id.tmdbPersonalTmdbRecommendations, personalTmdbRecommendationAdapter, adapter.getPersonalTmdbRecommendations());
         bindRecommendationRow(R.id.tmdbPersonalDoubanRecommendationsLabel, R.id.tmdbPersonalDoubanRecommendations, personalDoubanRecommendationAdapter, adapter.getPersonalDoubanRecommendations());
+        bindRecommendationRow(R.id.tmdbPersonalAiRecommendationsLabel, R.id.tmdbPersonalAiRecommendations, personalAiRecommendationAdapter, adapter.getPersonalAiRecommendations());
 
         // 内容填充完成，显示头部容器
         applyTheme();
@@ -339,6 +342,11 @@ public class TmdbHeaderView {
         });
     }
 
+    public void refreshPersonalAiRecommendations() {
+        if (boundAdapter == null || headerRoot == null) return;
+        bindRecommendationRow(R.id.tmdbPersonalAiRecommendationsLabel, R.id.tmdbPersonalAiRecommendations, personalAiRecommendationAdapter, boundAdapter.getPersonalAiRecommendations());
+    }
+
     private void setupRecyclerViews() {
         RecyclerView castRv = headerRoot.findViewById(R.id.tmdbCast);
         castAdapter = new TmdbCastAdapter();
@@ -366,6 +374,15 @@ public class TmdbHeaderView {
         personalDoubanRecommendationAdapter.setOnItemClickListener(this::onRecommendationClick);
         personalDoubanRecommendationsRv.setAdapter(personalDoubanRecommendationAdapter);
         attachLazyLoader(personalDoubanRecommendationsRv, RecommendationRow.PERSONAL_DOUBAN);
+
+        RecyclerView personalAiRecommendationsRv = headerRoot.findViewById(R.id.tmdbPersonalAiRecommendations);
+        personalAiRecommendationAdapter = new com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter();
+        personalAiRecommendationAdapter.setOnItemClickListener(this::onRecommendationClick);
+        personalAiRecommendationAdapter.setOnItemLongClickListener(item -> {
+            com.fongmi.android.tv.ui.dialog.AiRecommendationInfoDialog.show(activity, item);
+            return true;
+        });
+        personalAiRecommendationsRv.setAdapter(personalAiRecommendationAdapter);
 
         RecyclerView recommendationsRv = headerRoot.findViewById(R.id.tmdbRecommendations);
         recommendationAdapter = new com.fongmi.android.tv.ui.adapter.TmdbRecommendationAdapter();
@@ -1223,6 +1240,7 @@ public class TmdbHeaderView {
         setTextColor(R.id.tmdbRecommendationsLabel, primary);
         setTextColor(R.id.tmdbPersonalTmdbRecommendationsLabel, primary);
         setTextColor(R.id.tmdbPersonalDoubanRecommendationsLabel, primary);
+        setTextColor(R.id.tmdbPersonalAiRecommendationsLabel, primary);
         setTextColor(R.id.tmdbOmdbRatingsLabel, primary);
         TextView powered = findPoweredBy();
         if (powered != null) powered.setTextColor(watermark);
@@ -1313,6 +1331,10 @@ public class TmdbHeaderView {
             personalDoubanRecommendationAdapter.setCinema(cinema);
             personalDoubanRecommendationAdapter.setLight(light);
         }
+        if (personalAiRecommendationAdapter != null) {
+            personalAiRecommendationAdapter.setCinema(cinema);
+            personalAiRecommendationAdapter.setLight(light);
+        }
     }
 
     private void setVisibility(int id, int visibility) {
@@ -1377,6 +1399,8 @@ public class TmdbHeaderView {
         setTopMargin(R.id.tmdbPersonalTmdbRecommendations, 12);
         setTopMargin(R.id.tmdbPersonalDoubanRecommendationsLabel, 24);
         setTopMargin(R.id.tmdbPersonalDoubanRecommendations, 12);
+        setTopMargin(R.id.tmdbPersonalAiRecommendationsLabel, 24);
+        setTopMargin(R.id.tmdbPersonalAiRecommendations, 12);
         setTopMargin(R.id.tmdbOmdbRatingsLabel, 24);
         setTopMargin(R.id.tmdbOmdbRatingsScroll, 12);
     }

@@ -183,12 +183,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private View mFocus1;
     private PersonalRecommendationService.RecommendationPage mNativePersonalTmdbPage;
     private PersonalRecommendationService.RecommendationPage mNativePersonalDoubanPage;
+    private PersonalRecommendationService.RecommendationPage mNativePersonalAiPage;
     private ArrayObjectAdapter mTmdbRecommendationsObjectAdapter;
     private ArrayObjectAdapter mPersonalTmdbObjectAdapter;
     private ArrayObjectAdapter mPersonalDoubanObjectAdapter;
+    private ArrayObjectAdapter mPersonalAiObjectAdapter;
     private boolean mTmdbRecommendationsLoading;
     private boolean mPersonalTmdbLoading;
     private boolean mPersonalDoubanLoading;
+    private boolean mPersonalAiLoading;
     private boolean mNativePersonalTmdbLoading;
     private boolean mNativePersonalDoubanLoading;
     private final Map<String, java.util.List<String[]>> mTmdbOmdbRatingCache = Collections.synchronizedMap(new HashMap<>());
@@ -687,6 +690,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.tmdbPersonalTmdbRecommendations.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
         mBinding.tmdbPersonalDoubanRecommendations.setHorizontalSpacing(ResUtil.dp2px(12));
         mBinding.tmdbPersonalDoubanRecommendations.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        mBinding.tmdbPersonalAiRecommendations.setHorizontalSpacing(ResUtil.dp2px(12));
+        mBinding.tmdbPersonalAiRecommendations.setRowHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
         attachRecommendationLazyLoader(mBinding.tmdbRecommendations, RecommendationRow.RECOMMENDATIONS);
         attachRecommendationLazyLoader(mBinding.tmdbPersonalTmdbRecommendations, RecommendationRow.PERSONAL_TMDB);
         attachRecommendationLazyLoader(mBinding.tmdbPersonalDoubanRecommendations, RecommendationRow.PERSONAL_DOUBAN);
@@ -2331,24 +2336,49 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
         clearNativePersonalRecommendations();
         Task.execute(() -> {
-            PersonalRecommendationService.RecommendationPages recommendations = new PersonalRecommendationService().loadPage(item, null, null, 0, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+            PersonalRecommendationService.RecommendationPages recommendations = PersonalRecommendationService.RecommendationPages.empty();
+            try {
+                recommendations = new PersonalRecommendationService().loadPage(item, null, null, 0, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+            } catch (Throwable e) {
+                SpiderDebug.log("personal-rec", "tv native core failed error=%s", e.getMessage());
+            }
+            PersonalRecommendationService.RecommendationPages loaded = recommendations;
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed() || generation != mPersonalRecommendationGeneration) return;
-                bindNativePersonalRecommendations(recommendations);
+                bindNativePersonalRecommendations(loaded);
+            });
+        });
+        Task.execute(() -> {
+            PersonalRecommendationService.RecommendationPage page;
+            try {
+                page = new PersonalRecommendationService().loadAiPage(item, null, PersonalRecommendationService.DEFAULT_PAGE_SIZE);
+            } catch (Throwable e) {
+                SpiderDebug.log("personal-rec", "tv native ai failed error=%s", e.getMessage());
+                page = PersonalRecommendationService.RecommendationPage.empty("");
+            }
+            PersonalRecommendationService.RecommendationPage loaded = page;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || generation != mPersonalRecommendationGeneration) return;
+                bindNativePersonalAiRecommendation(loaded);
             });
         });
     }
 
     private void bindNativePersonalRecommendations(PersonalRecommendationService.RecommendationPages recommendations) {
-        if (recommendations == null || (recommendations.getTmdb().getItems().isEmpty() && recommendations.getDouban().getItems().isEmpty())) {
-            clearNativePersonalRecommendations();
-            return;
-        }
-        mNativePersonalTmdbPage = recommendations.getTmdb();
-        mNativePersonalDoubanPage = recommendations.getDouban();
+        mNativePersonalTmdbPage = recommendations == null ? PersonalRecommendationService.RecommendationPage.empty("") : recommendations.getTmdb();
+        mNativePersonalDoubanPage = recommendations == null ? PersonalRecommendationService.RecommendationPage.empty("") : recommendations.getDouban();
         boolean hasTmdb = bindRecommendationGrid(mBinding.tmdbPersonalTmdbRecommendations, mBinding.tmdbPersonalTmdbRecommendationsLabel, mNativePersonalTmdbPage.getItems(), RecommendationRow.PERSONAL_TMDB);
         boolean hasDouban = bindRecommendationGrid(mBinding.tmdbPersonalDoubanRecommendations, mBinding.tmdbPersonalDoubanRecommendationsLabel, mNativePersonalDoubanPage.getItems(), RecommendationRow.PERSONAL_DOUBAN);
-        setNativePersonalRecommendationFocus(hasTmdb, hasDouban);
+        boolean hasAi = mNativePersonalAiPage != null && !mNativePersonalAiPage.getItems().isEmpty();
+        setNativePersonalRecommendationFocus(hasTmdb, hasDouban, hasAi);
+    }
+
+    private void bindNativePersonalAiRecommendation(PersonalRecommendationService.RecommendationPage page) {
+        mNativePersonalAiPage = page == null ? PersonalRecommendationService.RecommendationPage.empty("") : page;
+        boolean hasTmdb = mNativePersonalTmdbPage != null && !mNativePersonalTmdbPage.getItems().isEmpty();
+        boolean hasDouban = mNativePersonalDoubanPage != null && !mNativePersonalDoubanPage.getItems().isEmpty();
+        boolean hasAi = bindRecommendationGrid(mBinding.tmdbPersonalAiRecommendations, mBinding.tmdbPersonalAiRecommendationsLabel, mNativePersonalAiPage.getItems(), RecommendationRow.PERSONAL_AI);
+        setNativePersonalRecommendationFocus(hasTmdb, hasDouban, hasAi);
     }
 
     private boolean bindRecommendationGrid(HorizontalGridView grid, View label, List<TmdbItem> items) {
@@ -2360,10 +2390,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             grid.setVisibility(View.GONE);
             label.setVisibility(View.GONE);
             rememberRecommendationAdapter(row, null);
+            if (row == RecommendationRow.PERSONAL_AI) showAiRecommendationReason(null, false);
             return false;
         }
         ArrayObjectAdapter adapter = new ArrayObjectAdapter(
-            new com.fongmi.android.tv.ui.presenter.TmdbRecommendationPresenter(this::onTmdbRecommendationClick)
+            row == RecommendationRow.PERSONAL_AI
+                    ? new com.fongmi.android.tv.ui.presenter.TmdbRecommendationPresenter(this::onTmdbRecommendationClick, this::onAiRecommendationLongClick, this::onAiRecommendationFocus)
+                    : new com.fongmi.android.tv.ui.presenter.TmdbRecommendationPresenter(this::onTmdbRecommendationClick)
         );
         adapter.addAll(0, items);
         grid.setAdapter(new ItemBridgeAdapter(adapter));
@@ -2381,22 +2414,47 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void clearNativePersonalRecommendations() {
         mNativePersonalTmdbPage = null;
         mNativePersonalDoubanPage = null;
+        mNativePersonalAiPage = null;
         mNativePersonalTmdbLoading = false;
         mNativePersonalDoubanLoading = false;
         mPersonalTmdbObjectAdapter = null;
         mPersonalDoubanObjectAdapter = null;
+        mPersonalAiObjectAdapter = null;
         mBinding.tmdbPersonalTmdbRecommendations.setVisibility(View.GONE);
         mBinding.tmdbPersonalTmdbRecommendationsLabel.setVisibility(View.GONE);
         mBinding.tmdbPersonalDoubanRecommendations.setVisibility(View.GONE);
         mBinding.tmdbPersonalDoubanRecommendationsLabel.setVisibility(View.GONE);
-        setNativePersonalRecommendationFocus(false, false);
+        mBinding.tmdbPersonalAiRecommendations.setVisibility(View.GONE);
+        mBinding.tmdbPersonalAiRecommendationsLabel.setVisibility(View.GONE);
+        showAiRecommendationReason(null, false);
+        setNativePersonalRecommendationFocus(false, false, false);
     }
 
-    private void setNativePersonalRecommendationFocus(boolean hasTmdb, boolean hasDouban) {
-        int next = hasTmdb ? R.id.tmdbPersonalTmdbRecommendations : hasDouban ? R.id.tmdbPersonalDoubanRecommendations : R.id.flag;
+    private boolean onAiRecommendationLongClick(TmdbItem item) {
+        com.fongmi.android.tv.ui.dialog.AiRecommendationInfoDialog.show(this, item);
+        return true;
+    }
+
+    private void onAiRecommendationFocus(TmdbItem item, boolean focused) {
+        showAiRecommendationReason(item, focused);
+    }
+
+    private void showAiRecommendationReason(TmdbItem item, boolean focused) {
+        if (!focused || item == null || TextUtils.isEmpty(item.getOverview())) {
+            mBinding.tmdbPersonalAiReason.setVisibility(View.GONE);
+            mBinding.tmdbPersonalAiReason.setText("");
+            return;
+        }
+        mBinding.tmdbPersonalAiReason.setText(getString(R.string.ai_recommendation_reason_preview, item.getOverview()));
+        mBinding.tmdbPersonalAiReason.setVisibility(View.VISIBLE);
+    }
+
+    private void setNativePersonalRecommendationFocus(boolean hasTmdb, boolean hasDouban, boolean hasAi) {
+        int next = hasTmdb ? R.id.tmdbPersonalTmdbRecommendations : hasDouban ? R.id.tmdbPersonalDoubanRecommendations : hasAi ? R.id.tmdbPersonalAiRecommendations : R.id.flag;
         setDetailButtonsNextFocus(next);
-        mBinding.tmdbPersonalTmdbRecommendations.setNextFocusDownId(hasDouban ? R.id.tmdbPersonalDoubanRecommendations : R.id.flag);
-        mBinding.tmdbPersonalDoubanRecommendations.setNextFocusDownId(R.id.flag);
+        mBinding.tmdbPersonalTmdbRecommendations.setNextFocusDownId(hasDouban ? R.id.tmdbPersonalDoubanRecommendations : hasAi ? R.id.tmdbPersonalAiRecommendations : R.id.flag);
+        mBinding.tmdbPersonalDoubanRecommendations.setNextFocusDownId(hasAi ? R.id.tmdbPersonalAiRecommendations : R.id.flag);
+        mBinding.tmdbPersonalAiRecommendations.setNextFocusDownId(R.id.flag);
     }
 
     private void attachRecommendationLazyLoader(HorizontalGridView grid, RecommendationRow row) {
@@ -2441,6 +2499,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             mTmdbUIAdapter.loadMorePersonalDoubanRecommendations(changed -> {
                 mPersonalDoubanLoading = false;
                 if (changed) appendLeanbackItems(mPersonalDoubanObjectAdapter, mTmdbUIAdapter.getPersonalDoubanRecommendations());
+            });
+        } else if (row == RecommendationRow.PERSONAL_AI) {
+            if (mPersonalAiLoading || !mTmdbUIAdapter.hasMorePersonalAiRecommendations()) return;
+            mPersonalAiLoading = true;
+            mTmdbUIAdapter.loadMorePersonalAiRecommendations(changed -> {
+                mPersonalAiLoading = false;
+                if (changed) appendLeanbackItems(mPersonalAiObjectAdapter, mTmdbUIAdapter.getPersonalAiRecommendations());
             });
         }
     }
@@ -2495,14 +2560,26 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
     }
 
+    private void refreshTmdbPersonalAiRecommendations() {
+        if (mTmdbUIAdapter == null || !mTmdbUIAdapter.isLoaded()) return;
+        boolean hasAi = bindRecommendationGrid(mBinding.tmdbPersonalAiRecommendations, mBinding.tmdbPersonalAiRecommendationsLabel, mTmdbUIAdapter.getPersonalAiRecommendations(), RecommendationRow.PERSONAL_AI);
+        if (mBinding.tmdbPersonalDoubanRecommendations.getVisibility() == View.VISIBLE) {
+            mBinding.tmdbPersonalDoubanRecommendations.setNextFocusDownId(hasAi ? R.id.tmdbPersonalAiRecommendations : R.id.flag);
+        } else if (mBinding.tmdbPersonalTmdbRecommendations.getVisibility() == View.VISIBLE) {
+            mBinding.tmdbPersonalTmdbRecommendations.setNextFocusDownId(hasAi ? R.id.tmdbPersonalAiRecommendations : R.id.flag);
+        }
+        mBinding.tmdbPersonalAiRecommendations.setNextFocusDownId(R.id.flag);
+    }
+
     private void rememberRecommendationAdapter(RecommendationRow row, ArrayObjectAdapter adapter) {
         if (row == RecommendationRow.RECOMMENDATIONS) mTmdbRecommendationsObjectAdapter = adapter;
         else if (row == RecommendationRow.PERSONAL_TMDB) mPersonalTmdbObjectAdapter = adapter;
         else if (row == RecommendationRow.PERSONAL_DOUBAN) mPersonalDoubanObjectAdapter = adapter;
+        else if (row == RecommendationRow.PERSONAL_AI) mPersonalAiObjectAdapter = adapter;
     }
 
     private enum RecommendationRow {
-        NONE, RECOMMENDATIONS, PERSONAL_TMDB, PERSONAL_DOUBAN
+        NONE, RECOMMENDATIONS, PERSONAL_TMDB, PERSONAL_DOUBAN, PERSONAL_AI
     }
 
     private void setDetailButtonsNextFocus(int next) {
@@ -2615,6 +2692,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             if (!hasTmdbContent) hasTmdbContent = true;
         }
 
+        // 个性推荐 · 智能
+        java.util.List<com.fongmi.android.tv.bean.TmdbItem> personalAiRecommendations = mTmdbUIAdapter.getPersonalAiRecommendations();
+        if (bindRecommendationGrid(mBinding.tmdbPersonalAiRecommendations, mBinding.tmdbPersonalAiRecommendationsLabel, personalAiRecommendations, RecommendationRow.PERSONAL_AI)) {
+            if (lastVisibleGrid == null) setDetailButtonsNextFocus(R.id.tmdbPersonalAiRecommendations);
+            if (lastVisibleGrid != null) lastVisibleGrid.setNextFocusDownId(R.id.tmdbPersonalAiRecommendations);
+            lastVisibleGrid = mBinding.tmdbPersonalAiRecommendations;
+            if (!hasTmdbContent) hasTmdbContent = true;
+        }
+
         // 设置最后一个Grid的nextFocusDown到flag
         if (lastVisibleGrid != null) {
             lastVisibleGrid.setNextFocusDownId(R.id.flag);
@@ -2627,7 +2713,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             mBinding.change1.setNextFocusDownId(R.id.flag);
         }
 
-        SpiderDebug.log("tmdb-tv", "绑定完成: 演员=%d 剧照=%d 主创=%d 推荐=%d 个性TMDB=%d 个性豆瓣=%d", cast.size(), photos.size(), creators.size(), recommendations.size(), personalTmdbRecommendations.size(), personalDoubanRecommendations.size());
+        SpiderDebug.log("tmdb-tv", "绑定完成: 演员=%d 剧照=%d 主创=%d 推荐=%d 个性TMDB=%d 个性豆瓣=%d 个性智能=%d", cast.size(), photos.size(), creators.size(), recommendations.size(), personalTmdbRecommendations.size(), personalDoubanRecommendations.size(), personalAiRecommendations.size());
 
         // TMDB / OMDB 多来源评分（TMDB / IMDb / 烂番茄 / Metacritic 等）
         bindTmdbOmdbRatings();
@@ -3356,6 +3442,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             SpiderDebug.log("TMDB 增强已启用，但配置未就绪（需要 API Key）");
             return;
         }
+        mTmdbUIAdapter.setPersonalAiUpdateListener(this::refreshTmdbPersonalAiRecommendations);
         com.fongmi.android.tv.bean.TmdbItem tmdbItem = getTmdbItem();
         if (tmdbItem != null) {
             SpiderDebug.log("TMDB 模式: 使用传入的 TmdbItem");

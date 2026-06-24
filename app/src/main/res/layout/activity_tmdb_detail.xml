@@ -1231,6 +1231,26 @@
                             android:visibility="gone" />
 
                         <TextView
+                            android:id="@+id/personalAiTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="20dp"
+                            android:text="@string/tmdb_personal_recommendations_ai_label"
+                            android:textColor="@android:color/white"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/personalAiList"
+                            android:layout_width="match_parent"
+                            android:layout_height="262dp"
+                            android:layout_marginTop="12dp"
+                            android:clipToPadding="false"
+                            android:paddingEnd="8dp"
+                            android:visibility="gone" />
+
+                        <TextView
                             android:id="@+id/tmdbStatus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"

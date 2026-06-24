@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.bean.AiConfig;
 import com.fongmi.android.tv.bean.AudioConfig;
 import com.fongmi.android.tv.bean.History;
 import com.fongmi.android.tv.bean.ShortDramaConfig;
@@ -97,12 +98,13 @@ public class PersonalRecommendationService {
     public Recommendations load(@Nullable Vod currentVod, @Nullable TmdbItem currentItem, @Nullable JsonObject currentDetail) {
         if (!Setting.isPersonalRecommendation()) return Recommendations.empty();
         RecommendationPages pages = loadPage(currentVod, currentItem, currentDetail, 0, DEFAULT_PAGE_SIZE);
-        return new Recommendations(pages.getTmdb().getItems(), pages.getDouban().getItems());
+        RecommendationPage ai = loadAiPage(currentVod, currentItem, DEFAULT_PAGE_SIZE);
+        return new Recommendations(pages.getTmdb().getItems(), pages.getDouban().getItems(), ai.getItems());
     }
 
     public RecommendationPages loadPage(@Nullable Vod currentVod, @Nullable TmdbItem currentItem, @Nullable JsonObject currentDetail, int offset, int pageSize) {
         if (!Setting.isPersonalRecommendation()) return RecommendationPages.empty();
-        return new RecommendationPages(loadTmdbPage(currentVod, currentItem, currentDetail, offset, pageSize), loadDoubanPage(currentVod, offset, pageSize));
+        return new RecommendationPages(loadTmdbPage(currentVod, currentItem, currentDetail, offset, pageSize), loadDoubanPage(currentVod, offset, pageSize), RecommendationPage.empty(aiFingerprint(currentVod, currentItem)));
     }
 
     public List<TmdbItem> loadTmdb(@Nullable Vod currentVod, @Nullable TmdbItem currentItem, @Nullable JsonObject currentDetail) {
@@ -132,9 +134,18 @@ public class PersonalRecommendationService {
         return DoubanRating.empty();
     }
 
+    TmdbItem matchDoubanItem(@Nullable String title, @Nullable String mediaType, int year) {
+        return bestDoubanItem(title, mediaType, year, fetchDoubanSuggest(title));
+    }
+
     static DoubanRating bestDoubanRating(@Nullable String title, @Nullable String mediaType, int year, @Nullable List<DoubanSubject> subjects) {
         List<DoubanSubject> ranked = rankDoubanSubjects(title, mediaType, year, subjects, true);
         return ranked.isEmpty() ? DoubanRating.empty() : DoubanRating.from(ranked.get(0));
+    }
+
+    static TmdbItem bestDoubanItem(@Nullable String title, @Nullable String mediaType, int year, @Nullable List<DoubanSubject> subjects) {
+        List<DoubanSubject> ranked = rankDoubanSubjects(title, mediaType, year, subjects, false);
+        return ranked.isEmpty() ? null : ranked.get(0).toTmdbItem();
     }
 
     static List<DoubanSubject> rankDoubanSubjects(@Nullable String title, @Nullable String mediaType, int year, @Nullable List<DoubanSubject> subjects, boolean requireRating) {
@@ -168,6 +179,15 @@ public class PersonalRecommendationService {
     public RecommendationPage loadDoubanPage(@Nullable Vod currentVod, int offset, int pageSize) {
         if (!Setting.isPersonalRecommendation()) return RecommendationPage.empty(historyFingerprint(currentVod, false));
         return loadFromDouban(currentVod, offset, pageSize);
+    }
+
+    public RecommendationPage loadAiPage(@Nullable Vod currentVod, @Nullable TmdbItem currentItem, int pageSize) {
+        String currentTitle = currentTitle(currentVod, currentItem);
+        return new AiRecommendationService(tmdbService, tmdbConfig).load(currentVod, currentTitle, historyFingerprint(currentVod, false), pageSize);
+    }
+
+    public String aiFingerprint(@Nullable Vod currentVod, @Nullable TmdbItem currentItem) {
+        return AiRecommendationService.fingerprint(currentTitle(currentVod, currentItem), historyFingerprint(currentVod, false), Setting.getKeyword(), AiConfig.objectFrom(Setting.getAiConfig()));
     }
 
     public String historyFingerprint(@Nullable Vod currentVod, boolean tmdbTarget) {
@@ -964,14 +984,16 @@ public class PersonalRecommendationService {
 
         private final RecommendationPage tmdb;
         private final RecommendationPage douban;
+        private final RecommendationPage ai;
 
-        RecommendationPages(RecommendationPage tmdb, RecommendationPage douban) {
+        RecommendationPages(RecommendationPage tmdb, RecommendationPage douban, RecommendationPage ai) {
             this.tmdb = tmdb == null ? RecommendationPage.empty("") : tmdb;
             this.douban = douban == null ? RecommendationPage.empty("") : douban;
+            this.ai = ai == null ? RecommendationPage.empty("") : ai;
         }
 
         public static RecommendationPages empty() {
-            return new RecommendationPages(RecommendationPage.empty(""), RecommendationPage.empty(""));
+            return new RecommendationPages(RecommendationPage.empty(""), RecommendationPage.empty(""), RecommendationPage.empty(""));
         }
 
         public RecommendationPage getTmdb() {
@@ -981,20 +1003,26 @@ public class PersonalRecommendationService {
         public RecommendationPage getDouban() {
             return douban;
         }
+
+        public RecommendationPage getAi() {
+            return ai;
+        }
     }
 
     public static final class Recommendations {
 
         private final List<TmdbItem> tmdb;
         private final List<TmdbItem> douban;
+        private final List<TmdbItem> ai;
 
-        Recommendations(List<TmdbItem> tmdb, List<TmdbItem> douban) {
+        Recommendations(List<TmdbItem> tmdb, List<TmdbItem> douban, List<TmdbItem> ai) {
             this.tmdb = tmdb == null ? new ArrayList<>() : tmdb;
             this.douban = douban == null ? new ArrayList<>() : douban;
+            this.ai = ai == null ? new ArrayList<>() : ai;
         }
 
         static Recommendations empty() {
-            return new Recommendations(new ArrayList<>(), new ArrayList<>());
+            return new Recommendations(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
 
         public List<TmdbItem> getTmdb() {
@@ -1005,8 +1033,12 @@ public class PersonalRecommendationService {
             return douban;
         }
 
+        public List<TmdbItem> getAi() {
+            return ai;
+        }
+
         public boolean isEmpty() {
-            return tmdb.isEmpty() && douban.isEmpty();
+            return tmdb.isEmpty() && douban.isEmpty() && ai.isEmpty();
         }
     }
 

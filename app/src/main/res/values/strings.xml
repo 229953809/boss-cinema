@@ -1069,6 +1069,7 @@
     </string-array>
 
     <string name="setting_tmdb_source">TMDB data config</string>
+    <string name="setting_ai_recommendation">AI recommendation</string>
     <string name="setting_tmdb_model">TMDB interaction model</string>
     <string name="setting_tmdb_model_native">Native enhancement</string>
     <string name="setting_tmdb_match_mode">TMDB match mode</string>
@@ -1130,6 +1131,23 @@
     <string name="tmdb_recommendations_label">You May Like</string>
     <string name="tmdb_personal_recommendations_tmdb_label">Personal Picks - TMDB</string>
     <string name="tmdb_personal_recommendations_douban_label">Personal Picks - Douban</string>
+    <string name="tmdb_personal_recommendations_ai_label">Personal Picks - Smart</string>
+    <string name="dialog_ai_enable">Enable smart recommendations</string>
+    <string name="dialog_ai_endpoint_label">OpenAI Responses API endpoint</string>
+    <string name="dialog_ai_endpoint_hint">https://api.openai.com/v1/responses</string>
+    <string name="dialog_ai_api_key_label">API key</string>
+    <string name="dialog_ai_api_key_hint">sk-...</string>
+    <string name="dialog_ai_model_label">Model</string>
+    <string name="dialog_ai_model_hint">gpt-4.1-mini</string>
+    <string name="dialog_ai_prompt_config">Prompt settings</string>
+    <string name="dialog_ai_recommend_prompt_label">Recommendation prompt</string>
+    <string name="dialog_ai_test">Test configuration</string>
+    <string name="dialog_ai_test_running">Testing AI configuration...</string>
+    <string name="dialog_ai_test_success">AI test passed: parsed %1$d item(s), sample %2$s</string>
+    <string name="dialog_ai_test_failed">AI test failed: %1$s</string>
+    <string name="ai_recommendation_info_title">Smart recommendation</string>
+    <string name="ai_recommendation_reason_label">Recommendation reason</string>
+    <string name="ai_recommendation_reason_preview">Reason: %1$s</string>
     <string name="detail_work_searching">Searching current source for %1$s...</string>
     <string name="detail_work_global_searching">No current-source result. Searching all sites for %1$s...</string>
     <string name="detail_image_save">Save</string>

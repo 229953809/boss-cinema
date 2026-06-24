@@ -27,6 +27,8 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
 
     private final List<TmdbItem> items = new ArrayList<>();
     private OnItemClickListener listener;
+    private OnItemLongClickListener longClickListener;
+    private OnItemFocusListener focusListener;
     private boolean cinema;
     private boolean light;
 
@@ -34,8 +36,24 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
         void onItemClick(TmdbItem item);
     }
 
+    public interface OnItemLongClickListener {
+        boolean onItemLongClick(TmdbItem item);
+    }
+
+    public interface OnItemFocusListener {
+        void onItemFocus(TmdbItem item, boolean focused);
+    }
+
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
+    }
+
+    public void setOnItemLongClickListener(OnItemLongClickListener listener) {
+        this.longClickListener = listener;
+    }
+
+    public void setOnItemFocusListener(OnItemFocusListener listener) {
+        this.focusListener = listener;
     }
 
     public void setItems(List<TmdbItem> recommendations) {
@@ -99,7 +117,7 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        holder.bind(items.get(position), listener, cinema, light);
+        holder.bind(items.get(position), listener, longClickListener, focusListener, cinema, light);
     }
 
     @Override
@@ -131,7 +149,7 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
             rating = itemView.findViewById(R.id.rating);
         }
 
-        void bind(TmdbItem item, OnItemClickListener listener, boolean cinema, boolean light) {
+        void bind(TmdbItem item, OnItemClickListener listener, OnItemLongClickListener longClickListener, OnItemFocusListener focusListener, boolean cinema, boolean light) {
             TmdbCinemaTheme.Palette palette = TmdbCinemaTheme.palette(light);
             title.setText(item.getTitle());
             title.setTextColor(0xFFFFFFFF);
@@ -164,11 +182,25 @@ public class TmdbRecommendationAdapter extends RecyclerView.Adapter<TmdbRecommen
             }
 
             if (itemView instanceof MaterialCardView card) {
-                TmdbCardFocusHelper.bind(card, 0xB314202A, cinema ? palette.cardStroke() : 0x33FFFFFF);
+                TmdbCardFocusHelper.bind(card, 0xB314202A, cinema ? palette.cardStroke() : 0x33FFFFFF, 1, focused -> {
+                    if (focusListener != null) focusListener.onItemFocus(item, focused);
+                });
             }
 
             if (listener != null) {
                 itemView.setOnClickListener(v -> listener.onItemClick(item));
+            } else {
+                itemView.setOnClickListener(null);
+            }
+            if (longClickListener != null) {
+                itemView.setOnLongClickListener(v -> longClickListener.onItemLongClick(item));
+            } else {
+                itemView.setOnLongClickListener(null);
+            }
+            if (focusListener != null && !(itemView instanceof MaterialCardView)) {
+                itemView.setOnFocusChangeListener((v, focused) -> focusListener.onItemFocus(item, focused));
+            } else if (!(itemView instanceof MaterialCardView)) {
+                itemView.setOnFocusChangeListener(null);
             }
         }
 

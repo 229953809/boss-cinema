@@ -29,6 +29,12 @@ public final class TmdbRecommendationRows {
         return personalRecommendations(personalDouban, related, personalTmdb, true);
     }
 
+    public static List<TmdbItem> personalAi(List<TmdbItem> personalAi, List<TmdbItem> related, List<TmdbItem> personalTmdb, List<TmdbItem> personalDouban) {
+        List<TmdbItem> source = new ArrayList<>(safeList(personalTmdb));
+        source.addAll(safeList(personalDouban));
+        return personalRecommendations(personalAi, related, source, true);
+    }
+
     private static List<TmdbItem> personalRecommendations(List<TmdbItem> recommendations, List<TmdbItem> related, List<TmdbItem> source, boolean excludeRelated) {
         List<TmdbItem> currentRecommendations = excludeRelated ? safeList(related) : new ArrayList<>();
         List<TmdbItem> sourceRecommendations = safeList(source);

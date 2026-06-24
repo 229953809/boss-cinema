@@ -679,10 +679,53 @@
             android:clipToPadding="false"
             android:descendantFocusability="afterDescendants"
             android:focusable="true"
-            android:nextFocusDown="@id/quick"
+            android:nextFocusDown="@id/tmdbPersonalAiRecommendations"
             android:nextFocusUp="@id/tmdbPersonalTmdbRecommendations"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
+            android:visibility="gone" />
+
+        <!-- 个性推荐 · 智能 -->
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tmdbPersonalAiRecommendationsLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/tmdb_personal_recommendations_ai_label"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <androidx.leanback.widget.HorizontalGridView
+            android:id="@+id/tmdbPersonalAiRecommendations"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:descendantFocusability="afterDescendants"
+            android:focusable="true"
+            android:nextFocusDown="@id/quick"
+            android:nextFocusUp="@id/tmdbPersonalDoubanRecommendations"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tmdbPersonalAiReason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="16dp"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="2"
+            android:textColor="#CCFFFFFF"
+            android:textSize="15sp"
             android:visibility="gone" />
 
         <androidx.leanback.widget.HorizontalGridView
