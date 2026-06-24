@@ -692,6 +692,14 @@ public class Setting {
         Prefers.put("tmdb_detail_theme", clampTmdbDetailTheme(theme));
     }
 
+    public static boolean getTmdbEpisodeGridMode() {
+        return Prefers.getBoolean("tmdb_episode_grid_mode", false);
+    }
+
+    public static void putTmdbEpisodeGridMode(boolean gridMode) {
+        Prefers.put("tmdb_episode_grid_mode", gridMode);
+    }
+
     public static int nextTmdbDetailTheme(int theme) {
         return (clampTmdbDetailTheme(theme) + 1) % 3;
     }

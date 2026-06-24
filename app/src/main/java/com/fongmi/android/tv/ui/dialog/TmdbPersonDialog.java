@@ -306,8 +306,14 @@ public class TmdbPersonDialog {
             chip.setText(String.format(Locale.getDefault(), "%s (%d)", option.label(), option.count()));
             chip.setCheckable(true);
             chip.setChecked(option.key().equals(current));
-            chip.setOnClickListener(v -> callback.onFilter(option.key()));
-            applyChipStyle(chip);
+            chip.setOnClickListener(v -> {
+                callback.onFilter(option.key());
+                applyFilterChipStyles(departmentChips);
+                applyFilterChipStyles(mediaChips);
+            });
+            chip.setOnCheckedChangeListener((button, checked) -> applyChipStyle(chip, checked, chip.hasFocus()));
+            chip.setOnFocusChangeListener((view, focused) -> applyChipStyle(chip, chip.isChecked(), focused));
+            applyChipStyle(chip, chip.isChecked(), false);
             if (Util.isLeanback()) {
                 chip.setFocusable(true);
                 chip.setChipStrokeWidth(2f);
@@ -316,26 +322,39 @@ public class TmdbPersonDialog {
         }
     }
 
-    private void applyChipStyle(Chip chip) {
-        int[][] states = new int[][]{
-                new int[]{android.R.attr.state_checked, android.R.attr.state_focused},
-                new int[]{android.R.attr.state_checked},
-                new int[]{android.R.attr.state_focused},
-                new int[]{}
-        };
-        chip.setCheckedIconVisible(false);
-        if (light) {
-            chip.setChipBackgroundColor(new ColorStateList(states, new int[]{0xFF12202D, 0xFF12202D, 0xFFE7EDF3, 0xFFFFFFFF}));
-            chip.setTextColor(new ColorStateList(states, new int[]{0xFFFFFFFF, 0xFFFFFFFF, 0xFF12202D, 0xCC12202D}));
-            chip.setChipStrokeColor(new ColorStateList(states, new int[]{0xFF12202D, 0xFF12202D, 0x66424B57, 0x33424B57}));
-            chip.setRippleColor(ColorStateList.valueOf(0x1F12202D));
-        } else {
-            chip.setChipBackgroundColor(new ColorStateList(states, new int[]{0xFFFFFFFF, 0xFFEAF2F8, 0x33FFFFFF, 0x1AFFFFFF}));
-            chip.setTextColor(new ColorStateList(states, new int[]{0xFF101820, 0xFF101820, 0xFFFFFFFF, 0xE6FFFFFF}));
-            chip.setChipStrokeColor(new ColorStateList(states, new int[]{0xFFFFFFFF, 0xFFEAF2F8, 0x99FFFFFF, 0x4DFFFFFF}));
-            chip.setRippleColor(ColorStateList.valueOf(0x33FFFFFF));
+    private void applyFilterChipStyles(ChipGroup group) {
+        if (group == null) return;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof Chip chip) applyChipStyle(chip, chip.isChecked(), chip.hasFocus());
         }
-        chip.setChipStrokeWidth(1f);
+    }
+
+    private void applyChipStyle(Chip chip, boolean checked, boolean focused) {
+        chip.setCheckedIconVisible(false);
+        int background = chipBackgroundColor(checked, focused);
+        int text = chipTextColor(checked);
+        int stroke = chipStrokeColor(checked, focused);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(background));
+        chip.setTextColor(ColorStateList.valueOf(text));
+        chip.setChipStrokeColor(ColorStateList.valueOf(stroke));
+        chip.setRippleColor(ColorStateList.valueOf(light ? 0x1F12202D : 0x33FFFFFF));
+        chip.setChipStrokeWidth(focused || checked ? 2f : 1f);
+    }
+
+    private int chipBackgroundColor(boolean checked, boolean focused) {
+        if (light) return checked ? 0xFF12202D : focused ? 0xFFE7EDF3 : 0xFFFFFFFF;
+        return checked ? 0xFFEAF2F8 : focused ? 0xFF2F4F6F : 0xFF1A2530;
+    }
+
+    private int chipTextColor(boolean checked) {
+        if (light) return checked ? 0xFFFFFFFF : 0xCC12202D;
+        return checked ? 0xFF101820 : 0xFFEAF2F8;
+    }
+
+    private int chipStrokeColor(boolean checked, boolean focused) {
+        if (light) return checked ? 0xFF12202D : focused ? 0x66424B57 : 0x33424B57;
+        return checked ? 0xFFEAF2F8 : focused ? 0x99FFFFFF : 0x4DFFFFFF;
     }
 
     private void applyTheme(View view) {

@@ -1160,6 +1160,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.episodeContainer.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
         mBinding.control.action.episodes.setVisibility(items.size() < 2 ? View.GONE : View.VISIBLE);
 
+        if (showTmdbEpisodeChrome && hasMultiple) episodeGridMode = Setting.getTmdbEpisodeGridMode();
         if (!showTmdbEpisodeChrome || !hasMultiple) episodeGridMode = false;
         mBinding.episodeHeader.setVisibility(showTmdbEpisodeChrome && !isEmpty ? View.VISIBLE : View.GONE);
         mBinding.episodeReverse.setVisibility(showTmdbEpisodeChrome && hasMultiple ? View.VISIBLE : View.GONE);
@@ -1262,6 +1263,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void toggleEpisodeViewMode() {
         episodeGridMode = !episodeGridMode;
+        Setting.putTmdbEpisodeGridMode(episodeGridMode);
         applyEpisodeViewMode(true);
     }
 

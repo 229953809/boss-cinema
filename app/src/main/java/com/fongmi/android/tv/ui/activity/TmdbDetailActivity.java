@@ -261,7 +261,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     private int sourceSearchGeneration;
     private int backdropSlideGeneration;
     private int backdropSlideIndex;
-    private boolean episodeGridMode;
+    private boolean episodeGridMode = Setting.getTmdbEpisodeGridMode();
     private boolean inlineEpisodeGridMode = true;
     private boolean episodeReverse;
     private boolean scrollEpisodeStartOnce;
@@ -2313,6 +2313,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void toggleEpisodeViewMode() {
         episodeGridMode = !episodeGridMode;
+        Setting.putTmdbEpisodeGridMode(episodeGridMode);
         renderEpisodes();
     }
 

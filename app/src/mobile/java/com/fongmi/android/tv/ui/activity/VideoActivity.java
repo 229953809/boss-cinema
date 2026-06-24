@@ -191,7 +191,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean playHealthRecorded;
     private boolean mNativePersonalTmdbLoading;
     private boolean mNativePersonalDoubanLoading;
-    private boolean mEpisodeGridMode = true;
+    private boolean mEpisodeGridMode = Setting.getTmdbEpisodeGridMode();
     private int mEpisodeSpanCount;
     private int mEpisodeBottomInset;
     private int mEpisodeMaxHeight;
@@ -1215,6 +1215,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.prev.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
         mBinding.reverse.setVisibility(size < 2 ? View.GONE : View.VISIBLE);
         boolean showViewMode = useTmdbCard && size > 1;
+        if (showViewMode) mEpisodeGridMode = Setting.getTmdbEpisodeGridMode();
         if (!showViewMode) mEpisodeGridMode = true;
         updateEpisodeViewModeButton();
         if (mBinding.episodeViewMode != null) mBinding.episodeViewMode.setVisibility(showViewMode ? View.VISIBLE : View.GONE);
@@ -1367,6 +1368,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             return;
         }
         mEpisodeGridMode = !mEpisodeGridMode;
+        Setting.putTmdbEpisodeGridMode(mEpisodeGridMode);
         setEpisodeItems(new ArrayList<>(mEpisodeAdapter.getItems()));
         scrollToPosition(mBinding.episode, mEpisodeAdapter.getPosition());
     }
