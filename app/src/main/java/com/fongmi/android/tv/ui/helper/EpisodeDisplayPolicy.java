@@ -30,6 +30,6 @@ public final class EpisodeDisplayPolicy {
     }
 
     public static boolean shouldShowEpisodeGroup(int groupCount, boolean tmdbDetailLayout) {
-        return groupCount > 1 && !tmdbDetailLayout;
+        return groupCount > 1;
     }
 }

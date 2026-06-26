@@ -41,9 +41,9 @@ public class EpisodeDisplayPolicyTest {
     }
 
     @Test
-    public void episodeGroup_hidesInTmdbDetailLayout() {
+    public void episodeGroup_showsInTmdbDetailLayout() {
         assertTrue(EpisodeDisplayPolicy.shouldShowEpisodeGroup(2, false));
-        assertFalse(EpisodeDisplayPolicy.shouldShowEpisodeGroup(2, true));
+        assertTrue(EpisodeDisplayPolicy.shouldShowEpisodeGroup(2, true));
         assertFalse(EpisodeDisplayPolicy.shouldShowEpisodeGroup(1, false));
     }
 
