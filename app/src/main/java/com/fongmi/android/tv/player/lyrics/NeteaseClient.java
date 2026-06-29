@@ -9,6 +9,8 @@ import com.github.catvod.net.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -19,6 +21,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
+import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -28,6 +34,9 @@ public class NeteaseClient {
 
     private static final String TAG = "lyrics";
     private static final String USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
+    private static final String EAPI_URL = "https://interface3.music.163.com/eapi/song/lyric/v1";
+    private static final String EAPI_PATH = "/api/song/lyric/v1";
+    private static final String EAPI_KEY = "e82ckenh8dichen8";
     private static final int MIN_SCORE = 58;
     private static final Pattern YRC_LINE = Pattern.compile("^\\[(\\d+),(\\d+)](.*)$");
     private static final Pattern YRC_WORD = Pattern.compile("\\((\\d+),(\\d+),\\d+\\)([^()]*)");
@@ -130,6 +139,31 @@ public class NeteaseClient {
     }
 
     private Lyric lyric(long id) {
+        Lyric eapi = lyricFromEapi(id);
+        if (LyricsParser.hasTimedLine(eapi.yrc) || LyricsParser.hasTimedLine(eapi.lrc)) return eapi;
+        return lyricFromLegacy(id);
+    }
+
+    private Lyric lyricFromEapi(long id) {
+        try {
+            JSONObject object = new JSONObject()
+                    .put("id", id)
+                    .put("cp", false)
+                    .put("tv", 0)
+                    .put("lv", 0)
+                    .put("rv", 0)
+                    .put("kv", 0)
+                    .put("yv", 0)
+                    .put("ytv", 0)
+                    .put("yrv", 0);
+            return parseLyric(new JSONObject(postEapi(EAPI_PATH, object)));
+        } catch (Exception e) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "netease eapi lyric failed id=%s error=%s", id, e.getMessage());
+            return new Lyric();
+        }
+    }
+
+    private Lyric lyricFromLegacy(long id) {
         Lyric lyric = new Lyric();
         HttpUrl url = HttpUrl.parse("https://music.163.com/api/song/lyric").newBuilder()
                 .addQueryParameter("id", String.valueOf(id))
@@ -153,6 +187,19 @@ public class NeteaseClient {
         } catch (Exception e) {
             if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "netease lyric failed id=%s error=%s", id, e.getMessage());
         }
+        return lyric;
+    }
+
+    private Lyric parseLyric(JSONObject object) {
+        Lyric lyric = new Lyric();
+        JSONObject yrc = object.optJSONObject("yrc");
+        JSONObject lrc = object.optJSONObject("lrc");
+        JSONObject trans = firstObject(object, "ytlrc", "tlyric");
+        JSONObject roma = firstObject(object, "yromalrc", "romalrc");
+        lyric.yrc = yrc == null ? "" : yrc.optString("lyric");
+        lyric.lrc = lrc == null ? "" : lrc.optString("lyric");
+        lyric.trans = trans == null ? "" : trans.optString("lyric");
+        lyric.roma = roma == null ? "" : roma.optString("lyric");
         return lyric;
     }
 
@@ -242,6 +289,40 @@ public class NeteaseClient {
             if (!response.isSuccessful() || response.body() == null) return "";
             return response.body().string();
         }
+    }
+
+    private String postEapi(String path, JSONObject object) throws Exception {
+        String text = object.toString();
+        String digest = md5("nobody" + path + "use" + text + "md5forencrypt");
+        String data = path + "-36cd479b6b5-" + text + "-36cd479b6b5-" + digest;
+        FormBody body = new FormBody.Builder().add("params", aesEcbHex(data)).build();
+        Request request = new Request.Builder()
+                .url(EAPI_URL)
+                .post(body)
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", "https://music.163.com/")
+                .header("Origin", "https://music.163.com")
+                .build();
+        try (Response response = CLIENT.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) return "";
+            return response.body().string();
+        }
+    }
+
+    private String aesEcbHex(String text) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(EAPI_KEY.getBytes(StandardCharsets.UTF_8), "AES"));
+        return hex(cipher.doFinal(text.getBytes(StandardCharsets.UTF_8))).toUpperCase(Locale.ROOT);
+    }
+
+    private String md5(String text) throws Exception {
+        return hex(MessageDigest.getInstance("MD5").digest(text.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private String hex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) builder.append(String.format(Locale.US, "%02x", value & 0xff));
+        return builder.toString();
     }
 
     private String artists(JSONArray array) {

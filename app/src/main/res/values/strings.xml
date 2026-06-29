@@ -1063,6 +1063,7 @@
         <item>Kuwo</item>
         <item>LRCLIB</item>
         <item>Kugou</item>
+        <item>Migu</item>
     </string-array>
 
     <string-array name="select_lyrics_size">

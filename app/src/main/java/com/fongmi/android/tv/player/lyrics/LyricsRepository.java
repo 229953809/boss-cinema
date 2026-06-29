@@ -34,6 +34,7 @@ public class LyricsRepository {
     private final LrcLibClient client = new LrcLibClient();
     private final KuwoClient kuwo = new KuwoClient();
     private final KugouClient kugou = new KugouClient();
+    private final MiguClient migu = new MiguClient();
     private final QqMusicClient qqMusic = new QqMusicClient();
     private final NeteaseClient netease = new NeteaseClient();
     private final TtmlClient ttml = new TtmlClient();
@@ -180,6 +181,8 @@ public class LyricsRepository {
         if (shouldUseRemote(remote, kuwoResult)) remote = kuwoResult;
         LyricsResult kugouResult = kugou.find(request);
         if (shouldUseRemote(remote, kugouResult)) remote = kugouResult;
+        LyricsResult miguResult = migu.find(request);
+        if (shouldUseRemote(remote, miguResult)) remote = miguResult;
         List<LrcLibClient.Entry> candidates = remote == null || !remote.isValid() ? client.findCandidates(request) : List.of();
         if (remote == null || !remote.isValid()) remote = matcher.best(request, candidates);
         if (remote != null && remote.isValid()) writeCache(request, sourceMode, remote);
@@ -200,6 +203,7 @@ public class LyricsRepository {
             case LyricsSetting.SOURCE_KUWO -> addAll(results, kuwo.findAll(request, 8));
             case LyricsSetting.SOURCE_LRCLIB -> addAll(results, matcher.all(request, client.findCandidates(request), 8));
             case LyricsSetting.SOURCE_KUGOU -> addAll(results, kugou.findAll(request, 8));
+            case LyricsSetting.SOURCE_MIGU -> addAll(results, migu.findAll(request, 8));
             default -> {
                 add(results, local);
                 addSearch(futures, "QQMusic", () -> qqMusic.findAll(request, 4));
@@ -207,6 +211,7 @@ public class LyricsRepository {
                 addSearch(futures, "Netease", () -> netease.findAll(request, 4));
                 addSearch(futures, "Kuwo", () -> kuwo.findAll(request, 4));
                 addSearch(futures, "Kugou", () -> kugou.findAll(request, 4));
+                addSearch(futures, "Migu", () -> migu.findAll(request, 4));
                 addSearch(futures, "LRCLIB", () -> matcher.all(request, client.findCandidates(request), 6));
                 collectSearch(results, futures);
             }
@@ -224,6 +229,7 @@ public class LyricsRepository {
         addSearch(futures, "Netease", () -> netease.findAll(request, 4));
         addSearch(futures, "Kuwo", () -> kuwo.findAll(request, 4));
         addSearch(futures, "Kugou", () -> kugou.findAll(request, 4));
+        addSearch(futures, "Migu", () -> migu.findAll(request, 4));
         addSearch(futures, "LRCLIB", () -> matcher.all(request, client.findCandidates(request), 6));
         collectSearchProgressive(request, sourceMode, results, futures, callback);
     }
@@ -237,6 +243,7 @@ public class LyricsRepository {
             case LyricsSetting.SOURCE_KUWO -> kuwo.find(request);
             case LyricsSetting.SOURCE_LRCLIB -> matcher.best(request, client.findCandidates(request));
             case LyricsSetting.SOURCE_KUGOU -> kugou.find(request);
+            case LyricsSetting.SOURCE_MIGU -> migu.find(request);
             default -> null;
         };
         if (result != null && result.isValid()) writeCache(request, sourceMode, result);
@@ -262,7 +269,8 @@ public class LyricsRepository {
     }
 
     private int weightedScore(LyricsResult result) {
-        return result.getScore() + (result.hasWordTiming() ? wordPriority(result) : 0);
+        if (result == null) return 0;
+        return result.getScore() + (result.hasWordTiming() ? 80 + wordPriority(result) : 0);
     }
 
     private int wordPriority(LyricsResult result) {
@@ -272,7 +280,8 @@ public class LyricsRepository {
         if (source.contains("QQMusic")) return 45;
         if (source.contains("Netease")) return 40;
         if (source.contains("Kugou KRC")) return 35;
-        if (source.contains("Kuwo")) return 10;
+        if (source.contains("Migu MRC")) return 34;
+        if (source.contains("Kuwo")) return 30;
         if (source.contains("Kugou")) return 8;
         if (source.contains("Local")) return 30;
         return 0;
@@ -367,8 +376,9 @@ public class LyricsRepository {
     private List<LyricsResult> sorted(List<LyricsResult> items, int limit) {
         ArrayList<LyricsResult> results = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        items.sort(Comparator.comparingInt((LyricsResult result) -> weightedScore(result)).reversed());
-        for (LyricsResult item : items) {
+        ArrayList<LyricsResult> candidates = new ArrayList<>(items == null ? List.of() : items);
+        candidates.sort(Comparator.comparingInt((LyricsResult result) -> weightedScore(result)).reversed());
+        for (LyricsResult item : candidates) {
             if (!seen.add(resultKey(item))) continue;
             results.add(item);
             if (results.size() >= limit) break;

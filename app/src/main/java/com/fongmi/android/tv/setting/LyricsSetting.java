@@ -12,6 +12,7 @@ public class LyricsSetting {
     public static final int SOURCE_KUWO = 5;
     public static final int SOURCE_LRCLIB = 6;
     public static final int SOURCE_KUGOU = 7;
+    public static final int SOURCE_MIGU = 8;
 
     public static int getSourceMode() {
         return sanitizeSourceMode(Prefers.getInt("lyrics_source_mode", SOURCE_AUTO));
@@ -22,7 +23,7 @@ public class LyricsSetting {
     }
 
     public static int sanitizeSourceMode(int mode) {
-        return mode >= SOURCE_AUTO && mode <= SOURCE_KUGOU ? mode : SOURCE_AUTO;
+        return mode >= SOURCE_AUTO && mode <= SOURCE_MIGU ? mode : SOURCE_AUTO;
     }
 
     public static String cacheSuffix(int mode) {
@@ -34,6 +35,7 @@ public class LyricsSetting {
             case SOURCE_KUWO -> "kuwo";
             case SOURCE_LRCLIB -> "lrclib";
             case SOURCE_KUGOU -> "kugou";
+            case SOURCE_MIGU -> "migu";
             default -> "";
         };
     }

@@ -1055,6 +1055,7 @@
         <item>酷我</item>
         <item>LRCLIB</item>
         <item>酷狗</item>
+        <item>咪咕</item>
     </string-array>
 
     <string-array name="select_lyrics_size">

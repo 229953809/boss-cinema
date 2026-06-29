@@ -10,6 +10,9 @@ import com.github.catvod.net.OkHttp;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -21,6 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.InflaterInputStream;
 
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -31,6 +35,7 @@ public class KuwoClient {
 
     private static final String TAG = "lyrics";
     private static final String USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
+    private static final byte[] NEW_LYRIC_KEY = "yeelion".getBytes(Charset.forName("US-ASCII"));
     private static final int MIN_SCORE = 58;
     private static final Pattern LRC_LINE = Pattern.compile("^(\\[(\\d{1,3}):(\\d{2})(?:[.:](\\d{1,3}))?])(.*)$");
     private static final Pattern LRCX_WORD = Pattern.compile("<(-?\\d+),(-?\\d+)>([^<]*)");
@@ -158,9 +163,112 @@ public class KuwoClient {
     }
 
     private String lyric(String id) {
+        String newer = lyricFromNewLyric(id);
+        if (LyricsParser.hasTimedLine(newer)) return newer;
         String mobi = lyricFromMobi(id);
         if (LyricsParser.hasTimedLine(mobi)) return mobi;
         return lyricFromOpenApi(id);
+    }
+
+    private String lyricFromNewLyric(String id) {
+        String query = buildNewLyricQuery(id, true);
+        try {
+            byte[] bytes = getBytes("http://newlyric.kuwo.cn/newlyric.lrc?" + query, Map.of("Referer", "https://www.kuwo.cn/"));
+            return normalizeNewLyric(decodeNewLyric(bytes, true));
+        } catch (Exception e) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "kuwo newlyric failed id=%s error=%s", id, e.getMessage());
+            return "";
+        }
+    }
+
+    private String buildNewLyricQuery(String id, boolean lrcx) {
+        String params = "user=12345,web,web,web&requester=localhost&req=1&rid=MUSIC_" + id + (lrcx ? "&lrcx=1" : "");
+        byte[] bytes = params.getBytes(Charset.forName("UTF-8"));
+        byte[] output = new byte[bytes.length];
+        for (int i = 0; i < bytes.length; i++) output[i] = (byte) (bytes[i] ^ NEW_LYRIC_KEY[i % NEW_LYRIC_KEY.length]);
+        return Base64.encodeToString(output, Base64.NO_WRAP);
+    }
+
+    private String decodeNewLyric(byte[] bytes, boolean lrcx) throws Exception {
+        if (bytes == null || bytes.length < 16) return "";
+        String header = new String(bytes, 0, Math.min(bytes.length, 10), Charset.forName("UTF-8"));
+        if (!"tp=content".equals(header)) return "";
+        int offset = bodyOffset(bytes);
+        if (offset < 0 || offset >= bytes.length) return "";
+        byte[] inflated;
+        try (InflaterInputStream input = new InflaterInputStream(new ByteArrayInputStream(bytes, offset, bytes.length - offset)); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int length;
+            while ((length = input.read(buffer)) != -1) output.write(buffer, 0, length);
+            inflated = output.toByteArray();
+        }
+        if (!lrcx) return new String(inflated, Charset.forName("GB18030"));
+        byte[] encrypted = Base64.decode(new String(inflated, Charset.forName("US-ASCII")).trim(), Base64.DEFAULT);
+        byte[] decoded = new byte[encrypted.length];
+        for (int i = 0; i < encrypted.length; i++) decoded[i] = (byte) (encrypted[i] ^ NEW_LYRIC_KEY[i % NEW_LYRIC_KEY.length]);
+        return new String(decoded, Charset.forName("GB18030")).replace("\uFEFF", "");
+    }
+
+    private int bodyOffset(byte[] bytes) {
+        for (int i = 0; i + 3 < bytes.length; i++) {
+            if (bytes[i] == '\r' && bytes[i + 1] == '\n' && bytes[i + 2] == '\r' && bytes[i + 3] == '\n') return i + 4;
+        }
+        return -1;
+    }
+
+    private String normalizeNewLyric(String lrc) {
+        if (TextUtils.isEmpty(lrc) || !lrc.contains("<")) return lrc;
+        int offset = 1;
+        int offset2 = 1;
+        StringBuilder builder = new StringBuilder();
+        for (String raw : lrc.replace("\r", "").split("\n")) {
+            String line = raw.trim();
+            if (line.startsWith("[kuwo:")) {
+                int start = line.indexOf(':') + 1;
+                int end = line.indexOf(']', start);
+                String value = end > start ? line.substring(start, end) : "";
+                int split = value.indexOf("][");
+                if (split >= 0) value = value.substring(0, split);
+                try {
+                    int parsed = Integer.parseInt(value.trim(), 8);
+                    offset = Math.max(1, parsed / 10);
+                    offset2 = Math.max(1, parsed % 10);
+                } catch (Exception ignored) {
+                }
+                continue;
+            }
+            Matcher lineMatcher = LRC_LINE.matcher(line);
+            if (!lineMatcher.find()) {
+                builder.append(raw).append('\n');
+                continue;
+            }
+            ArrayList<NewWord> words = parseNewWords(lineMatcher.group(5), offset, offset2);
+            if (words.isEmpty()) {
+                builder.append(raw).append('\n');
+                continue;
+            }
+            builder.append(lineMatcher.group(1));
+            for (NewWord word : words) builder.append('<').append(word.startMs).append(',').append(word.durationMs()).append('>').append(word.text);
+            builder.append('\n');
+        }
+        return builder.toString();
+    }
+
+    private ArrayList<NewWord> parseNewWords(String text, int offset, int offset2) {
+        ArrayList<NewWord> words = new ArrayList<>();
+        Matcher matcher = LRCX_WORD.matcher(text == null ? "" : text);
+        while (matcher.find()) {
+            String value = matcher.group(3);
+            if (TextUtils.isEmpty(value) || value.trim().isEmpty()) continue;
+            long a = parseLong(matcher.group(1));
+            long b = parseLong(matcher.group(2));
+            long start = Math.round(Math.abs((a + b) / (offset * 2.0)));
+            long end = start + Math.round(Math.abs((a - b) / (offset2 * 2.0)));
+            NewWord previous = words.isEmpty() ? null : words.get(words.size() - 1);
+            if (previous != null && start < previous.endMs) previous.endMs = Math.max(previous.startMs, start);
+            words.add(new NewWord(start, Math.max(start, end), value));
+        }
+        return words;
     }
 
     private String lyricFromMobi(String id) {
@@ -254,6 +362,15 @@ public class KuwoClient {
         try (Response response = CLIENT.newCall(builder.build()).execute()) {
             if (!response.isSuccessful() || response.body() == null) return "";
             return response.body().string();
+        }
+    }
+
+    private byte[] getBytes(String url, Map<String, String> headers) throws Exception {
+        Request.Builder builder = new Request.Builder().url(url).header("User-Agent", USER_AGENT);
+        for (Map.Entry<String, String> entry : headers.entrySet()) builder.header(entry.getKey(), entry.getValue());
+        try (Response response = CLIENT.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful() || response.body() == null) return new byte[0];
+            return response.body().bytes();
         }
     }
 
@@ -387,6 +504,23 @@ public class KuwoClient {
 
         private long durationMs() {
             return Math.max(0, Math.round((start - value) / 6.0));
+        }
+    }
+
+    private static class NewWord {
+
+        private final long startMs;
+        private long endMs;
+        private final String text;
+
+        private NewWord(long startMs, long endMs, String text) {
+            this.startMs = Math.max(0, startMs);
+            this.endMs = Math.max(this.startMs, endMs);
+            this.text = text == null ? "" : text;
+        }
+
+        private long durationMs() {
+            return Math.max(0, endMs - startMs);
         }
     }
 }

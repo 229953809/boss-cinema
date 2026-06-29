@@ -1991,7 +1991,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             return;
         }
         dismissLyricsResultDialog();
-        mLyricsResultAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_list_item_single_choice, labels);
+        mLyricsResultAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_list_item_single_choice, new ArrayList<>(List.of(labels)));
         AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
                 .setTitle(R.string.player_lyrics_select)
                 .setSingleChoiceItems(mLyricsResultAdapter, -1, (d, which) -> {

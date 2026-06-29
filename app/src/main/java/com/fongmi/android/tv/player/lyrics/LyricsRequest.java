@@ -79,6 +79,11 @@ public class LyricsRequest {
         addKeyword(keywords, name);
         addKeyword(keywords, stripSearchNoise(name));
         addKeyword(keywords, normalizeSearchText(name));
+        for (String artist : splitArtists(singer)) addKeyword(keywords, artist, " ", name);
+        for (String title : splitTitleAliases(name)) {
+            addKeyword(keywords, singer, " ", title);
+            addKeyword(keywords, title);
+        }
         return keywords;
     }
 
@@ -142,8 +147,27 @@ public class LyricsRequest {
     private static String stripSearchNoise(String text) {
         String value = clean(text);
         value = value.replaceAll("\\([^)]*\\)|\\[[^]]*]|（[^）]*）|【[^】]*】", " ");
-        value = value.replaceAll("(?i)\\b(tv size|short ver\\.?|full ver\\.?|instrumental|karaoke|off vocal|cover|remix|live)\\b", " ");
+        value = value.replaceAll("(?i)\\b(tv size|short ver\\.?|full ver\\.?|instrumental|karaoke|off vocal|cover|remix|live|opening|ending|op|ed)\\b", " ");
+        value = value.replaceAll("(?i)tvアニメ|テレビアニメ|アニメ|オープニング|エンディング|主題歌|挿入歌", " ");
         return value.replaceAll("\\s+", " ").trim();
+    }
+
+    private static List<String> splitArtists(String artist) {
+        List<String> values = new ArrayList<>();
+        for (String item : clean(artist).split("(?i)\\s*(?:/|,|、|&|feat\\.?|featuring|with|;|；)\\s*")) {
+            String value = normalizeSearchText(item);
+            if (!TextUtils.isEmpty(value) && !containsKeyword(values, value)) values.add(value);
+        }
+        return values;
+    }
+
+    private static List<String> splitTitleAliases(String title) {
+        List<String> values = new ArrayList<>();
+        for (String item : clean(title).split("\\s*(?:/|／|,|、|;|；)\\s*")) {
+            String value = normalizeSearchText(item);
+            if (!TextUtils.isEmpty(value) && !containsKeyword(values, value)) values.add(value);
+        }
+        return values;
     }
 
     private static String normalizeSearchText(String text) {
