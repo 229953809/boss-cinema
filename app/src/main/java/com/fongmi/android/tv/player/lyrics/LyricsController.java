@@ -68,7 +68,7 @@ public class LyricsController {
             activeSignature = signature;
             lines = parsed;
             view.setLyrics(result, parsed);
-            update(player.getPosition());
+            update(player);
         });
     }
 
@@ -98,6 +98,11 @@ public class LyricsController {
     public void update(long positionMs) {
         if (lines.isEmpty()) return;
         view.update(positionMs);
+    }
+
+    public void update(PlayerManager player) {
+        if (player == null || lines.isEmpty()) return;
+        view.update(player.getPosition(), player.isPlaying());
     }
 
     public void clear() {

@@ -2048,7 +2048,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         long position, duration;
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
-        if (mLyrics != null) mLyrics.update(player().getPosition());
+        if (mLyrics != null) mLyrics.update(player());
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         PlaybackEventCollector.get().onProgress(mHistory, player());
