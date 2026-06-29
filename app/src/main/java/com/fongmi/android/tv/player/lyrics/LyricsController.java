@@ -52,7 +52,7 @@ public class LyricsController {
         lines = Collections.emptyList();
         view.clear();
         int current = ++sequence;
-        repository.load(request, result -> {
+        repository.loadPreferWord(request, result -> {
             if (current != sequence) return;
             loadingSignature = null;
             if (result == null || !result.isValid()) {

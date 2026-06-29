@@ -49,7 +49,7 @@ public class LyricsRepository {
 
     private LyricsResult loadSync(LyricsRequest request, boolean preferWord) {
         LyricsResult cached = readCache(request);
-        if (cached != null && cached.isValid() && cached.isCacheCurrent() && (!preferWord || cached.hasWordTiming())) return cached;
+        if (cached != null && cached.isValid() && cached.isCacheCurrent() && (!preferWord || isTrustedWord(cached))) return cached;
         LyricsResult remote = cached != null && cached.isValid() && cached.isCacheCurrent() ? cached : null;
         LyricsResult local = readLocal(request);
         if (local != null && local.isValid()) {
@@ -59,20 +59,14 @@ public class LyricsRepository {
             }
             if (shouldUseRemote(remote, local)) remote = local;
         }
+        LyricsResult qq = qqMusic.find(request);
+        if (shouldUseRemote(remote, qq)) remote = qq;
+        LyricsResult ttmlResult = ttml.find(request);
+        if (shouldUseRemote(remote, ttmlResult)) remote = ttmlResult;
+        LyricsResult cloud = netease.find(request);
+        if (shouldUseRemote(remote, cloud)) remote = cloud;
         LyricsResult kuwoResult = kuwo.find(request);
         if (shouldUseRemote(remote, kuwoResult)) remote = kuwoResult;
-        if (remote == null || !remote.isValid() || !remote.hasWordTiming()) {
-            LyricsResult qq = qqMusic.find(request);
-            if (shouldUseRemote(remote, qq)) remote = qq;
-        }
-        if (remote == null || !remote.isValid() || !remote.hasWordTiming()) {
-            LyricsResult ttmlResult = ttml.find(request);
-            if (shouldUseRemote(remote, ttmlResult)) remote = ttmlResult;
-        }
-        if (remote == null || !remote.isValid() || !remote.hasWordTiming()) {
-            LyricsResult cloud = netease.find(request);
-            if (shouldUseRemote(remote, cloud)) remote = cloud;
-        }
         List<LrcLibClient.Entry> candidates = remote == null || !remote.isValid() ? client.findCandidates(request) : List.of();
         if (remote == null || !remote.isValid()) remote = matcher.best(request, candidates);
         if (remote != null && remote.isValid()) writeCache(request, remote);
@@ -84,7 +78,32 @@ public class LyricsRepository {
         if (remote == null || !remote.isValid()) return false;
         if (current == null || !current.isValid()) return true;
         if (remote.hasWordTiming() && !current.hasWordTiming()) return true;
-        return remote.getScore() > current.getScore() + 10;
+        if (remote.hasWordTiming() && current.hasWordTiming()) {
+            int remotePriority = wordPriority(remote);
+            int currentPriority = wordPriority(current);
+            if (remotePriority > currentPriority && remote.getScore() >= current.getScore() - 15) return true;
+            if (remotePriority < currentPriority && remote.getScore() <= current.getScore() + 15) return false;
+        }
+        return weightedScore(remote) > weightedScore(current) + 10;
+    }
+
+    private boolean isTrustedWord(LyricsResult result) {
+        return result != null && result.isValid() && result.hasWordTiming() && wordPriority(result) >= 30;
+    }
+
+    private int weightedScore(LyricsResult result) {
+        return result.getScore() + (result.hasWordTiming() ? wordPriority(result) : 0);
+    }
+
+    private int wordPriority(LyricsResult result) {
+        String source = result == null || result.getSource() == null ? "" : result.getSource();
+        if (source.contains("Local TTML")) return 60;
+        if (source.contains("AMLL TTML")) return 50;
+        if (source.contains("QQMusic")) return 45;
+        if (source.contains("Netease")) return 40;
+        if (source.contains("Kuwo")) return 10;
+        if (source.contains("Local")) return 30;
+        return 0;
     }
 
     private LyricsResult readCache(LyricsRequest request) {
