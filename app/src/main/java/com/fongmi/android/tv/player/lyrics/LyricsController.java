@@ -93,7 +93,33 @@ public class LyricsController {
         lines = parsed;
         view.setLyrics(result, parsed);
         update(positionMs);
+        if (!result.hasWordTiming()) upgradeInlineLyrics(current, key, signature, title, artist, durationMs, positionMs);
         return true;
+    }
+
+    private void upgradeInlineLyrics(int current, String inlineKey, String signature, String title, String artist, long durationMs, long positionMs) {
+        LyricsRequest request = new LyricsRequest(signature, "", title, artist, "", durationMs);
+        if (!request.isValid()) return;
+        String requestSignature = request.signature();
+        if (requestSignature.equals(loadingSignature) || requestSignature.equals(emptySignature)) return;
+        loadingSignature = requestSignature;
+        repository.loadPreferWord(request, result -> {
+            if (current != sequence || !inlineKey.equals(activeSignature)) return;
+            if (requestSignature.equals(loadingSignature)) loadingSignature = null;
+            if (result == null || !result.isValid() || !result.hasWordTiming()) {
+                emptySignature = requestSignature;
+                return;
+            }
+            ArrayList<LyricsLine> parsed = new ArrayList<>(result.getLines(durationMs));
+            if (parsed.isEmpty() || !hasWordTiming(parsed)) {
+                emptySignature = requestSignature;
+                return;
+            }
+            emptySignature = null;
+            lines = parsed;
+            view.setLyrics(result, parsed);
+            update(positionMs);
+        });
     }
 
     public void update(long positionMs) {
@@ -145,6 +171,11 @@ public class LyricsController {
 
     private static String safe(String text) {
         return text == null ? "" : text;
+    }
+
+    private static boolean hasWordTiming(List<LyricsLine> lines) {
+        for (LyricsLine line : lines) if (line.hasWords()) return true;
+        return false;
     }
 
     private static long adjust(long positionMs) {

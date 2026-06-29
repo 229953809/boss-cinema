@@ -27,10 +27,18 @@ public class LyricsRepository {
     private final LyricsMatcher matcher = new LyricsMatcher();
 
     public void load(LyricsRequest request, Callback callback) {
+        load(request, false, callback);
+    }
+
+    public void loadPreferWord(LyricsRequest request, Callback callback) {
+        load(request, true, callback);
+    }
+
+    private void load(LyricsRequest request, boolean preferWord, Callback callback) {
         Task.execute(() -> {
             LyricsResult result = null;
             try {
-                result = loadSync(request);
+                result = loadSync(request, preferWord);
             } catch (Throwable e) {
                 if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "load failed title=%s error=%s", request.getTitle(), e.getMessage());
             }
@@ -39,15 +47,20 @@ public class LyricsRepository {
         });
     }
 
-    private LyricsResult loadSync(LyricsRequest request) {
+    private LyricsResult loadSync(LyricsRequest request, boolean preferWord) {
         LyricsResult cached = readCache(request);
-        if (cached != null && cached.isValid() && cached.isCacheCurrent()) return cached;
+        if (cached != null && cached.isValid() && cached.isCacheCurrent() && (!preferWord || cached.hasWordTiming())) return cached;
+        LyricsResult remote = cached != null && cached.isValid() && cached.isCacheCurrent() ? cached : null;
         LyricsResult local = readLocal(request);
         if (local != null && local.isValid()) {
-            writeCache(request, local);
-            return local;
+            if (!preferWord || local.hasWordTiming()) {
+                writeCache(request, local);
+                return local;
+            }
+            if (shouldUseRemote(remote, local)) remote = local;
         }
-        LyricsResult remote = kuwo.find(request);
+        LyricsResult kuwoResult = kuwo.find(request);
+        if (shouldUseRemote(remote, kuwoResult)) remote = kuwoResult;
         if (remote == null || !remote.isValid() || !remote.hasWordTiming()) {
             LyricsResult qq = qqMusic.find(request);
             if (shouldUseRemote(remote, qq)) remote = qq;
