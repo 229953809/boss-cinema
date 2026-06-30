@@ -817,7 +817,9 @@
     <string name="player_karaoke_mic_delay">Mic delay</string>
     <string name="player_karaoke_status_free">Karaoke · Free sing</string>
     <string name="player_karaoke_status_free_score">Karaoke · Fun %1$d</string>
+    <string name="player_karaoke_status_free_score_grade">Karaoke · Fun %1$d · %2$s</string>
     <string name="player_karaoke_status_score">Karaoke · %1$d</string>
+    <string name="player_karaoke_status_score_grade">Karaoke · %1$d · %2$s</string>
     <string name="player_karaoke_waiting">Waiting for mic</string>
     <string name="player_karaoke_need_permission">Microphone permission required</string>
     <string name="player_karaoke_mic_unavailable">Microphone unavailable</string>
@@ -852,7 +854,7 @@
     <string name="player_karaoke_result_title">Karaoke result</string>
     <string name="player_karaoke_result_scoring">Pitch scoring</string>
     <string name="player_karaoke_result_free">Free sing</string>
-    <string name="player_karaoke_result_message">%1$s\nScore: %2$d\nActive time: %3$d sec\n%4$s: %5$d%%\nVoice coverage: %6$d%%\nBest combo: %7$d sec</string>
+    <string name="player_karaoke_result_message">%1$s\nScore: %2$d (%3$s)\nActive time: %4$d sec\n%5$s: %6$d%%\nVoice coverage: %7$d%%\nBest combo: %8$d sec</string>
     <string name="player_karaoke_result_track">Track: %1$s</string>
     <string name="player_karaoke_result_metric_hit">Hit rate</string>
     <string name="player_karaoke_result_metric_participation">Participation</string>

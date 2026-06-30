@@ -83,4 +83,8 @@ public class KaraokeScoreSnapshot {
         if (totalWeightMs <= 0) return 0;
         return (int) Math.round(Math.max(0, Math.min(100, hitWeightMs * 100.0 / totalWeightMs)));
     }
+
+    public String getGrade() {
+        return KaraokeGrade.fromScore(getScorePercent());
+    }
 }

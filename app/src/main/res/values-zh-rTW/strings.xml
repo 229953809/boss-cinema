@@ -799,7 +799,9 @@
     <string name="player_karaoke_mic_delay">麥克風延遲</string>
     <string name="player_karaoke_status_free">K歌 · 自由唱</string>
     <string name="player_karaoke_status_free_score">K歌 · 娛樂 %1$d 分</string>
+    <string name="player_karaoke_status_free_score_grade">K歌 · 娛樂 %1$d 分 · %2$s</string>
     <string name="player_karaoke_status_score">K歌 · %1$d 分</string>
+    <string name="player_karaoke_status_score_grade">K歌 · %1$d 分 · %2$s</string>
     <string name="player_karaoke_waiting">等待麥克風</string>
     <string name="player_karaoke_need_permission">需要麥克風權限</string>
     <string name="player_karaoke_mic_unavailable">麥克風不可用</string>
@@ -834,7 +836,7 @@
     <string name="player_karaoke_result_title">K歌結果</string>
     <string name="player_karaoke_result_scoring">音準評分</string>
     <string name="player_karaoke_result_free">自由唱</string>
-    <string name="player_karaoke_result_message">%1$s\n得分：%2$d\n有效時長：%3$d 秒\n%4$s：%5$d%%\n演唱覆蓋：%6$d%%\n最長連擊：%7$d 秒</string>
+    <string name="player_karaoke_result_message">%1$s\n得分：%2$d（%3$s）\n有效時長：%4$d 秒\n%5$s：%6$d%%\n演唱覆蓋：%7$d%%\n最長連擊：%8$d 秒</string>
     <string name="player_karaoke_result_track">評分譜：%1$s</string>
     <string name="player_karaoke_result_metric_hit">命中率</string>
     <string name="player_karaoke_result_metric_participation">參與度</string>

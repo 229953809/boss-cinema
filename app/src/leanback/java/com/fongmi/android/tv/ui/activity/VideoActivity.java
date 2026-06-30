@@ -1342,7 +1342,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private String getKaraokeResultMessage(KaraokeResult result) {
         String mode = getString(result.isScoring() ? R.string.player_karaoke_result_scoring : R.string.player_karaoke_result_free);
         String metric = getString(result.isScoring() ? R.string.player_karaoke_result_metric_hit : R.string.player_karaoke_result_metric_participation);
-        String message = getString(R.string.player_karaoke_result_message, mode, result.getScorePercent(), result.getTotalSeconds(), metric, result.getHitPercent(), result.getVoicedPercent(), result.getBestComboSeconds());
+        String message = getString(R.string.player_karaoke_result_message, mode, result.getScorePercent(), result.getGrade(), result.getTotalSeconds(), metric, result.getHitPercent(), result.getVoicedPercent(), result.getBestComboSeconds());
         return TextUtils.isEmpty(result.getTrackLabel()) ? message : message + "\n" + getString(R.string.player_karaoke_result_track, result.getTrackLabel());
     }
 

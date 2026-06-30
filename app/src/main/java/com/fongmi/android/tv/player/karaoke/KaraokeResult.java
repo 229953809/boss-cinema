@@ -8,6 +8,7 @@ public class KaraokeResult {
     private final int voicedPercent;
     private final long totalMs;
     private final int bestComboSeconds;
+    private final String grade;
     private final String trackLabel;
 
     private KaraokeResult(boolean scoring, int scorePercent, int hitPercent, int voicedPercent, long totalMs, int bestComboSeconds, String trackLabel) {
@@ -17,6 +18,7 @@ public class KaraokeResult {
         this.voicedPercent = voicedPercent;
         this.totalMs = totalMs;
         this.bestComboSeconds = Math.max(0, bestComboSeconds);
+        this.grade = KaraokeGrade.fromScore(scorePercent);
         this.trackLabel = trackLabel == null ? "" : trackLabel.trim();
     }
 
@@ -54,6 +56,10 @@ public class KaraokeResult {
 
     public int getBestComboSeconds() {
         return bestComboSeconds;
+    }
+
+    public String getGrade() {
+        return grade;
     }
 
     public String getTrackLabel() {

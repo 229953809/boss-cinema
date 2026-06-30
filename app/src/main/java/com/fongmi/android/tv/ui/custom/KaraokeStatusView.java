@@ -26,6 +26,7 @@ public class KaraokeStatusView extends LinearLayout {
 
     private final MaterialTextView title;
     private final MaterialTextView detail;
+    private final ScoreProgressView score;
     private final PitchMeterView pitch;
     private final VolumeMeterView volume;
 
@@ -45,12 +46,16 @@ public class KaraokeStatusView extends LinearLayout {
 
         title = textView(context, 13, true);
         detail = textView(context, 12, false);
+        score = new ScoreProgressView(context);
         pitch = new PitchMeterView(context);
         volume = new VolumeMeterView(context);
         addView(title, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         addView(detail, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        LayoutParams scoreParams = new LayoutParams(dp(156), dp(12));
+        scoreParams.topMargin = dp(8);
+        addView(score, scoreParams);
         LayoutParams pitchParams = new LayoutParams(dp(156), dp(34));
-        pitchParams.topMargin = dp(8);
+        pitchParams.topMargin = dp(7);
         addView(pitch, pitchParams);
         LayoutParams params = new LayoutParams(dp(112), dp(30));
         params.topMargin = dp(8);
@@ -67,6 +72,8 @@ public class KaraokeStatusView extends LinearLayout {
         String text = getDetail(status, sample, snapshot, track);
         detail.setText(text);
         detail.setVisibility(text.isEmpty() ? GONE : VISIBLE);
+        score.setState(snapshot);
+        score.setVisibility(showScore(status, snapshot) ? VISIBLE : GONE);
         pitch.setState(sample, snapshot);
         pitch.setVisibility(showPitch(status, snapshot) ? VISIBLE : GONE);
         volume.setLevel(getVolumeLevel(status, sample));
@@ -74,8 +81,11 @@ public class KaraokeStatusView extends LinearLayout {
     }
 
     private String getTitle(KaraokeStatus status, KaraokeScoreSnapshot snapshot) {
-        if (status == KaraokeStatus.SCORING) return getResources().getString(R.string.player_karaoke_status_score, snapshot == null ? 0 : snapshot.getScorePercent());
-        if (status == KaraokeStatus.FREE_SING && snapshot != null && snapshot.getTotalWeightMs() > 0) return getResources().getString(R.string.player_karaoke_status_free_score, snapshot.getScorePercent());
+        if (status == KaraokeStatus.SCORING) {
+            if (snapshot != null && snapshot.getTotalWeightMs() > 0) return getResources().getString(R.string.player_karaoke_status_score_grade, snapshot.getScorePercent(), snapshot.getGrade());
+            return getResources().getString(R.string.player_karaoke_status_score, 0);
+        }
+        if (status == KaraokeStatus.FREE_SING && snapshot != null && snapshot.getTotalWeightMs() > 0) return getResources().getString(R.string.player_karaoke_status_free_score_grade, snapshot.getScorePercent(), snapshot.getGrade());
         return getResources().getString(R.string.player_karaoke_status_free);
     }
 
@@ -105,6 +115,12 @@ public class KaraokeStatusView extends LinearLayout {
 
     private boolean showVolume(KaraokeStatus status) {
         return status == KaraokeStatus.FREE_SING || status == KaraokeStatus.SCORING;
+    }
+
+    private boolean showScore(KaraokeStatus status, KaraokeScoreSnapshot snapshot) {
+        return (status == KaraokeStatus.FREE_SING || status == KaraokeStatus.SCORING)
+                && snapshot != null
+                && snapshot.getTotalWeightMs() > 0;
     }
 
     private boolean showPitch(KaraokeStatus status, KaraokeScoreSnapshot snapshot) {
@@ -140,6 +156,56 @@ public class KaraokeStatusView extends LinearLayout {
 
     private int dp(float value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private class ScoreProgressView extends View {
+
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF rect = new RectF();
+        private int scorePercent;
+        private int voicedPercent;
+
+        private ScoreProgressView(Context context) {
+            super(context);
+        }
+
+        private void setState(KaraokeScoreSnapshot snapshot) {
+            scorePercent = snapshot == null ? 0 : snapshot.getScorePercent();
+            voicedPercent = snapshot == null ? 0 : snapshot.getVoicedPercent();
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float left = dp(2);
+            float right = getWidth() - dp(2);
+            float trackHeight = dp(6);
+            float top = (getHeight() - trackHeight) / 2f;
+            float radius = trackHeight / 2f;
+            rect.set(left, top, right, top + trackHeight);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0x2EFFFFFF);
+            canvas.drawRoundRect(rect, radius, radius, paint);
+            drawFill(canvas, left, right, top, trackHeight, radius, voicedPercent, 0x6638BDF8);
+            drawFill(canvas, left, right, top, trackHeight, radius, scorePercent, colorForScore(scorePercent));
+        }
+
+        private void drawFill(Canvas canvas, float left, float right, float top, float height, float radius, int percent, int color) {
+            if (percent <= 0) return;
+            float width = (right - left) * Math.min(100, percent) / 100f;
+            rect.set(left, top, left + width, top + height);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(color);
+            canvas.drawRoundRect(rect, radius, radius, paint);
+        }
+
+        private int colorForScore(int score) {
+            if (score >= 80) return 0xFF34D399;
+            if (score >= 60) return 0xFF2DD4BF;
+            if (score >= 40) return 0xFFFBBF24;
+            return 0xFF38BDF8;
+        }
     }
 
     private class PitchMeterView extends View {
