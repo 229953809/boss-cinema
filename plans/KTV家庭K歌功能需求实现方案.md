@@ -94,7 +94,7 @@
 - USDB / UltraStar-ES 这类 UltraStar 曲库的价值在于提供 `.txt` 评分谱或可重建的音符数据；公开稳定 JSON API 不明确，但网页源仍可用，不能直接排除。
 - 这类源不适合默认静默爬取，但适合做“评分谱搜索/导入”的可选链路：用户主动搜索、选择结果，必要时用户自备账号 Cookie。
 - `ultrastar-score`、USDX、Performous、Vocaluxe 证明 UltraStar `.txt + 麦克风音高` 的评分链路成熟，但它们不是音符轨在线来源。
-- 因此 App 内的首选策略不是自动抓库，而是把 UltraStar `.txt` 作为标准导入格式：本地旁挂优先，后续补文件选择和 URL 导入。
+- 因此 App 内的首选策略不是自动抓库，而是把 UltraStar `.txt` 作为标准导入格式：本地旁挂、文件选择、URL 导入、自定义 GitHub 谱源和可选网页谱源搜索都围绕这个标准落地。
 
 ### 音符轨相关开源项目 / 网页 API 专项清单
 
@@ -119,7 +119,7 @@
 1. 已实现本地旁挂和导入绑定，把 UltraStar `.txt` 作为第一标准音符轨格式。
 2. 已实现 MIDI / KAR 导入，解析标准 MIDI note-on/off 事件并选择更像人声旋律的轨道，转换为 UltraStar 格式后绑定当前播放项。
 3. 已实现 URL 导入，支持直接返回 UltraStar 文本的链接、GitHub/GitLab raw/blob 链接、USDB ID/详情页 view 重建。
-4. 已实现在线搜索的非 USDB 默认来源：GitHub 公开 UltraStar 谱库、UltraStar-ES 匿名搜索；USDB 放在后置候选，不作为当前优先实现方向。
+4. 已实现在线搜索来源：GitHub 公开 UltraStar 谱库、用户自定义 GitHub 谱源、UltraStar-ES 匿名搜索；USDB 支持 ID/详情页导入、RSS fallback，并在用户已有登录 Cookie 时支持网页 POST 关键词搜索。
 5. 已实现“轻量节奏评分谱”：从当前歌词时间轴生成 UltraStar RAP 类型评分窗口，用于无人工谱时的节奏/参与度评分，不做目标音高判断。
 6. 已完成独立 `KaraokeTrackProvider` 抽象，当前 GitHub、UltraStar-ES、USDB 搜索都通过 Provider 调度；后续新增谱源不能混进 `LyricsRepository`。
 7. 后续如果继续扩展登录态爬虫谱源，应使用用户自备 Cookie，不进入默认静默链路。
@@ -431,11 +431,15 @@ KaraokeScorer  ----->  娱乐跟唱分 / 音准命中率 / 稳定度 / 评级
   命中目标音符时长 / 目标音符总时长 * 100
 ```
 
+已增加：
+
+- 连击加分。
+- 金色音符加权。
+- 逐句统计。
+
 后续可增加：
 
 - 长音稳定度加分。
-- 连击加分。
-- 金色音符加权。
 - 歌句完成度奖励。
 
 ### TV 家庭 K歌模式
@@ -774,17 +778,16 @@ noteEndMs = noteStartMs + beatToMs(lengthBeat)
 
 ## 后续决策点
 
+已落地：
+
+1. UltraStar `.txt` 导入方式：同目录旁挂、本地文件选择、URL 导入、自定义 GitHub 在线谱源。
+2. MIDI / KAR 导入与主旋律轨启发式选择。
+
 需要后续确认：
 
-1. UltraStar `.txt` 文件从哪里导入：
-   - 同目录旁挂。
-   - 本地文件选择。
-   - URL 导入。
-   - 后续可配置在线库。
-2. 是否支持 MIDI / KAR 导入，以及主旋律轨如何选择。
-3. TV 手机麦克风协议先用 HTTP 轮询、WebSocket，还是局域网发现 + WebSocket。
-4. 是否做多人评分。
-5. 是否做外部制谱工具 / 自托管服务，还是只支持用户已有 UltraStar / MIDI 文件。
+1. TV 手机麦克风协议先用 HTTP 轮询、WebSocket，还是局域网发现 + WebSocket。
+2. 是否做多人评分。
+3. 是否做外部制谱工具 / 自托管服务，还是只支持用户已有 UltraStar / MIDI 文件。
 
 ## 建议落地顺序
 
@@ -795,8 +798,8 @@ noteEndMs = noteStartMs + beatToMs(lengthBeat)
 3. 已完成基础版：评分状态的 seek / 长跳变保护和 warmup。
 4. 已完成：UltraStar / MIDI 导入、绑定和缓存。
 5. 已完成基础版：有谱评分 UI，包括当前音高、目标音偏差、命中状态、当前句分数、目标音符时间线、用户音高历史曲线、音量、分数/覆盖条、连击提示和评级。
-6. 下一步：更完整的大屏目标音符条和金色音符视觉特效。
-7. 后续：TV K歌布局和手机当麦克风。
+6. 已完成：更完整的大屏目标音符条和金色音符视觉特效。
+7. 后续决策：TV 专用 K歌布局、手机当 TV 麦克风、多人评分。
 
 暂缓做：
 
