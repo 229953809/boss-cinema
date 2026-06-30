@@ -837,10 +837,16 @@
     <string name="player_karaoke_result_title">K歌結果</string>
     <string name="player_karaoke_result_scoring">音準評分</string>
     <string name="player_karaoke_result_free">自由唱</string>
-    <string name="player_karaoke_result_message">%1$s\n得分：%2$d（%3$s）\n有效時長：%4$d 秒\n%5$s：%6$d%%\n演唱覆蓋：%7$d%%\n最長連擊：%8$d 秒\n逐句：%9$d 句 · 平均 %10$d%% · 最佳 %11$d%%</string>
     <string name="player_karaoke_result_track">評分譜：%1$s</string>
     <string name="player_karaoke_result_metric_hit">命中率</string>
     <string name="player_karaoke_result_metric_participation">參與度</string>
+    <string name="player_karaoke_result_score_value">%1$d 分 · %2$s</string>
+    <string name="player_karaoke_result_progress">%1$s %2$d%%</string>
+    <string name="player_karaoke_result_voice_coverage">演唱覆蓋</string>
+    <string name="player_karaoke_result_active_time">有效 %1$d 秒</string>
+    <string name="player_karaoke_result_best_combo">連擊 %1$d 秒</string>
+    <string name="player_karaoke_result_line_average">逐句平均</string>
+    <string name="player_karaoke_result_line_summary">逐句 %1$d 句 · 最佳 %2$d%%</string>
     <string name="player_desktop_lyrics">桌面歌詞</string>
     <string name="player_desktop_lyrics_permission">請允許顯示在其他應用程式上層，用於顯示桌面歌詞</string>
     <string name="player_desktop_lyrics_position_reset">桌面歌詞位置已重置</string>

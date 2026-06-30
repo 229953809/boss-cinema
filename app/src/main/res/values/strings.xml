@@ -855,10 +855,16 @@
     <string name="player_karaoke_result_title">Karaoke result</string>
     <string name="player_karaoke_result_scoring">Pitch scoring</string>
     <string name="player_karaoke_result_free">Free sing</string>
-    <string name="player_karaoke_result_message">%1$s\nScore: %2$d (%3$s)\nActive time: %4$d sec\n%5$s: %6$d%%\nVoice coverage: %7$d%%\nBest combo: %8$d sec\nLines: %9$d · Avg %10$d%% · Best %11$d%%</string>
     <string name="player_karaoke_result_track">Track: %1$s</string>
     <string name="player_karaoke_result_metric_hit">Hit rate</string>
     <string name="player_karaoke_result_metric_participation">Participation</string>
+    <string name="player_karaoke_result_score_value">%1$d · %2$s</string>
+    <string name="player_karaoke_result_progress">%1$s %2$d%%</string>
+    <string name="player_karaoke_result_voice_coverage">Voice coverage</string>
+    <string name="player_karaoke_result_active_time">Active %1$d sec</string>
+    <string name="player_karaoke_result_best_combo">Combo %1$d sec</string>
+    <string name="player_karaoke_result_line_average">Line average</string>
+    <string name="player_karaoke_result_line_summary">Lines %1$d · Best %2$d%%</string>
     <string name="player_desktop_lyrics">Desktop lyrics</string>
     <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>
     <string name="player_desktop_lyrics_position_reset">Desktop lyrics position reset</string>

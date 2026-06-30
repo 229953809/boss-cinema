@@ -99,6 +99,7 @@ import com.fongmi.android.tv.ui.base.ViewType;
 import com.fongmi.android.tv.ui.custom.CustomKeyDown;
 import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
+import com.fongmi.android.tv.ui.custom.KaraokeResultView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.ui.dialog.CastDialog;
@@ -1421,7 +1422,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKaraokeResultShown = true;
         new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
                 .setTitle(R.string.player_karaoke_result_title)
-                .setMessage(getKaraokeResultMessage(result))
+                .setView(new KaraokeResultView(this).setResult(result))
                 .setPositiveButton(R.string.dialog_positive, (dialog, which) -> runAfterKaraokeResult(after))
                 .setOnCancelListener(dialog -> runAfterKaraokeResult(after))
                 .show();
@@ -1430,13 +1431,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void runAfterKaraokeResult(@Nullable Runnable after) {
         if (after != null) after.run();
-    }
-
-    private String getKaraokeResultMessage(KaraokeResult result) {
-        String mode = getString(result.isScoring() ? R.string.player_karaoke_result_scoring : R.string.player_karaoke_result_free);
-        String metric = getString(result.isScoring() ? R.string.player_karaoke_result_metric_hit : R.string.player_karaoke_result_metric_participation);
-        String message = getString(R.string.player_karaoke_result_message, mode, result.getScorePercent(), result.getGrade(), result.getTotalSeconds(), metric, result.getHitPercent(), result.getVoicedPercent(), result.getBestComboSeconds(), result.getScoredLineCount(), result.getAverageLineScorePercent(), result.getBestLineScorePercent());
-        return TextUtils.isEmpty(result.getTrackLabel()) ? message : message + "\n" + getString(R.string.player_karaoke_result_track, result.getTrackLabel());
     }
 
     @Override
