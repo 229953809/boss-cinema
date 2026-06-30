@@ -21,9 +21,11 @@ import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -39,10 +41,12 @@ public class KaraokeTrackRepository {
     static final long MAX_REMOTE_BYTES = 512L * 1024L;
     private static final long MAX_SIDECAR_BYTES = 512L * 1024L;
     private static final long MAX_MIDI_BYTES = 2L * 1024L * 1024L;
+    private static final long SEARCH_CACHE_MS = TimeUnit.MINUTES.toMillis(10);
     private static final Pattern USDB_ID = Pattern.compile("(?i)(?:usdb\\.animux\\.de[\\s\\S]*?[?&]id=|\\busdb\\s*[:#]?\\s*|^)(\\d{3,6})(?:\\D|$)");
     private static final Pattern USDB_FIELD = Pattern.compile("(?is)<tr\\s+class=\"list_tr[12]\"\\s*>\\s*<td>\\s*%s\\s*</td>\\s*<td>(.*?)</td>");
     private static final Pattern USDB_NOTE = Pattern.compile("giveinfo0\\('([^']*)','(-?\\d+)','(-?\\d+)','(-?\\d+)','([^']*)','([^']*)'\\)");
     private static final Pattern GITHUB_BLOB = Pattern.compile("(?i)^https://github\\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$");
+    private static final Map<String, SearchCache> SEARCH_CACHE = new HashMap<>();
     private static final KaraokeTrackProvider[] PROVIDERS = new KaraokeTrackProvider[]{
             new KaraokeGithubTrackProvider(),
             new KaraokeUltraStarEsProvider(),
@@ -144,6 +148,12 @@ public class KaraokeTrackRepository {
 
     public static void search(PlayerManager player, String keyword, Consumer<List<SearchResult>> callback) {
         String query = TextUtils.isEmpty(keyword) ? defaultKeyword(player) : keyword.trim();
+        String cacheKey = cacheKey(query);
+        List<SearchResult> cached = getSearchCache(cacheKey);
+        if (cached != null) {
+            if (callback != null) App.post(() -> callback.accept(cached));
+            return;
+        }
         Task.execute(() -> {
             List<SearchResult> results = new ArrayList<>();
             for (KaraokeTrackProvider provider : PROVIDERS) {
@@ -152,6 +162,7 @@ public class KaraokeTrackRepository {
                 } catch (Exception ignored) {
                 }
             }
+            putSearchCache(cacheKey, results);
             if (callback != null) App.post(() -> callback.accept(results));
         });
     }
@@ -399,6 +410,31 @@ public class KaraokeTrackRepository {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", "");
     }
 
+    private static String cacheKey(String query) {
+        String normalized = normalizeSearch(query);
+        return TextUtils.isEmpty(normalized) ? safe(query).trim().toLowerCase(Locale.ROOT) : normalized;
+    }
+
+    private static List<SearchResult> getSearchCache(String key) {
+        if (TextUtils.isEmpty(key)) return null;
+        synchronized (SEARCH_CACHE) {
+            SearchCache cache = SEARCH_CACHE.get(key);
+            if (cache == null) return null;
+            if (System.currentTimeMillis() - cache.timestampMs > SEARCH_CACHE_MS) {
+                SEARCH_CACHE.remove(key);
+                return null;
+            }
+            return new ArrayList<>(cache.results);
+        }
+    }
+
+    private static void putSearchCache(String key, List<SearchResult> results) {
+        if (TextUtils.isEmpty(key) || results == null || results.isEmpty()) return;
+        synchronized (SEARCH_CACHE) {
+            SEARCH_CACHE.put(key, new SearchCache(results));
+        }
+    }
+
     private static void addUnique(List<SearchResult> target, List<SearchResult> source) {
         if (source == null || source.isEmpty()) return;
         Set<String> exists = new LinkedHashSet<>();
@@ -447,6 +483,17 @@ public class KaraokeTrackRepository {
                 offset += read;
             }
             return bytes;
+        }
+    }
+
+    private static class SearchCache {
+
+        private final long timestampMs;
+        private final List<SearchResult> results;
+
+        private SearchCache(List<SearchResult> results) {
+            this.timestampMs = System.currentTimeMillis();
+            this.results = new ArrayList<>(results);
         }
     }
 
