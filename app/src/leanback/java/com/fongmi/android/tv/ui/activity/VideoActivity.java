@@ -7,11 +7,13 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -62,6 +64,9 @@ import com.fongmi.android.tv.model.SearchProgress;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
+import com.fongmi.android.tv.player.karaoke.KaraokeController;
+import com.fongmi.android.tv.player.karaoke.KaraokeResult;
+import com.fongmi.android.tv.player.karaoke.KaraokeTrackRepository;
 import com.fongmi.android.tv.player.lyrics.LyricsController;
 import com.fongmi.android.tv.player.lyrics.LyricsRequest;
 import com.fongmi.android.tv.player.lyrics.LyricsResult;
@@ -133,6 +138,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private FlagAdapter mFlagAdapter;
     private PartAdapter mPartAdapter;
     private LyricsController mLyrics;
+    private KaraokeController mKaraoke;
+    private boolean mKaraokeResultShown;
     private AlertDialog mLyricsResultDialog;
     private android.widget.ArrayAdapter<String> mLyricsResultAdapter;
     private List<LyricsResult> mLyricsSearchResults;
@@ -202,6 +209,26 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "import failed path=%s error=%s", path, e.getMessage());
                 App.post(() -> Notify.show(Notify.getError(R.string.lut_import_failed, e)));
             }
+        });
+    });
+
+    private final ActivityResultLauncher<Intent> mKaraokeTrackFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null || service() == null) return;
+        String path = FileChooser.getPathFromUri(result.getData().getData());
+        if (TextUtils.isEmpty(path)) {
+            Notify.show(R.string.player_karaoke_track_import_failed);
+            return;
+        }
+        Task.execute(() -> {
+            KaraokeTrackRepository.ImportResult imported;
+            try {
+                File file = new File(path);
+                imported = KaraokeTrackRepository.importFile(player(), file);
+            } catch (Exception e) {
+                imported = KaraokeTrackRepository.ImportResult.fail(e.getMessage());
+            }
+            KaraokeTrackRepository.ImportResult finalImported = imported;
+            App.post(() -> onKaraokeTrackImported(finalImported));
         });
     });
 
@@ -421,6 +448,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mLyrics = new LyricsController(mBinding.lyrics);
+        mKaraoke = new KaraokeController();
+        mKaraoke.setListener((status, track, sample, snapshot) -> mBinding.karaoke.setState(status, track, sample, snapshot));
         mKeyDown = CustomKeyDownVod.create(this);
         mObserveDetail = this::setDetail;
         mObservePlayer = this::setPlayer;
@@ -479,6 +508,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.episodes.setOnClickListener(view -> onEpisodes());
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
         mBinding.control.action.lut.setOnClickListener(view -> onLut());
+        mBinding.control.action.karaoke.setOnClickListener(view -> onKaraokeMode());
+        mBinding.control.action.karaoke.setOnLongClickListener(view -> onKaraokeTrackPanel());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
         mBinding.control.action.title.setOnClickListener(view -> onTitle());
@@ -569,6 +600,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
+        mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
         setupActionButtons();
     }
 
@@ -585,6 +617,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
+        addActionButton(PlayerButtonSetting.KARAOKE, mBinding.control.action.karaoke);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
         addActionButton(PlayerButtonSetting.AUDIO, mBinding.control.action.audio);
         addActionButton(PlayerButtonSetting.VIDEO, mBinding.control.action.video);
@@ -787,11 +820,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
         if (result.hasPosition()) mHistory.setPosition(result.getPosition());
         mBinding.control.parse.setVisibility(isUseParse() ? View.VISIBLE : View.GONE);
+        List<Danmaku> siteDanmakus = result.getDanmaku();
         startPlayer(getHistoryKey(), result, isUseParse(), getSite().getTimeout(), buildMetadata());
-        if (DanmakuApi.canSearch()) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), danmaku -> {
-            if (DanmakuSetting.isSpiderFirst() && !result.getDanmaku().isEmpty()) player().addDanmaku(danmaku);
-            else player().setDanmaku(danmaku);
-        });
+        if (DanmakuApi.canAutoSearch(siteDanmakus)) DanmakuApi.search(mHistory.getVodName(), getEpisode().getName(), player()::setDanmaku);
     }
 
     private void recordDetailHealth(Result result, long cost) {
@@ -1140,6 +1171,178 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void onRepeat() {
         player().setRepeatOne(!player().isRepeatOne());
         mBinding.control.action.repeat.setSelected(player().isRepeatOne());
+    }
+
+    private void onKaraokeMode() {
+        boolean enable = !PlayerSetting.isKaraokeMode();
+        if (!enable) showKaraokeResultIfNeeded();
+        PlayerSetting.putKaraokeMode(enable);
+        mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+        if (PlayerSetting.isKaraokeMode()) {
+            mKaraokeResultShown = false;
+            refreshLyrics();
+        }
+        else if (mKaraoke != null) mKaraoke.clear();
+        showControl(mBinding.control.action.karaoke);
+    }
+
+    private boolean onKaraokeTrackPanel() {
+        if (service() == null) return true;
+        boolean bound = KaraokeTrackRepository.hasBinding(player());
+        ArrayList<String> items = new ArrayList<>();
+        items.add(getString(R.string.player_karaoke_track_generate));
+        items.add(getString(R.string.player_karaoke_track_search));
+        items.add(getString(R.string.player_karaoke_track_import_file));
+        items.add(getString(R.string.player_karaoke_track_import_url));
+        if (bound) items.add(getString(R.string.player_karaoke_track_clear));
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.player_karaoke_track)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setItems(items.toArray(new String[0]), (dialog, which) -> {
+                    if (which == 0) generateKaraokeTrack();
+                    else if (which == 1) showKaraokeTrackSearchDialog();
+                    else if (which == 2) chooseKaraokeTrackFile();
+                    else if (which == 3) showKaraokeTrackUrlDialog();
+                    else clearKaraokeTrackBinding();
+                })
+                .show();
+        return true;
+    }
+
+    private void chooseKaraokeTrackFile() {
+        FileChooser.from(mKaraokeTrackFile).show("*/*", new String[]{"text/plain", "audio/midi", "audio/x-midi", "application/octet-stream", "*/*"});
+    }
+
+    private void showKaraokeTrackUrlDialog() {
+        EditText input = new EditText(this);
+        input.setSingleLine(false);
+        input.setMinLines(2);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setHint(R.string.player_karaoke_track_url_hint);
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.player_karaoke_track_import_url)
+                .setView(input)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> importKaraokeTrackUrl(input.getText().toString()))
+                .show();
+    }
+
+    private void showKaraokeTrackSearchDialog() {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setHint(R.string.player_karaoke_track_keyword);
+        input.setText(KaraokeTrackRepository.defaultKeyword(player()));
+        input.setSelectAllOnFocus(true);
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.player_karaoke_track_search)
+                .setView(input)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> searchKaraokeTrack(input.getText().toString()))
+                .show();
+    }
+
+    private void searchKaraokeTrack(String keyword) {
+        if (service() == null || TextUtils.isEmpty(keyword)) return;
+        Notify.show(R.string.player_karaoke_track_searching);
+        KaraokeTrackRepository.search(player(), keyword, results -> {
+            if (results == null || results.isEmpty()) {
+                Notify.show(R.string.player_karaoke_track_not_found);
+                return;
+            }
+            showKaraokeTrackResults(results);
+        });
+    }
+
+    private void generateKaraokeTrack() {
+        if (service() == null || mLyrics == null || !KaraokeTrackRepository.canGenerate(mLyrics.getLines())) {
+            Notify.show(R.string.player_karaoke_track_generate_no_lyrics);
+            return;
+        }
+        onKaraokeTrackGenerated(KaraokeTrackRepository.importGenerated(player(), mLyrics.getLines()));
+    }
+
+    private void onKaraokeTrackGenerated(KaraokeTrackRepository.ImportResult result) {
+        if (result != null && result.isSuccess()) {
+            Notify.show(R.string.player_karaoke_track_generated);
+            if (!PlayerSetting.isKaraokeMode()) {
+                PlayerSetting.putKaraokeMode(true);
+                mBinding.control.action.karaoke.setSelected(true);
+            }
+            refreshLyrics();
+        } else {
+            String error = result == null ? "" : result.getError();
+            Notify.show(getString(R.string.player_karaoke_track_generate_failed) + (TextUtils.isEmpty(error) ? "" : "\n" + error));
+        }
+    }
+
+    private void showKaraokeTrackResults(List<KaraokeTrackRepository.SearchResult> results) {
+        String[] items = new String[results.size()];
+        for (int i = 0; i < results.size(); i++) {
+            KaraokeTrackRepository.SearchResult result = results.get(i);
+            String source = result.getSource() + (result.isLoginRequired() ? getString(R.string.player_karaoke_track_source_login) : "");
+            items[i] = getString(R.string.player_karaoke_track_result_item, source, result.getArtist(), result.getTitle(), result.getNote());
+        }
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.player_karaoke_track_select)
+                .setNegativeButton(R.string.dialog_negative, null)
+                .setItems(items, (dialog, which) -> importKaraokeTrackUrl(results.get(which).getUrl()))
+                .show();
+    }
+
+    private void importKaraokeTrackUrl(String url) {
+        if (service() == null || TextUtils.isEmpty(url)) return;
+        KaraokeTrackRepository.importUrl(player(), url, this::onKaraokeTrackImported);
+    }
+
+    private void onKaraokeTrackImported(KaraokeTrackRepository.ImportResult result) {
+        if (result != null && result.isSuccess()) {
+            Notify.show(R.string.player_karaoke_track_imported);
+            if (!PlayerSetting.isKaraokeMode()) {
+                PlayerSetting.putKaraokeMode(true);
+                mBinding.control.action.karaoke.setSelected(true);
+            }
+            refreshLyrics();
+        } else {
+            String error = result == null ? "" : result.getError();
+            Notify.show(getString(R.string.player_karaoke_track_import_failed) + (TextUtils.isEmpty(error) ? "" : "\n" + error));
+        }
+    }
+
+    private void clearKaraokeTrackBinding() {
+        if (service() == null) return;
+        boolean cleared = KaraokeTrackRepository.clearBinding(player());
+        Notify.show(cleared ? R.string.player_karaoke_track_cleared : R.string.player_karaoke_track_none);
+        refreshLyrics();
+    }
+
+    private boolean showKaraokeResultIfNeeded() {
+        return showKaraokeResultIfNeeded(null);
+    }
+
+    private boolean showKaraokeResultIfNeeded(@Nullable Runnable after) {
+        if (mKaraoke == null || !mKaraoke.isActive() || mKaraokeResultShown || isFinishing() || isDestroyed()) return false;
+        KaraokeResult result = mKaraoke.getResult();
+        if (result == null) return false;
+        mKaraokeResultShown = true;
+        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
+                .setTitle(R.string.player_karaoke_result_title)
+                .setMessage(getKaraokeResultMessage(result))
+                .setPositiveButton(R.string.dialog_positive, (dialog, which) -> runAfterKaraokeResult(after))
+                .setOnCancelListener(dialog -> runAfterKaraokeResult(after))
+                .show();
+        return true;
+    }
+
+    private void runAfterKaraokeResult(@Nullable Runnable after) {
+        if (after != null) after.run();
+    }
+
+    private String getKaraokeResultMessage(KaraokeResult result) {
+        String mode = getString(result.isScoring() ? R.string.player_karaoke_result_scoring : R.string.player_karaoke_result_free);
+        String metric = getString(result.isScoring() ? R.string.player_karaoke_result_metric_hit : R.string.player_karaoke_result_metric_participation);
+        String message = getString(R.string.player_karaoke_result_message, mode, result.getScorePercent(), result.getTotalSeconds(), metric, result.getHitPercent());
+        return TextUtils.isEmpty(result.getTrackLabel()) ? message : message + "\n" + getString(R.string.player_karaoke_result_track, result.getTrackLabel());
     }
 
     @Override
@@ -1825,9 +2028,18 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void refreshLyrics() {
         if (mLyrics == null || service() == null) return;
-        if (!mLyrics.hasChoice(player()) && showInlineLyrics()) return;
         setAudioOnly(LyricsController.isAudioOnly(player()));
-        mLyrics.refresh(player(), isAudioOnly() || isMusicLike());
+        boolean audioContent = isAudioOnly() || isMusicLike();
+        if (!mLyrics.hasChoice(player()) && showInlineLyrics()) {
+            refreshKaraoke(audioContent);
+            return;
+        }
+        mLyrics.refresh(player(), audioContent);
+        refreshKaraoke(audioContent);
+    }
+
+    private void refreshKaraoke(boolean audioContent) {
+        if (mKaraoke != null && service() != null) mKaraoke.refresh(this, player(), audioContent);
     }
 
     private boolean isLyricsSearchAvailable() {
@@ -2059,6 +2271,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 showProgress();
                 break;
             case Player.STATE_READY:
+                mKaraokeResultShown = false;
                 recordPlayHealth(true, "");
                 hideProgress();
                 refreshLyrics();
@@ -2104,6 +2317,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
         if (mLyrics != null) mLyrics.update(player());
+        if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         PlaybackEventCollector.get().onProgress(mHistory, player());
@@ -2130,7 +2344,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         else if (event.getType() == RefreshEvent.Type.PLAYER) onRefresh();
         else if (event.getType() == RefreshEvent.Type.VOD) updateVod(event.getVod());
         else if (event.getType() == RefreshEvent.Type.SUBTITLE) player().setSub(Sub.from(event.getPath()));
-        else if (event.getType() == RefreshEvent.Type.DANMAKU) player().setDanmaku(Danmaku.from(event.getPath()));
+        else if (event.getType() == RefreshEvent.Type.DANMAKU) player().reloadDanmaku(Danmaku.from(event.getPath()));
     }
 
     private void setPosition() {
@@ -2145,7 +2359,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void checkEnded(boolean notify) {
+        if (showKaraokeResultIfNeeded(() -> checkNext(notify))) return;
         checkNext(notify);
+    }
+
+    private boolean hasNextEpisode() {
+        Episode item = mHistory.isRevPlay() ? mEpisodeAdapter.getPrev() : mEpisodeAdapter.getNext();
+        return !item.isSelected();
     }
 
     private void setTrackVisible() {
@@ -2604,12 +2824,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             mOsd.setDiagnosticsVisible(PlayerSetting.isOsdDiagnostics());
             mOsd.start();
         }
+        if (service() != null) refreshLyrics();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         if (mOsd != null) mOsd.stop();
+        if (mKaraoke != null) mKaraoke.clear();
         if (PlayerSetting.isBackgroundOff()) mClock.stop();
     }
 
@@ -2630,6 +2852,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void finishVideoPlayback() {
         if (isPlaybackExiting()) return;
+        if (showKaraokeResultIfNeeded(this::finishVideoPlaybackNow)) return;
+        finishVideoPlaybackNow();
+    }
+
+    private void finishVideoPlaybackNow() {
         mViewModel.stopSearch();
         saveHistory(true);
         markPlaybackExiting();
@@ -2643,6 +2870,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mLyricsSearchSeq++;
         dismissLyricsResultDialog();
         if (mLyrics != null) mLyrics.release();
+        if (mKaraoke != null) mKaraoke.release();
         mClock.release();
         saveHistory(true);
         DanmakuApi.cancel();

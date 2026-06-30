@@ -794,6 +794,49 @@
     <string name="player_lyrics_rows">歌詞行數</string>
     <string name="player_lyrics_size">歌詞字號</string>
     <string name="player_lyrics_source">歌詞來源</string>
+    <string name="player_karaoke_mode">K歌模式</string>
+    <string name="player_karaoke_difficulty">K歌難度</string>
+    <string name="player_karaoke_mic_delay">麥克風延遲</string>
+    <string name="player_karaoke_status_free">K歌 · 自由唱</string>
+    <string name="player_karaoke_status_free_score">K歌 · 娛樂 %1$d 分</string>
+    <string name="player_karaoke_status_score">K歌 · %1$d 分</string>
+    <string name="player_karaoke_waiting">等待麥克風</string>
+    <string name="player_karaoke_need_permission">需要麥克風權限</string>
+    <string name="player_karaoke_mic_unavailable">麥克風不可用</string>
+    <string name="player_karaoke_no_voice">請靠近麥克風演唱</string>
+    <string name="player_karaoke_listening">偵測中 · 音量 %1$d%%</string>
+    <string name="player_karaoke_pitch">音高 %1$s</string>
+    <string name="player_karaoke_pitch_score">音高 %1$s · %2$s</string>
+    <string name="player_karaoke_pitch_hit">命中</string>
+    <string name="player_karaoke_pitch_miss">偏差 %1$.1f 半音</string>
+    <string name="player_karaoke_free_detail">音高 %1$s · 參與 %2$d%%</string>
+    <string name="player_karaoke_track">評分譜</string>
+    <string name="player_karaoke_track_generate">生成輕量節奏評分譜</string>
+    <string name="player_karaoke_track_search">搜尋線上評分譜</string>
+    <string name="player_karaoke_track_keyword">評分譜關鍵字</string>
+    <string name="player_karaoke_track_import_file">導入 UltraStar/MIDI 檔案</string>
+    <string name="player_karaoke_track_import_url">導入評分譜連結</string>
+    <string name="player_karaoke_track_url_hint">UltraStar .txt 連結、USDB ID 或 USDB 詳情頁</string>
+    <string name="player_karaoke_track_clear">清除目前綁定</string>
+    <string name="player_karaoke_track_searching">正在搜尋評分譜...</string>
+    <string name="player_karaoke_track_not_found">未找到評分譜</string>
+    <string name="player_karaoke_track_select">選擇評分譜</string>
+    <string name="player_karaoke_track_source_login"> · 需登入</string>
+    <string name="player_karaoke_track_result_item">%1$s\n%2$s - %3$s\n%4$s</string>
+    <string name="player_karaoke_track_imported">評分譜已導入</string>
+    <string name="player_karaoke_track_import_failed">評分譜導入失敗</string>
+    <string name="player_karaoke_track_generated">輕量節奏評分譜已生成</string>
+    <string name="player_karaoke_track_generate_failed">輕量節奏評分譜生成失敗</string>
+    <string name="player_karaoke_track_generate_no_lyrics">目前沒有可用的歌詞時間軸</string>
+    <string name="player_karaoke_track_cleared">評分譜綁定已清除</string>
+    <string name="player_karaoke_track_none">目前沒有評分譜綁定</string>
+    <string name="player_karaoke_result_title">K歌結果</string>
+    <string name="player_karaoke_result_scoring">音準評分</string>
+    <string name="player_karaoke_result_free">自由唱</string>
+    <string name="player_karaoke_result_message">%1$s\n得分：%2$d\n有效時長：%3$d 秒\n%4$s：%5$d%%</string>
+    <string name="player_karaoke_result_track">評分譜：%1$s</string>
+    <string name="player_karaoke_result_metric_hit">命中率</string>
+    <string name="player_karaoke_result_metric_participation">參與度</string>
     <string name="player_desktop_lyrics">桌面歌詞</string>
     <string name="player_desktop_lyrics_permission">請允許顯示在其他應用程式上層，用於顯示桌面歌詞</string>
     <string name="player_desktop_lyrics_position_reset">桌面歌詞位置已重置</string>
@@ -1051,6 +1094,12 @@
         <item>預設</item>
         <item>大</item>
         <item>特大</item>
+    </string-array>
+
+    <string-array name="select_karaoke_difficulty">
+        <item>輕鬆</item>
+        <item>標準</item>
+        <item>嚴格</item>
     </string-array>
 
     <string-array name="select_track">

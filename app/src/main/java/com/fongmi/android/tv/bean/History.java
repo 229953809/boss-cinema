@@ -293,8 +293,23 @@ public class History implements Diffable<History> {
     }
 
     public History cid(int cid) {
-        setCid(cid);
+        remapCid(cid);
         return this;
+    }
+
+    public History remapCid(int cid) {
+        setCid(cid);
+        setKey(remapKeyCid(getKey(), cid));
+        return this;
+    }
+
+    private static String remapKeyCid(String key, int cid) {
+        if (TextUtils.isEmpty(key)) return key;
+        int first = key.indexOf(AppDatabase.SYMBOL);
+        if (first < 0) return key;
+        int last = key.lastIndexOf(AppDatabase.SYMBOL);
+        if (last == first) return key + AppDatabase.SYMBOL + cid;
+        return key.substring(0, last + AppDatabase.SYMBOL.length()) + cid;
     }
 
     public String getSiteName() {

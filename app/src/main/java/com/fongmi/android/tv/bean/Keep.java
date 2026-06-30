@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.bean;
 
+import android.text.TextUtils;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.Entity;
@@ -138,6 +140,21 @@ public class Keep implements Diffable<Keep> {
         this.cid = cid;
     }
 
+    public Keep remapCid(int cid) {
+        setCid(cid);
+        setKey(remapKeyCid(getKey(), cid));
+        return this;
+    }
+
+    private static String remapKeyCid(String key, int cid) {
+        if (TextUtils.isEmpty(key)) return key;
+        int first = key.indexOf(AppDatabase.SYMBOL);
+        if (first < 0) return key;
+        int last = key.lastIndexOf(AppDatabase.SYMBOL);
+        if (last == first) return key + AppDatabase.SYMBOL + cid;
+        return key.substring(0, last + AppDatabase.SYMBOL.length()) + cid;
+    }
+
     public String getSiteKey() {
         return getKey().split(AppDatabase.SYMBOL)[0];
     }
@@ -147,7 +164,7 @@ public class Keep implements Diffable<Keep> {
     }
 
     public void save(int cid) {
-        setCid(cid);
+        remapCid(cid);
         save();
     }
 

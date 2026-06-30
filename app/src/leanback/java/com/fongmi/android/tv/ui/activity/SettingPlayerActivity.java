@@ -39,6 +39,9 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     private static final long LYRICS_OFFSET_MIN_MS = -3000L;
     private static final long LYRICS_OFFSET_MAX_MS = 3000L;
     private static final long LYRICS_OFFSET_STEP_MS = 500L;
+    private static final long KARAOKE_DELAY_MIN_MS = -1000L;
+    private static final long KARAOKE_DELAY_MAX_MS = 1000L;
+    private static final long KARAOKE_DELAY_STEP_MS = 100L;
 
     private ActivitySettingPlayerBinding mBinding;
     private DecimalFormat format;
@@ -46,6 +49,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
     private String[] bufferBytes;
     private String[] caption;
     private String[] kernel;
+    private String[] karaokeDifficulty;
     private String[] lyricsSize;
     private String[] lyricsSource;
     private String[] playCache;
@@ -92,6 +96,9 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.lyricsRowsText.setText(getLyricsRowsText());
         mBinding.lyricsSizeText.setText((lyricsSize = ResUtil.getStringArray(R.array.select_lyrics_size))[PlayerSetting.getLyricsTextSizeOption()]);
         mBinding.lyricsSourceText.setText((lyricsSource = ResUtil.getStringArray(R.array.select_lyrics_source))[LyricsSetting.getSourceMode()]);
+        mBinding.karaokeModeText.setText(getSwitch(PlayerSetting.isKaraokeMode()));
+        mBinding.karaokeDifficultyText.setText((karaokeDifficulty = ResUtil.getStringArray(R.array.select_karaoke_difficulty))[PlayerSetting.getKaraokeDifficulty()]);
+        mBinding.karaokeMicDelayText.setText(getKaraokeDelayText());
         setLyricsCacheText();
         mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
@@ -112,6 +119,9 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.lyricsRows.setOnClickListener(this::setLyricsRows);
         mBinding.lyricsSize.setOnClickListener(this::setLyricsSize);
         mBinding.lyricsSource.setOnClickListener(this::setLyricsSource);
+        mBinding.karaokeMode.setOnClickListener(this::setKaraokeMode);
+        mBinding.karaokeDifficulty.setOnClickListener(this::setKaraokeDifficulty);
+        mBinding.karaokeMicDelay.setOnClickListener(this::setKaraokeMicDelay);
         mBinding.lyricsCache.setOnClickListener(this::clearLyricsCache);
         mBinding.playerButtons.setOnClickListener(view -> PlayerButtonConfigDialog.show(this, this::setPlayerButtonsText));
         mBinding.speed.setOnClickListener(this::onSpeed);
@@ -240,18 +250,43 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         Notify.show(R.string.player_lyrics_cache_cleared);
     }
 
+    private void setKaraokeMode(View view) {
+        PlayerSetting.putKaraokeMode(!PlayerSetting.isKaraokeMode());
+        mBinding.karaokeModeText.setText(getSwitch(PlayerSetting.isKaraokeMode()));
+    }
+
+    private void setKaraokeDifficulty(View view) {
+        int index = (PlayerSetting.getKaraokeDifficulty() + 1) % karaokeDifficulty.length;
+        PlayerSetting.putKaraokeDifficulty(index);
+        mBinding.karaokeDifficultyText.setText(karaokeDifficulty[index]);
+    }
+
+    private void setKaraokeMicDelay(View view) {
+        long value = PlayerSetting.getKaraokeMicDelayMs() + KARAOKE_DELAY_STEP_MS;
+        if (value > KARAOKE_DELAY_MAX_MS) value = KARAOKE_DELAY_MIN_MS;
+        PlayerSetting.putKaraokeMicDelayMs(value);
+        mBinding.karaokeMicDelayText.setText(getKaraokeDelayText());
+    }
+
     private void setLyricsCacheText() {
         mBinding.lyricsCacheText.setText(getString(R.string.player_lyrics_cache_value, LyricsRepository.cacheCount()));
     }
 
     private String getLyricsOffsetText() {
-        long valueMs = PlayerSetting.getLyricsTimeOffsetMs();
-        if (valueMs == 0) return "0s";
-        return String.format(Locale.getDefault(), "%+.1fs", valueMs / 1000f);
+        return formatOffset(PlayerSetting.getLyricsTimeOffsetMs());
     }
 
     private String getLyricsRowsText() {
         return getString(R.string.player_lyrics_rows_value, PlayerSetting.getLyricsRows());
+    }
+
+    private String getKaraokeDelayText() {
+        return formatOffset(PlayerSetting.getKaraokeMicDelayMs());
+    }
+
+    private String formatOffset(long valueMs) {
+        if (valueMs == 0) return "0s";
+        return String.format(Locale.getDefault(), "%+.1fs", valueMs / 1000f);
     }
 
     private void onSpeed(View view) {

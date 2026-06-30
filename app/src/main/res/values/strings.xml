@@ -812,6 +812,49 @@
     <string name="player_lyrics_rows">Lyric rows</string>
     <string name="player_lyrics_size">Lyric size</string>
     <string name="player_lyrics_source">Lyric source</string>
+    <string name="player_karaoke_mode">Karaoke mode</string>
+    <string name="player_karaoke_difficulty">Karaoke difficulty</string>
+    <string name="player_karaoke_mic_delay">Mic delay</string>
+    <string name="player_karaoke_status_free">Karaoke · Free sing</string>
+    <string name="player_karaoke_status_free_score">Karaoke · Fun %1$d</string>
+    <string name="player_karaoke_status_score">Karaoke · %1$d</string>
+    <string name="player_karaoke_waiting">Waiting for mic</string>
+    <string name="player_karaoke_need_permission">Microphone permission required</string>
+    <string name="player_karaoke_mic_unavailable">Microphone unavailable</string>
+    <string name="player_karaoke_no_voice">Sing closer to the microphone</string>
+    <string name="player_karaoke_listening">Listening · Volume %1$d%%</string>
+    <string name="player_karaoke_pitch">Pitch %1$s</string>
+    <string name="player_karaoke_pitch_score">Pitch %1$s · %2$s</string>
+    <string name="player_karaoke_pitch_hit">Hit</string>
+    <string name="player_karaoke_pitch_miss">Off %1$.1f st</string>
+    <string name="player_karaoke_free_detail">Pitch %1$s · Participation %2$d%%</string>
+    <string name="player_karaoke_track">Scoring track</string>
+    <string name="player_karaoke_track_generate">Generate lightweight rhythm track</string>
+    <string name="player_karaoke_track_search">Search online tracks</string>
+    <string name="player_karaoke_track_keyword">Scoring track keyword</string>
+    <string name="player_karaoke_track_import_file">Import UltraStar/MIDI file</string>
+    <string name="player_karaoke_track_import_url">Import track URL</string>
+    <string name="player_karaoke_track_url_hint">UltraStar .txt URL, USDB ID, or USDB detail URL</string>
+    <string name="player_karaoke_track_clear">Clear current binding</string>
+    <string name="player_karaoke_track_searching">Searching scoring tracks...</string>
+    <string name="player_karaoke_track_not_found">No scoring track found</string>
+    <string name="player_karaoke_track_select">Select scoring track</string>
+    <string name="player_karaoke_track_source_login"> · login</string>
+    <string name="player_karaoke_track_result_item">%1$s\n%2$s - %3$s\n%4$s</string>
+    <string name="player_karaoke_track_imported">Scoring track imported</string>
+    <string name="player_karaoke_track_import_failed">Scoring track import failed</string>
+    <string name="player_karaoke_track_generated">Lightweight rhythm track generated</string>
+    <string name="player_karaoke_track_generate_failed">Failed to generate rhythm track</string>
+    <string name="player_karaoke_track_generate_no_lyrics">No timed lyrics available</string>
+    <string name="player_karaoke_track_cleared">Scoring track binding cleared</string>
+    <string name="player_karaoke_track_none">No scoring track binding</string>
+    <string name="player_karaoke_result_title">Karaoke result</string>
+    <string name="player_karaoke_result_scoring">Pitch scoring</string>
+    <string name="player_karaoke_result_free">Free sing</string>
+    <string name="player_karaoke_result_message">%1$s\nScore: %2$d\nActive time: %3$d sec\n%4$s: %5$d%%</string>
+    <string name="player_karaoke_result_track">Track: %1$s</string>
+    <string name="player_karaoke_result_metric_hit">Hit rate</string>
+    <string name="player_karaoke_result_metric_participation">Participation</string>
     <string name="player_desktop_lyrics">Desktop lyrics</string>
     <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>
     <string name="player_desktop_lyrics_position_reset">Desktop lyrics position reset</string>
@@ -1075,6 +1118,12 @@
         <item>Default</item>
         <item>Large</item>
         <item>Extra large</item>
+    </string-array>
+
+    <string-array name="select_karaoke_difficulty">
+        <item>Easy</item>
+        <item>Standard</item>
+        <item>Strict</item>
     </string-array>
 
     <string-array name="select_track">

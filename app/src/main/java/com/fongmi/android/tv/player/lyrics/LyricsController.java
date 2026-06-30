@@ -227,6 +227,10 @@ public class LyricsController {
         view.update(adjust(player.getPosition()), player.isPlaying());
     }
 
+    public List<LyricsLine> getLines() {
+        return lines;
+    }
+
     public void clear() {
         sequence++;
         loadingSignature = null;

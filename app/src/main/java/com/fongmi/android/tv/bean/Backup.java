@@ -98,12 +98,12 @@ public class Backup {
         }
         if (options.isKeep()) {
             if (force) AppDatabase.get().getKeepDao().deleteAll();
-            for (Keep item : getKeep()) if (cids.containsKey(item.getCid())) item.setCid(cids.get(item.getCid()));
+            for (Keep item : getKeep()) if (cids.containsKey(item.getCid())) item.remapCid(cids.get(item.getCid()));
             AppDatabase.get().getKeepDao().insertOrUpdate(getKeep());
         }
         if (options.isHistory()) {
             if (force) AppDatabase.get().getHistoryDao().delete();
-            for (History item : getHistory()) if (cids.containsKey(item.getCid())) item.setCid(cids.get(item.getCid()));
+            for (History item : getHistory()) if (cids.containsKey(item.getCid())) item.remapCid(cids.get(item.getCid()));
             AppDatabase.get().getHistoryDao().insertOrUpdate(getHistory());
         }
         for (Map.Entry<String, ?> entry : filter(getPrefers(), options).entrySet()) Prefers.put(entry.getKey(), entry.getValue());

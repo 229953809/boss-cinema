@@ -43,6 +43,9 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private static final long LYRICS_OFFSET_MIN_MS = -3000L;
     private static final long LYRICS_OFFSET_MAX_MS = 3000L;
     private static final long LYRICS_OFFSET_STEP_MS = 500L;
+    private static final long KARAOKE_DELAY_MIN_MS = -1000L;
+    private static final long KARAOKE_DELAY_MAX_MS = 1000L;
+    private static final long KARAOKE_DELAY_STEP_MS = 100L;
 
     private FragmentSettingPlayerBinding mBinding;
     private DecimalFormat format;
@@ -51,6 +54,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private String[] bufferBytes;
     private String[] caption;
     private String[] kernel;
+    private String[] karaokeDifficulty;
     private String[] lyricsSize;
     private String[] lyricsSource;
     private String[] playCache;
@@ -95,6 +99,9 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.lyricsRowsText.setText(getLyricsRowsText());
         mBinding.lyricsSizeText.setText((lyricsSize = ResUtil.getStringArray(R.array.select_lyrics_size))[PlayerSetting.getLyricsTextSizeOption()]);
         mBinding.lyricsSourceText.setText((lyricsSource = ResUtil.getStringArray(R.array.select_lyrics_source))[LyricsSetting.getSourceMode()]);
+        mBinding.karaokeModeText.setText(getSwitch(PlayerSetting.isKaraokeMode()));
+        mBinding.karaokeDifficultyText.setText((karaokeDifficulty = ResUtil.getStringArray(R.array.select_karaoke_difficulty))[PlayerSetting.getKaraokeDifficulty()]);
+        mBinding.karaokeMicDelayText.setText(getKaraokeDelayText());
         mBinding.desktopLyricsText.setText(getSwitch(PlayerSetting.isDesktopLyrics()));
         setLyricsCacheText();
         mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
@@ -117,6 +124,9 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.lyricsRows.setOnClickListener(this::onLyricsRows);
         mBinding.lyricsSize.setOnClickListener(this::onLyricsSize);
         mBinding.lyricsSource.setOnClickListener(this::onLyricsSource);
+        mBinding.karaokeMode.setOnClickListener(this::setKaraokeMode);
+        mBinding.karaokeDifficulty.setOnClickListener(this::onKaraokeDifficulty);
+        mBinding.karaokeMicDelay.setOnClickListener(this::onKaraokeMicDelay);
         mBinding.desktopLyrics.setOnClickListener(this::setDesktopLyrics);
         mBinding.desktopLyrics.setOnLongClickListener(this::resetDesktopLyricsPosition);
         mBinding.lyricsCache.setOnClickListener(this::clearLyricsCache);
@@ -225,6 +235,28 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         Notify.show(R.string.player_lyrics_cache_cleared);
     }
 
+    private void setKaraokeMode(View view) {
+        PlayerSetting.putKaraokeMode(!PlayerSetting.isKaraokeMode());
+        mBinding.karaokeModeText.setText(getSwitch(PlayerSetting.isKaraokeMode()));
+    }
+
+    private void onKaraokeDifficulty(View view) {
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.player_karaoke_difficulty).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(karaokeDifficulty, PlayerSetting.getKaraokeDifficulty(), (dialog, which) -> {
+            PlayerSetting.putKaraokeDifficulty(which);
+            mBinding.karaokeDifficultyText.setText(karaokeDifficulty[which]);
+            dialog.dismiss();
+        }).show();
+    }
+
+    private void onKaraokeMicDelay(View view) {
+        String[] items = getKaraokeDelayItems();
+        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.player_karaoke_mic_delay).setNegativeButton(R.string.dialog_negative, null).setSingleChoiceItems(items, getKaraokeDelayIndex(), (dialog, which) -> {
+            PlayerSetting.putKaraokeMicDelayMs(KARAOKE_DELAY_MIN_MS + which * KARAOKE_DELAY_STEP_MS);
+            mBinding.karaokeMicDelayText.setText(getKaraokeDelayText());
+            dialog.dismiss();
+        }).show();
+    }
+
     private void setDesktopLyrics(View view) {
         boolean enabled = !PlayerSetting.isDesktopLyrics();
         PlayerSetting.putDesktopLyrics(enabled);
@@ -309,6 +341,22 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
 
     private String getLyricsOffsetText() {
         return formatLyricsOffset(PlayerSetting.getLyricsTimeOffsetMs());
+    }
+
+    private String[] getKaraokeDelayItems() {
+        int count = (int) ((KARAOKE_DELAY_MAX_MS - KARAOKE_DELAY_MIN_MS) / KARAOKE_DELAY_STEP_MS) + 1;
+        String[] items = new String[count];
+        for (int i = 0; i < count; i++) items[i] = formatLyricsOffset(KARAOKE_DELAY_MIN_MS + i * KARAOKE_DELAY_STEP_MS);
+        return items;
+    }
+
+    private int getKaraokeDelayIndex() {
+        long value = Math.min(Math.max(PlayerSetting.getKaraokeMicDelayMs(), KARAOKE_DELAY_MIN_MS), KARAOKE_DELAY_MAX_MS);
+        return (int) ((value - KARAOKE_DELAY_MIN_MS) / KARAOKE_DELAY_STEP_MS);
+    }
+
+    private String getKaraokeDelayText() {
+        return formatLyricsOffset(PlayerSetting.getKaraokeMicDelayMs());
     }
 
     private String formatLyricsOffset(long valueMs) {

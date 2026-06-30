@@ -224,6 +224,8 @@ HE-Music-Flutter 的歌词域模型适合移动端：
 
 ## K歌能力路线
 
+评分谱、无谱娱乐评分、UltraStar / MIDI 导入和重型制谱方案取舍，详见 `plans/KTV家庭K歌功能需求实现方案.md`。本文件只记录歌词源和逐字显示能力，Kuwo / QQMusic / NetEase / Kugou / Migu / TTML 等歌词源不能直接等同于 K歌音符轨。
+
 ### 第一阶段：歌词可用
 
 - LRC 行级同步。
@@ -298,9 +300,38 @@ HE-Music-Flutter 的歌词域模型适合移动端：
 - 已完成：桌面歌词开关、悬浮窗权限引导、可拖动位置记忆、长按设置项重置位置。
 - 已完成：本地旁挂歌词增强，同目录支持源文件同名、标题、`歌手 - 歌名`、`歌名 - 歌手`、`歌名.文件名` 等 `.lrc` / `.ttml` 命名，大小写扩展名兼容。
 
+### 评分谱源网页可用性核对
+
+以下只讨论 UltraStar / MIDI 这类“音符轨 / 评分谱”，不把 Kuwo、QQMusic、NetEase、Kugou、Migu、TTML 等逐字歌词源算作评分谱源。
+
+| 来源 | 2026-06-30 实测结果 | 可集成性 |
+| --- | --- | --- |
+| USDB `usdb.animux.de` | 首页、详情页 `/?link=detail&id=31037`、可视化页 `view.php?id=31037&database1=deluxe_songs` 可匿名访问；`POST /?link=list` 搜索和 `/?link=gettxt&id=31037` 下载会返回未登录；详情页含 BPM/GAP/语言等信息；可视化页 HTML 内含 `giveinfo0(type,start,length,pitch,note,text)`，能拿到完整音符数据 | 不能说不可用。适合做可选 `KaraokeTrackProvider`：用户 Cookie 下载完整 `.txt`；或用户提供 USDB ID/详情页后，用详情页 + `view.php` 重建 UltraStar 音符轨 |
+| UltraStar-ES `ultrastar-es.org` | 首页和 `GET /en/canciones?busqueda=Tool` 搜索页可匿名访问；搜索结果含 artist/title/year/language、YouTube id、`/en/canciones/descargar/txt/{token}`；直接请求 txt 下载会 302 到论坛登录页 | 匿名搜索可用，下载需要登录态。适合做可选 `KaraokeTrackProvider`：匿名展示候选，用户自备 Cookie 后下载 `.txt`，或引导用户手动下载后导入 |
+| GitHub `razzertronic/usdx-songs` | `git/trees/master?recursive=1` 匿名可访问，包含大量 UltraStar `.txt`；raw 链接可直接下载文本 | 已接入默认评分谱搜索。许可证 Unlicense，不打包资源，只在用户选择时下载 `.txt` |
+| GitHub `Vasil-Pahomov/UltraStarSongs` | `git/trees/master?recursive=1` 匿名可访问，包含 UltraStar `.txt` 和音频资源；raw 链接可直接下载文本 | 已接入默认评分谱搜索。仓库 GPL-3.0 且含音频，App 只展示/下载用户选择的 `.txt`，不内置资源 |
+| USDB-fetcher / usdb_downloader | 代码路径主要处理用户已有 UltraStar `.txt` 后下载/整理音视频，不负责在线拿谱 | 不作为在线谱源，只作为“用户已有 `.txt` 后整理资源”的参考 |
+| USDX / Performous / Vocaluxe / ultrastar-score | 解析本地 UltraStar `.txt` 并评分，不提供在线谱源 | 继续参考评分模型，不作为谱源 Provider |
+
+结论：目前已接入多个可用评分谱入口：本地旁挂、UltraStar/MIDI 文件导入、URL 导入、GitHub 公开 UltraStar 谱库搜索、UltraStar-ES 匿名搜索、USDB ID/view 重建。USDB 登录搜索和更多爬虫谱源继续后置，应独立于 `LyricsRepository`，做成用户手动触发、可关闭、必要时用户自备 Cookie 的 `KaraokeTrackProvider`。
+
+### 音符轨生成/提取项目补充核验
+
+用户补充的 AI 回复有参考价值，但需要过滤：它把 K歌评分、音频转 MIDI、唱歌声音检测、深度学习旋律提取、泛音频特征提取混在一起，不能直接等同于“可集成评分谱源”。详细过滤表见 `plans/KTV家庭K歌功能需求实现方案.md`。
+
+| 类型 | 代表项目 | 结论 |
+| --- | --- | --- |
+| 端侧实时音高检测 | `cwilso/PitchDetect`、`peterkhayes/pitchfinder`、`aubio/aubio` | 可借鉴 YIN / autocorrelation / onset 思路；Android 端第一版仍优先 `AudioRecord + 自实现 YIN/MPM`，必要时再评估 JNI |
+| K歌评分/交互参考 | `Asvarox/allkaraoke`、USDX、Vocaluxe、Performous | 有价值，证明 UltraStar 音符轨 + 实时 pitch + 半音容差适合家庭娱乐评分 |
+| 离线制谱/音频转 MIDI | `spotify/basic-pitch`、`librosa`、`Essentia`、`audioFlux`、`pretty_midi`、AutoTranscriber | 可作为外部制谱/自托管工具候选，不进入 App 播放时默认链路 |
+| 平台不匹配或仅作体验参考 | `vadymmarkov/Beethoven`、AudioKit、Web Audio pitch demos | 可看调音器和实时反馈体验，但不能直接复用到 Android 主项目 |
+| 不进入默认路线 | `TuneNN`、`melodyExtraction_JDC`、SingingVoiceDetection、深伪检测、情绪/类型识别、Demucs/Whisper/CREPE/PyTorch 链路 | 过重或方向偏离，不适合手机/TV 端默认 K歌功能 |
+
+最终判断：这批项目能补强“如何检测麦克风音高”和“未来外部制谱工具怎么做”，但没有提供稳定可直接集成的主流商业评分谱 API。App 主线仍应是本地/导入 UltraStar `.txt`、GitHub 公开 UltraStar 谱库、UltraStar-ES/USDB 可选爬虫谱源、MIDI/KAR 导入，以及无谱娱乐评分。
+
 ### 剩余结论
 
 1. 保存当前网络歌词为本地旁挂：可做，但涉及写入媒体目录/SAF 权限与文件覆盖确认，建议后续作为明确用户操作入口单独实现。
 2. 伴奏源：未发现稳定 API 能直接给出伴奏音轨。搜索命中多为本地 AI 人声分离、用户自备伴奏、播放地址解锁，不进入默认路线。
 3. BPM/节拍器：未发现稳定音乐源 API。若依赖客户端音频分析或手动 BPM，不进入默认路线。
-4. 评分：可做实验性娱乐评分，但需要麦克风权限、延迟校准、降噪和输入设备兼容，复杂度明显高于歌词显示，不进入当前默认功能。
+4. 评分：已实现实验性娱乐评分、有谱音准评分和轻量节奏评分谱生成；后续重点是 UI 打磨、输入设备兼容、谱源 Provider 抽象和更多真实谱源。

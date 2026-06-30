@@ -128,6 +128,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.ending.setText(parent.control.action.ending.getText());
         binding.opening.setText(parent.control.action.opening.getText());
         binding.repeat.setSelected(parent.control.action.repeat.isSelected());
+        binding.karaoke.setSelected(PlayerSetting.isKaraokeMode());
         binding.timer.setSelected(Timer.get().isRunning());
         setTrackVisible();
         setTitleVisible();
@@ -146,6 +147,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     @Override
     protected void initEvent() {
         binding.timer.setOnClickListener(this::onTimer);
+        binding.karaoke.setOnClickListener(v -> setKaraoke());
         binding.speed.addOnChangeListener(this::setSpeed);
         for (TextView view : speeds) view.setOnClickListener(this::setSpeedPreset);
         for (TextView view : scales) view.setOnClickListener(this::setScale);
@@ -168,10 +170,20 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.player.setOnLongClickListener(v -> longClick(binding.player, parent.control.action.player));
         binding.ending.setOnLongClickListener(v -> longClick(binding.ending, parent.control.action.ending));
         binding.opening.setOnLongClickListener(v -> longClick(binding.opening, parent.control.action.opening));
+        binding.karaoke.setOnLongClickListener(v -> {
+            ((Listener) requireActivity()).onKaraokeTrackPanel();
+            return true;
+        });
     }
 
     private void onTimer(View view) {
         TimerDialog.create().show(getActivity());
+    }
+
+    private void setKaraoke() {
+        PlayerSetting.putKaraokeMode(!PlayerSetting.isKaraokeMode());
+        binding.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+        ((Listener) requireActivity()).onKaraokeModeChanged();
     }
 
     private void onTrack(View view) {
@@ -403,5 +415,9 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         void onTitlePanel();
 
         void onDanmakuPanel();
+
+        void onKaraokeModeChanged();
+
+        void onKaraokeTrackPanel();
     }
 }
