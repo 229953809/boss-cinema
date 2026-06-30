@@ -857,6 +857,7 @@
     <string name="player_karaoke_result_scoring">音准评分</string>
     <string name="player_karaoke_result_free">自由唱</string>
     <string name="player_karaoke_result_track">评分谱：%1$s</string>
+    <string name="player_karaoke_result_no_track">未绑定评分谱，当前是自由唱娱乐估算。</string>
     <string name="player_karaoke_result_metric_hit">命中率</string>
     <string name="player_karaoke_result_metric_participation">参与度</string>
     <string name="player_karaoke_result_score_value">%1$d 分 · %2$s</string>

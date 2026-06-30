@@ -30,6 +30,7 @@ public class KaraokeResultView extends LinearLayout {
         if (result.getScoredLineCount() > 0) addProgress(getResources().getString(R.string.player_karaoke_result_line_average), result.getAverageLineScorePercent(), colorForScore(result.getAverageLineScorePercent()));
         addMeta(result);
         if (!result.getTrackLabel().isEmpty()) addText(getResources().getString(R.string.player_karaoke_result_track, result.getTrackLabel()), 13, false, 0xCCFFFFFF, Gravity.START, dp(10));
+        else if (!result.isScoring()) addText(getResources().getString(R.string.player_karaoke_result_no_track), 13, false, 0xCCFFFFFF, Gravity.START, dp(10));
         return this;
     }
 

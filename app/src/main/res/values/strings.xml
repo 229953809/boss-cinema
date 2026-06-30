@@ -859,6 +859,7 @@
     <string name="player_karaoke_result_scoring">Pitch scoring</string>
     <string name="player_karaoke_result_free">Free sing</string>
     <string name="player_karaoke_result_track">Track: %1$s</string>
+    <string name="player_karaoke_result_no_track">No scoring track bound. This is a free-sing estimate.</string>
     <string name="player_karaoke_result_metric_hit">Hit rate</string>
     <string name="player_karaoke_result_metric_participation">Participation</string>
     <string name="player_karaoke_result_score_value">%1$d · %2$s</string>
