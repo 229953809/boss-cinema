@@ -1,6 +1,8 @@
 package com.fongmi.android.tv.ui.fragment;
 
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -93,6 +95,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.lyricsRowsText.setText(getLyricsRowsText());
         mBinding.lyricsSizeText.setText((lyricsSize = ResUtil.getStringArray(R.array.select_lyrics_size))[PlayerSetting.getLyricsTextSizeOption()]);
         mBinding.lyricsSourceText.setText((lyricsSource = ResUtil.getStringArray(R.array.select_lyrics_source))[LyricsSetting.getSourceMode()]);
+        mBinding.desktopLyricsText.setText(getSwitch(PlayerSetting.isDesktopLyrics()));
         setLyricsCacheText();
         mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
@@ -114,6 +117,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.lyricsRows.setOnClickListener(this::onLyricsRows);
         mBinding.lyricsSize.setOnClickListener(this::onLyricsSize);
         mBinding.lyricsSource.setOnClickListener(this::onLyricsSource);
+        mBinding.desktopLyrics.setOnClickListener(this::setDesktopLyrics);
         mBinding.lyricsCache.setOnClickListener(this::clearLyricsCache);
         mBinding.playerButtons.setOnClickListener(view -> PlayerButtonConfigDialog.show(this, this::setPlayerButtonsText));
         mBinding.speed.setOnClickListener(this::onSpeed);
@@ -218,6 +222,27 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         LyricsRepository.clearCache();
         setLyricsCacheText();
         Notify.show(R.string.player_lyrics_cache_cleared);
+    }
+
+    private void setDesktopLyrics(View view) {
+        boolean enabled = !PlayerSetting.isDesktopLyrics();
+        PlayerSetting.putDesktopLyrics(enabled);
+        mBinding.desktopLyricsText.setText(getSwitch(enabled));
+        if (enabled && !canDrawOverlays()) openOverlayPermission();
+    }
+
+    private boolean canDrawOverlays() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(requireContext());
+    }
+
+    private void openOverlayPermission() {
+        Notify.show(R.string.player_desktop_lyrics_permission);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + requireContext().getPackageName())));
+        } catch (Exception e) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+        }
     }
 
     private void setLyricsCacheText() {

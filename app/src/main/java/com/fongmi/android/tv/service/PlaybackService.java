@@ -32,6 +32,7 @@ import com.fongmi.android.tv.event.ConfigEvent;
 import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.engine.PlaySpec;
+import com.fongmi.android.tv.player.lyrics.DesktopLyricsWindow;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.crawler.SpiderDebug;
@@ -60,6 +61,7 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     private NavigationCallback navigationCallback;
     private MediaLibrarySession session;
+    private DesktopLyricsWindow desktopLyrics;
     private Runnable onNewBinding;
     private boolean externalBound;
     private PlayerManager player;
@@ -101,6 +103,7 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "service onCreate start");
         running = true;
         player = new PlayerManager(this);
+        desktopLyrics = new DesktopLyricsWindow(this);
         PlaybackEventCollector.get().setPlayer(player);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "service player ready cost=%dms", System.currentTimeMillis() - start);
         exoPlayer = player.getPlayer();
@@ -196,6 +199,7 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "service destroy before %s", serviceState());
         running = false;
         PlaybackEventCollector.get().onStop(player);
+        if (desktopLyrics != null) desktopLyrics.release();
         releaseSession();
         player.stop();
         player.release();
@@ -303,6 +307,10 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     public void resetSessionActivity() {
         setSessionActivity(buildDefaultIntent());
+    }
+
+    public void setPlaybackForeground(boolean foreground) {
+        if (desktopLyrics != null) desktopLyrics.setForeground(foreground);
     }
 
     public void setNavigationCallback(NavigationCallback navigationCallback, String key) {
@@ -475,16 +483,19 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     @Override
     public void onPrepare() {
+        if (desktopLyrics != null) desktopLyrics.refresh(player);
         playerCallbacks.forEach(PlayerCallback::onPrepare);
     }
 
     @Override
     public void onTracksChanged() {
+        if (desktopLyrics != null) desktopLyrics.refresh(player);
         playerCallbacks.forEach(PlayerCallback::onTracksChanged);
     }
 
     @Override
     public void onTitlesChanged() {
+        if (desktopLyrics != null) desktopLyrics.refresh(player);
         playerCallbacks.forEach(PlayerCallback::onTitlesChanged);
     }
 
@@ -512,12 +523,14 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
         @Override
         public void onPlaybackStateChanged(int state) {
             PlaybackEventCollector.get().onPlaybackStateChanged(player, state);
+            if (desktopLyrics != null) desktopLyrics.update(player);
             if (state == Player.STATE_ENDED && !(hasNavigationCallback() && isNavigationOwner())) navigateItem(1);
         }
 
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
             PlaybackEventCollector.get().onIsPlayingChanged(player, isPlaying);
+            if (desktopLyrics != null) desktopLyrics.update(player);
         }
 
         @Override

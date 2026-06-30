@@ -482,6 +482,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         mService.replaceBinding(this::closePiP);
         mService.setSessionActivity(buildSessionIntent());
         mService.setNavigationCallback(getNavigationCallback(), getPlaybackKey());
+        mService.setPlaybackForeground(true);
         mService.addPlayerCallback(mPlayerCallback);
         player().setLutAllowed(isLutAllowed());
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "service connected cost=%dms key=%s", System.currentTimeMillis() - start, getPlaybackKey());
@@ -501,6 +502,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "activity resume %s", lifecycleState());
         playbackExiting = false;
         setRedirect(false);
+        if (mService != null) mService.setPlaybackForeground(true);
         if (shouldReclaim()) {
             detachSurface();
             onReclaim();
@@ -519,6 +521,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "activity stop backgroundOff=%s %s", PlayerSetting.isBackgroundOff(), lifecycleState());
         super.onStop();
         if (isOwner() && !isAudioOnly() && PlayerSetting.isBackgroundOff() && mController != null) mController.pause();
+        if (mService != null) mService.setPlaybackForeground(false);
     }
 
     @Override

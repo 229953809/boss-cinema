@@ -15,10 +15,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class LyricsRepository {
 
@@ -123,7 +123,7 @@ public class LyricsRepository {
                 if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "progressive load failed title=%s error=%s", request.getTitle(), e.getMessage());
             }
             LyricsResult finalResult = result;
-            if (shouldNotifyProgress(early, finalResult)) App.post(() -> callback.onResult(finalResult));
+            if (shouldNotifyProgress(request, early, finalResult)) App.post(() -> callback.onResult(finalResult));
             else if ((early == null || !early.isValid()) && (finalResult == null || !finalResult.isValid())) App.post(() -> callback.onResult(null));
         });
     }
@@ -153,12 +153,12 @@ public class LyricsRepository {
         return lrclib;
     }
 
-    private boolean shouldNotifyProgress(LyricsResult early, LyricsResult result) {
+    private boolean shouldNotifyProgress(LyricsRequest request, LyricsResult early, LyricsResult result) {
         if (result == null || !result.isValid()) return false;
         if (early == null || !early.isValid()) return true;
         if (sameResult(early, result)) return false;
         if (result.hasWordTiming() && !early.hasWordTiming()) return true;
-        return weightedScore(result) > weightedScore(early) + 10;
+        return weightedScore(request, result) > weightedScore(request, early) + 10;
     }
 
     private LyricsResult loadSync(LyricsRequest request, boolean preferWord, boolean forceRefresh) {
@@ -168,7 +168,7 @@ public class LyricsRepository {
         LyricsResult cached = forceRefresh ? null : readCache(request, sourceMode);
         if (cached != null && cached.isValid() && cached.isCacheCurrent() && (!preferWord || isTrustedWord(cached))) return cached;
         LyricsResult remote = choice != null && choice.isValid() && choice.isCacheCurrent() ? choice : null;
-        if (cached != null && cached.isValid() && cached.isCacheCurrent() && shouldUseRemote(remote, cached)) remote = cached;
+        if (cached != null && cached.isValid() && cached.isCacheCurrent() && shouldUseRemote(request, remote, cached)) remote = cached;
         LyricsResult local = readLocal(request);
         if (sourceMode != LyricsSetting.SOURCE_AUTO) return loadSource(request, sourceMode, local);
         if (local != null && local.isValid()) {
@@ -176,25 +176,29 @@ public class LyricsRepository {
                 writeCache(request, sourceMode, local);
                 return local;
             }
-            if (shouldUseRemote(remote, local)) remote = local;
+            if (shouldUseRemote(request, remote, local)) remote = local;
         }
-        LyricsResult ttmlResult = ttml.find(request);
-        if (shouldUseRemote(remote, ttmlResult)) remote = ttmlResult;
-        LyricsResult kuwoResult = kuwo.find(request);
-        if (shouldUseRemote(remote, kuwoResult)) remote = kuwoResult;
-        LyricsResult qq = qqMusic.find(request);
-        if (shouldUseRemote(remote, qq)) remote = qq;
-        LyricsResult cloud = netease.find(request);
-        if (shouldUseRemote(remote, cloud)) remote = cloud;
-        LyricsResult kugouResult = kugou.find(request);
-        if (shouldUseRemote(remote, kugouResult)) remote = kugouResult;
-        LyricsResult miguResult = migu.find(request);
-        if (shouldUseRemote(remote, miguResult)) remote = miguResult;
-        List<LrcLibClient.Entry> candidates = remote == null || !remote.isValid() ? client.findCandidates(request) : List.of();
-        if (remote == null || !remote.isValid()) remote = matcher.best(request, candidates);
+        remote = loadAutoSources(request, sourceMode, remote);
         if (remote != null && remote.isValid()) writeCache(request, sourceMode, remote);
-        if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "match title=%s artist=%s candidates=%d result=%s score=%d", request.getTitle(), request.getArtist(), candidates.size(), remote == null ? "none" : remote.getSource(), remote == null ? 0 : remote.getScore());
+        if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "match title=%s artist=%s result=%s score=%d word=%s", request.getTitle(), request.getArtist(), remote == null ? "none" : remote.getSource(), remote == null ? 0 : remote.getScore(), remote != null && remote.hasWordTiming());
         return remote;
+    }
+
+    private LyricsResult loadAutoSources(LyricsRequest request, int sourceMode, LyricsResult seed) {
+        ArrayList<LyricsResult> results = new ArrayList<>();
+        ArrayList<SearchFuture> futures = new ArrayList<>();
+        add(results, seed);
+        addSearch(futures, "AMLL TTML", () -> one(ttml.find(request)));
+        addSearch(futures, "Kuwo", () -> one(kuwo.find(request)));
+        addSearch(futures, "QQMusic", () -> one(qqMusic.find(request)));
+        addSearch(futures, "Netease", () -> one(netease.find(request)));
+        addSearch(futures, "Kugou", () -> one(kugou.find(request)));
+        addSearch(futures, "Migu", () -> one(migu.find(request)));
+        addSearch(futures, "LRCLIB", () -> one(matcher.best(request, client.findCandidates(request))));
+        collectSearch(results, futures, 18000, "load");
+        List<LyricsResult> sorted = sorted(request, results, 24);
+        if (SpiderDebug.isEnabled()) logCandidates(request, "load", sorted);
+        return sorted.isEmpty() ? null : sorted.get(0);
     }
 
     private List<LyricsResult> searchSync(LyricsRequest request) {
@@ -223,14 +227,14 @@ public class LyricsRepository {
                 collectSearch(results, futures);
             }
         }
-        return sorted(results, 24);
+        return sorted(request, results, 24);
     }
 
     private void searchAuto(LyricsRequest request, int sourceMode, List<LyricsResult> cached, SearchCallback callback) {
         ArrayList<LyricsResult> results = new ArrayList<>(cached == null ? List.of() : cached);
         ArrayList<SearchFuture> futures = new ArrayList<>();
         add(results, readLocal(request));
-        if (!results.isEmpty() && (cached == null || cached.isEmpty())) postSearch(callback, sorted(results, 24), false);
+        if (!results.isEmpty() && (cached == null || cached.isEmpty())) postSearch(callback, sorted(request, results, 24), false);
         addSearch(futures, "QQMusic", () -> qqMusic.findAll(request, 4));
         addSearch(futures, "AMLL TTML", () -> one(ttml.find(request)));
         addSearch(futures, "Netease", () -> netease.findAll(request, 4));
@@ -258,17 +262,17 @@ public class LyricsRepository {
         return result;
     }
 
-    private boolean shouldUseRemote(LyricsResult current, LyricsResult remote) {
+    private boolean shouldUseRemote(LyricsRequest request, LyricsResult current, LyricsResult remote) {
         if (remote == null || !remote.isValid()) return false;
         if (current == null || !current.isValid()) return true;
         if (remote.hasWordTiming() && !current.hasWordTiming()) return true;
         if (remote.hasWordTiming() && current.hasWordTiming()) {
-            int remotePriority = wordPriority(remote);
-            int currentPriority = wordPriority(current);
+            int remotePriority = wordPriority(remote) + sourceAffinity(request, remote);
+            int currentPriority = wordPriority(current) + sourceAffinity(request, current);
             if (remotePriority > currentPriority && remote.getScore() >= current.getScore() - 15) return true;
             if (remotePriority < currentPriority && remote.getScore() <= current.getScore() + 15) return false;
         }
-        return weightedScore(remote) > weightedScore(current) + 10;
+        return weightedScore(request, remote) > weightedScore(request, current) + 10;
     }
 
     private boolean isTrustedWord(LyricsResult result) {
@@ -276,8 +280,13 @@ public class LyricsRepository {
     }
 
     private int weightedScore(LyricsResult result) {
+        return weightedScore(null, result);
+    }
+
+    private int weightedScore(LyricsRequest request, LyricsResult result) {
         if (result == null) return 0;
-        return result.getScore() + (result.hasWordTiming() ? 80 + wordPriority(result) : 0);
+        int quality = result.hasWordTiming() ? 80 + wordPriority(result) : result.isSynced() ? 18 : 0;
+        return result.getScore() + quality + sourceAffinity(request, result);
     }
 
     private int wordPriority(LyricsResult result) {
@@ -294,6 +303,24 @@ public class LyricsRepository {
         return 0;
     }
 
+    private int sourceAffinity(LyricsRequest request, LyricsResult result) {
+        if (request == null || result == null || TextUtils.isEmpty(result.getSource())) return 0;
+        String source = result.getSource().toLowerCase(Locale.ROOT);
+        String text = (safe(request.getKey()) + " " + safe(request.getUrl())).toLowerCase(Locale.ROOT);
+        if (source.contains("kuwo") && containsAny(text, "kuwo", "kuwo.cn", "酷我", "kw")) return 24;
+        if (source.contains("qqmusic") && containsAny(text, "qqmusic", "qq.com", "y.qq.com", "qq音乐", "tencent")) return 22;
+        if (source.contains("netease") && containsAny(text, "netease", "music.163", "163.com", "网易", "ncm")) return 20;
+        if (source.contains("kugou") && containsAny(text, "kugou", "酷狗", "kg")) return 18;
+        if (source.contains("migu") && containsAny(text, "migu", "咪咕")) return 16;
+        if (source.contains("amll") && containsAny(text, "amll", "ttml")) return 14;
+        return 0;
+    }
+
+    private boolean containsAny(String text, String... values) {
+        for (String value : values) if (!TextUtils.isEmpty(value) && text.contains(value)) return true;
+        return false;
+    }
+
     private void addSearch(List<SearchFuture> futures, String source, SearchAction action) {
         futures.add(new SearchFuture(source, Task.largeExecutor().submit(() -> {
             try {
@@ -306,23 +333,35 @@ public class LyricsRepository {
     }
 
     private void collectSearch(List<LyricsResult> results, List<SearchFuture> futures) {
-        long deadline = System.currentTimeMillis() + 22000;
-        for (SearchFuture item : futures) {
-            try {
-                long wait = Math.max(1, deadline - System.currentTimeMillis());
-                addAll(results, item.future.get(wait, TimeUnit.MILLISECONDS));
-            } catch (TimeoutException e) {
-                item.future.cancel(true);
-                if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "search source=%s timeout", item.source);
-            } catch (Throwable e) {
-                if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "search source=%s failed error=%s", item.source, e.getMessage());
+        collectSearch(results, futures, 22000, "search");
+    }
+
+    private void collectSearch(List<LyricsResult> results, List<SearchFuture> futures, long timeoutMs, String operation) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (!futures.isEmpty() && System.currentTimeMillis() < deadline) {
+            boolean changed = false;
+            for (int i = futures.size() - 1; i >= 0; i--) {
+                SearchFuture item = futures.get(i);
+                if (!item.future.isDone()) continue;
+                futures.remove(i);
+                try {
+                    addAll(results, item.future.get(1, TimeUnit.MILLISECONDS));
+                    changed = true;
+                } catch (Throwable e) {
+                    if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "%s source=%s failed error=%s", operation, item.source, e.getMessage());
+                }
             }
+            if (!changed) sleepSearch();
+        }
+        for (SearchFuture item : futures) {
+            item.future.cancel(true);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "%s source=%s timeout", operation, item.source);
         }
     }
 
     private void collectSearchProgressive(LyricsRequest request, int sourceMode, List<LyricsResult> results, List<SearchFuture> futures, SearchCallback callback) {
         long deadline = System.currentTimeMillis() + 22000;
-        int lastCount = results.size();
+        String lastKey = resultListKey(sorted(request, results, 24));
         while (!futures.isEmpty() && System.currentTimeMillis() < deadline) {
             boolean changed = false;
             for (int i = futures.size() - 1; i >= 0; i--) {
@@ -336,9 +375,10 @@ public class LyricsRepository {
                     if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "search source=%s failed error=%s", item.source, e.getMessage());
                 }
             }
-            List<LyricsResult> sorted = sorted(results, 24);
-            if (changed && sorted.size() != lastCount) {
-                lastCount = sorted.size();
+            List<LyricsResult> sorted = sorted(request, results, 24);
+            String key = resultListKey(sorted);
+            if (changed && !TextUtils.equals(key, lastKey)) {
+                lastKey = key;
                 postSearch(callback, sorted, false);
             }
             if (!changed) sleepSearch();
@@ -347,9 +387,16 @@ public class LyricsRepository {
             item.future.cancel(true);
             if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "search source=%s timeout", item.source);
         }
-        List<LyricsResult> sorted = sorted(results, 24);
+        List<LyricsResult> sorted = sorted(request, results, 24);
+        if (SpiderDebug.isEnabled()) logCandidates(request, "search", sorted);
         writeSearchCache(request, sourceMode, sorted);
         postSearch(callback, sorted, true);
+    }
+
+    private String resultListKey(List<LyricsResult> results) {
+        StringBuilder builder = new StringBuilder();
+        for (LyricsResult result : results) builder.append(resultKey(result)).append('#').append(result.getScore()).append('#').append(result.hasWordTiming()).append(';');
+        return builder.toString();
     }
 
     private void sleepSearch() {
@@ -381,16 +428,32 @@ public class LyricsRepository {
     }
 
     private List<LyricsResult> sorted(List<LyricsResult> items, int limit) {
+        return sorted(null, items, limit);
+    }
+
+    private List<LyricsResult> sorted(LyricsRequest request, List<LyricsResult> items, int limit) {
         ArrayList<LyricsResult> results = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         ArrayList<LyricsResult> candidates = new ArrayList<>(items == null ? List.of() : items);
-        candidates.sort(Comparator.comparingInt((LyricsResult result) -> weightedScore(result)).reversed());
+        candidates.sort(Comparator.comparingInt((LyricsResult result) -> weightedScore(request, result)).reversed());
         for (LyricsResult item : candidates) {
             if (!seen.add(resultKey(item))) continue;
             results.add(item);
             if (results.size() >= limit) break;
         }
         return results;
+    }
+
+    private void logCandidates(LyricsRequest request, String operation, List<LyricsResult> results) {
+        if (!SpiderDebug.isEnabled()) return;
+        StringBuilder builder = new StringBuilder();
+        int count = Math.min(results == null ? 0 : results.size(), 8);
+        for (int i = 0; i < count; i++) {
+            LyricsResult item = results.get(i);
+            if (i > 0) builder.append(", ");
+            builder.append(item.getSource()).append(':').append(item.getScore()).append('/').append(weightedScore(request, item)).append(item.hasWordTiming() ? "/word" : item.isSynced() ? "/sync" : "/plain");
+        }
+        SpiderDebug.log(TAG, "%s ranked title=%s artist=%s results=[%s]", operation, request.getTitle(), request.getArtist(), builder);
     }
 
     private String resultKey(LyricsResult result) {
@@ -431,7 +494,7 @@ public class LyricsRepository {
         } catch (Exception e) {
             return List.of();
         }
-        return sorted(results, 24);
+        return sorted(request, results, 24);
     }
 
     private void writeSearchCache(LyricsRequest request, int sourceMode, List<LyricsResult> results) {

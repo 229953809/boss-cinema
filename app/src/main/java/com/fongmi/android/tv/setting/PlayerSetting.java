@@ -246,6 +246,14 @@ public class PlayerSetting {
         Prefers.put("prefer_aac", preferAAC);
     }
 
+    public static boolean isDesktopLyrics() {
+        return Prefers.getBoolean("desktop_lyrics");
+    }
+
+    public static void putDesktopLyrics(boolean value) {
+        Prefers.put("desktop_lyrics", value);
+    }
+
     public static float getSubtitleTextSize() {
         return Prefers.getFloat("subtitle_text_size");
     }

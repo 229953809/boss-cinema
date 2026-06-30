@@ -812,6 +812,8 @@
     <string name="player_lyrics_rows">Lyric rows</string>
     <string name="player_lyrics_size">Lyric size</string>
     <string name="player_lyrics_source">Lyric source</string>
+    <string name="player_desktop_lyrics">Desktop lyrics</string>
+    <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>
     <string name="player_lyrics_cache">Lyric cache</string>
     <string name="player_lyrics_cache_value">%1$d items</string>
     <string name="player_lyrics_cache_cleared">Lyric cache cleared</string>

@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.media3.common.C;
+import androidx.media3.common.MediaMetadata;
 
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -246,6 +247,38 @@ public class LyricsController {
         return isAudioUrl(player.getUrl());
     }
 
+    public static boolean isAudioContent(PlayerManager player) {
+        if (player == null || player.isEmpty()) return false;
+        return isAudioOnly(player) || isAudioUrl(player.getUrl()) || isMusicLike(player);
+    }
+
+    public static boolean isMusicLike(PlayerManager player) {
+        if (player == null) return false;
+        StringBuilder builder = new StringBuilder();
+        append(builder, player.getKey());
+        append(builder, player.getUrl());
+        MediaMetadata metadata = player.getMetadata();
+        if (metadata != null) {
+            append(builder, metadata.title);
+            append(builder, metadata.artist);
+            append(builder, metadata.albumTitle);
+        }
+        return isMusicLikeText(builder.toString());
+    }
+
+    public static boolean isMusicLikeText(String text) {
+        String lower = safe(text).toLowerCase(Locale.ROOT);
+        return lower.contains("音乐") || lower.contains("音樂")
+                || lower.contains("music") || lower.contains("song")
+                || lower.contains("歌曲") || lower.contains("歌单") || lower.contains("歌單")
+                || lower.contains("聽歌") || lower.contains("听歌")
+                || lower.contains("有声") || lower.contains("有聲")
+                || lower.contains("听书") || lower.contains("聽書")
+                || lower.contains("audiobook") || lower.contains("audio book")
+                || lower.contains("podcast") || lower.contains("播客")
+                || lower.contains("电台") || lower.contains("電台") || lower.contains("radio");
+    }
+
     public static boolean hasTimedLyrics(String text) {
         return LyricsParser.hasTimedLine(text);
     }
@@ -265,6 +298,12 @@ public class LyricsController {
 
     private static String safe(String text) {
         return text == null ? "" : text;
+    }
+
+    private static void append(StringBuilder builder, CharSequence text) {
+        if (TextUtils.isEmpty(text)) return;
+        if (builder.length() > 0) builder.append(' ');
+        builder.append(text);
     }
 
     private static boolean hasWordTiming(List<LyricsLine> lines) {

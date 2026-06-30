@@ -133,7 +133,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -602,7 +601,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
         setupActionButtons();
-        mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> mPiP.update(this, view));
+        mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (!suppressPiPForAudio()) mPiP.update(this, view);
+        });
     }
 
     private void setupActionButtons() {
@@ -1909,6 +1910,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onTracksChanged() {
         updateAudioOnlyState();
+        suppressPiPForAudio();
         refreshLyrics();
         setTrackVisible();
         mClock.setCallback(this);
@@ -2102,8 +2104,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean isMusicLike() {
         String flag = mFlagAdapter == null || mFlagAdapter.isEmpty() ? "" : getFlag().getShow();
-        String text = (getSite().getKey() + " " + getSite().getName() + " " + flag + " " + getName()).toLowerCase(Locale.ROOT);
-        return text.contains("音乐") || text.contains("音樂") || text.contains("music") || text.contains("song") || text.contains("歌曲") || text.contains("歌单") || text.contains("聽歌") || text.contains("听歌");
+        Site site = getSite();
+        String text = (getKey() + " " + (site == null ? "" : site.getKey()) + " " + (site == null ? "" : site.getName()) + " " + flag + " " + getName());
+        return LyricsController.isMusicLikeText(text);
     }
 
     private String getLyricsArtist(String title) {
@@ -2182,17 +2185,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
         if (isPlaying) {
-            mPiP.update(this, true);
+            if (!suppressPiPForAudio()) mPiP.update(this, true);
             mBinding.control.play.setImageResource(androidx.media3.ui.R.drawable.exo_icon_pause);
         } else if (isPaused()) {
-            mPiP.update(this, false);
+            if (!suppressPiPForAudio()) mPiP.update(this, false);
             mBinding.control.play.setImageResource(androidx.media3.ui.R.drawable.exo_icon_play);
         }
     }
 
     @Override
     protected void onSizeChanged(VideoSize size) {
-        mPiP.update(this, size.width, size.height, getScale());
+        if (!suppressPiPForAudio()) mPiP.update(this, size.width, size.height, getScale());
         setSizeText();
         updateVideoHeight();
         applyResizeMode(getScale());
@@ -2633,6 +2636,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean preparePiP(String reason) {
         if (isRedirect() || isPlaybackExiting()) return false;
+        if (suppressPiPForAudio()) return false;
         if (service() == null || !player().haveTrack(C.TRACK_TYPE_VIDEO)) return false;
         mPiP.update(this, player().getVideoWidth(), player().getVideoHeight(), getScale());
         return true;
@@ -2645,8 +2649,21 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private boolean enterPiP(String reason) {
+        if (suppressPiPForAudio()) return false;
         if (service() == null || !player().haveTrack(C.TRACK_TYPE_VIDEO)) return false;
         return mPiP.enter(this, player().getVideoWidth(), player().getVideoHeight(), getScale());
+    }
+
+    private boolean suppressPiPForAudio() {
+        if (!isAudioContentForPiP()) return false;
+        mPiP.disableAutoEnter(this);
+        return true;
+    }
+
+    private boolean isAudioContentForPiP() {
+        if (service() == null) return false;
+        updateAudioOnlyState();
+        return isAudioOnly() || isMusicLike() || LyricsController.isAudioContent(player());
     }
 
     @Override

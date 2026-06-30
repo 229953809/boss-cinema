@@ -810,6 +810,8 @@
     <string name="player_lyrics_rows">歌词行数</string>
     <string name="player_lyrics_size">歌词字号</string>
     <string name="player_lyrics_source">歌词来源</string>
+    <string name="player_desktop_lyrics">桌面歌词</string>
+    <string name="player_desktop_lyrics_permission">请允许显示在其他应用上层，用于显示桌面歌词</string>
     <string name="player_lyrics_cache">歌词缓存</string>
     <string name="player_lyrics_cache_value">%1$d 项</string>
     <string name="player_lyrics_cache_cleared">歌词缓存已清理</string>

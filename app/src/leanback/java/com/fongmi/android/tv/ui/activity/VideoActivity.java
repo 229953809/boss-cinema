@@ -114,7 +114,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -1970,8 +1969,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private boolean isMusicLike() {
         String flag = mFlagAdapter == null || mFlagAdapter.getItemCount() == 0 ? "" : getFlag().getShow();
-        String text = (getSite().getKey() + " " + getSite().getName() + " " + flag + " " + getName()).toLowerCase(Locale.ROOT);
-        return text.contains("音乐") || text.contains("音樂") || text.contains("music") || text.contains("song") || text.contains("歌曲") || text.contains("歌单") || text.contains("聽歌") || text.contains("听歌");
+        Site site = getSite();
+        String text = (getKey() + " " + (site == null ? "" : site.getKey()) + " " + (site == null ? "" : site.getName()) + " " + flag + " " + getName());
+        return LyricsController.isMusicLikeText(text);
     }
 
     private String getLyricsArtist(String title) {
