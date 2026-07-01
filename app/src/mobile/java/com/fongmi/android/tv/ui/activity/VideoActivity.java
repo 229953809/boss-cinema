@@ -3509,7 +3509,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         tintFusionPlaybackIcon(mBinding.reverse, color);
         tintFusionPlaybackIcon(mBinding.episodeViewMode, color);
         tintFusionPlaybackIcon(mBinding.more, color);
-        tintFusionPlaybackTextTree(mBinding.control.action.getRoot(), color, light);
+        boolean playerOverlay = isFullscreen() || mBinding.control.action.getRoot().getParent() == mBinding.control.bottom;
+        tintFusionPlaybackTextTree(mBinding.control.action.getRoot(), playerOverlay ? Color.WHITE : color, !playerOverlay && light);
     }
 
     private boolean isTmdbPlaybackLightTheme() {

@@ -696,6 +696,9 @@ public class VideoActivityLayoutTest {
                 source.indexOf("mTmdbHeaderView.getFusionSectionTitleColor()", method) > method);
         assertTrue("TMDB flag chips must use the same resolved playback theme as the moved labels",
                 methodBody.contains("mFlagAdapter.setTmdbLight(light)"));
+        assertTrue("fullscreen player action buttons must stay white instead of inheriting light TMDB text",
+                methodBody.contains("boolean playerOverlay = isFullscreen() || mBinding.control.action.getRoot().getParent() == mBinding.control.bottom")
+                        && methodBody.contains("playerOverlay ? Color.WHITE : color"));
         assertTrue("fusion playback icon retint must use a color filter", source.indexOf("setColorFilter(color)", method) > method);
         assertTrue("light fusion playback labels must clear inherited video shadows", source.indexOf("setShadowLayer(0, 0, 0, 0)", method) > method);
         assertTrue("episode view mode icon must be retinted after changing its drawable", viewModeRetint > viewModeIcon);
