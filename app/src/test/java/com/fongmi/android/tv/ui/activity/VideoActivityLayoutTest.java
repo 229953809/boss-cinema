@@ -228,6 +228,21 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void leanbackDetailActionRowScrollsHorizontally() throws Exception {
+        Path layoutFile = findLeanbackResPath().resolve(Path.of("layout", "activity_video.xml"));
+        Element row = findAndroidId(layoutFile.toFile(), "row2");
+
+        assertTrue(layoutFile + " is missing @+id/row2", row != null);
+        assertTrue("leanback detail action row must scroll instead of clipping overflow",
+                "HorizontalScrollView".equals(row.getNodeName()));
+        assertTrue("leanback detail action row must fill the remaining right side",
+                "match_parent".equals(row.getAttribute("android:layout_width"))
+                        && "true".equals(row.getAttribute("android:layout_alignParentEnd")));
+        assertTrue("leanback detail action row should hide scrollbars",
+                "none".equals(row.getAttribute("android:scrollbars")));
+    }
+
+    @Test
     public void leanbackTmdbEpisodeDialogUsesFullscreenAdaptiveCards() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
