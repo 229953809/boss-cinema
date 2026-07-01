@@ -96,7 +96,13 @@ public class KaraokeController implements KaraokeMicRecorder.Listener {
 
     public void update(PlayerManager player, List<LyricsLine> lyrics) {
         if (!active || player == null || player.isEmpty()) return;
-        if (scorer != null) snapshot = scorer.update(player.getPosition(), sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
+        long position = player.getPosition();
+        if (!player.isPlaying()) {
+            if (scorer != null) snapshot = scorer.evaluate(position, sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
+            notifyUpdate();
+            return;
+        }
+        if (scorer != null) snapshot = scorer.update(position, sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
         else if (freeScorer != null) {
             maybeAutoGenerate(player, lyrics);
             snapshot = freeScorer.update(adjustLyricsPosition(player), sample, lyrics);

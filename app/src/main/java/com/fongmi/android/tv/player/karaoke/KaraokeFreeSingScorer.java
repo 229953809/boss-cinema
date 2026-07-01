@@ -185,8 +185,7 @@ public class KaraokeFreeSingScorer {
             return 0;
         }
         long delta = positionMs - lastPositionMs;
-        if (delta <= 0) return 0;
-        if (delta > 2_000) {
+        if (delta < -1_000 || delta > 2_000) {
             warmupUntilMs = positionMs + WARMUP_MS;
             lineIndex = -1;
             lineActiveMs = 0;
@@ -198,6 +197,7 @@ public class KaraokeFreeSingScorer {
             currentComboMs = 0;
             return 0;
         }
+        if (delta <= 0) return 0;
         return Math.min(delta, config.getMaxSliceMs());
     }
 

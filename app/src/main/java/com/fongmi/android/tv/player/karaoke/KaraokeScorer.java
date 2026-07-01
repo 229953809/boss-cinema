@@ -3,6 +3,7 @@ package com.fongmi.android.tv.player.karaoke;
 public class KaraokeScorer {
 
     private static final double PERFECT_TOLERANCE_SEMITONES = 0.38;
+    private static final long WARMUP_MS = 1200;
     private static final int PITCH_HISTORY_SIZE = 24;
     private static final long PITCH_HISTORY_MAX_GAP_MS = 260;
     private static final long VIBRATO_WINDOW_MS = 1300;
@@ -13,6 +14,7 @@ public class KaraokeScorer {
     private final KaraokeTrack track;
     private final KaraokeScoringConfig config;
     private long lastPositionMs = -1;
+    private long warmupUntilMs = WARMUP_MS;
     private double totalWeightMs;
     private double hitWeightMs;
     private double voicedWeightMs;
@@ -45,7 +47,7 @@ public class KaraokeScorer {
         long adjustedPositionMs = Math.max(0, positionMs - config.getInputLatencyMs());
         Sample sample = sample(adjustedPositionMs, frequencyHz, volume, confidence, true);
         long sliceMs = nextSlice(adjustedPositionMs);
-        if (sliceMs > 0 && sample.note != null && sample.note.isScored()) {
+        if (sliceMs > 0 && adjustedPositionMs >= warmupUntilMs && sample.note != null && sample.note.isScored()) {
             double weight = sliceMs * sample.note.getType().getScoreWeight();
             totalWeightMs += weight;
             if (sample.voiced) voicedWeightMs += weight;
@@ -71,6 +73,7 @@ public class KaraokeScorer {
 
     public void reset() {
         lastPositionMs = -1;
+        warmupUntilMs = WARMUP_MS;
         totalWeightMs = 0;
         hitWeightMs = 0;
         voicedWeightMs = 0;
@@ -107,9 +110,18 @@ public class KaraokeScorer {
     }
 
     private long nextSlice(long positionMs) {
-        if (lastPositionMs < 0) return 0;
+        if (lastPositionMs < 0) {
+            warmupUntilMs = positionMs + WARMUP_MS;
+            return 0;
+        }
         long delta = positionMs - lastPositionMs;
-        if (delta <= 0 || delta > 2_000) {
+        if (delta < -1_000 || delta > 2_000) {
+            warmupUntilMs = positionMs + WARMUP_MS;
+            currentComboMs = 0;
+            clearPitchHistory();
+            return 0;
+        }
+        if (delta <= 0) {
             currentComboMs = 0;
             return 0;
         }
