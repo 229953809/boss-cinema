@@ -830,6 +830,8 @@
     <string name="player_karaoke_pitch">Pitch %1$s</string>
     <string name="player_karaoke_pitch_score">Pitch %1$s · %2$s</string>
     <string name="player_karaoke_pitch_hit">Hit</string>
+    <string name="player_karaoke_pitch_perfect">Perfect</string>
+    <string name="player_karaoke_pitch_vibrato">Vibrato</string>
     <string name="player_karaoke_pitch_miss">Off %1$.1f st</string>
     <string name="player_karaoke_free_detail">Pitch %1$s · Participation %2$d%%</string>
     <string name="player_karaoke_rhythm_detail">Rhythm hit %1$d%%</string>
@@ -890,10 +892,17 @@
     <string name="player_karaoke_result_score_value">%1$d · %2$s</string>
     <string name="player_karaoke_result_progress">%1$s %2$d%%</string>
     <string name="player_karaoke_result_voice_coverage">Voice coverage</string>
+    <string name="player_karaoke_result_bonus">Performance bonus</string>
+    <string name="player_karaoke_result_perfect">Perfect hits</string>
+    <string name="player_karaoke_result_vibrato">Vibrato bonus</string>
     <string name="player_karaoke_result_active_time">Active %1$d sec</string>
     <string name="player_karaoke_result_best_combo">Combo %1$d sec</string>
     <string name="player_karaoke_result_line_average">Line average</string>
     <string name="player_karaoke_result_line_summary">Lines %1$d · Best %2$d%%</string>
+    <string name="player_karaoke_result_pitch_headline_high">Strong pitch control and steady delivery.</string>
+    <string name="player_karaoke_result_pitch_headline_mid">Good take. Keep the pitch centered for a higher score.</string>
+    <string name="player_karaoke_result_pitch_headline_low">Warm up the first notes and keep singing through each line.</string>
+    <string name="player_karaoke_result_fun_note">Entertainment scoring includes pitch hits, perfect holds, combo, and vibrato bonuses.</string>
     <string name="player_desktop_lyrics">Desktop lyrics</string>
     <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>
     <string name="player_desktop_lyrics_position_reset">Desktop lyrics position reset</string>

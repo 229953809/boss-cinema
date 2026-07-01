@@ -49,6 +49,21 @@ public class KaraokePitchTrackGenerator {
     private static final int MERGE_WEAK_DELTA = 2;
     private static final long MERGE_GAP_MS = 140;
     private static final long MERGE_MAX_MS = 2600;
+    private static final double KEY_CORRECTION_MAX_QUALITY = 0.68;
+    private static final double[][] KEY_TABLE = {
+            {0.19, 0.00, 0.21, 0.00, 0.21, 0.08, 0.00, 0.13, 0.00, 0.11, 0.00, 0.07},
+            {0.09, 0.21, 0.00, 0.17, 0.00, 0.18, 0.08, 0.00, 0.13, 0.00, 0.14, 0.00},
+            {0.00, 0.07, 0.19, 0.00, 0.18, 0.00, 0.17, 0.08, 0.00, 0.19, 0.00, 0.12},
+            {0.11, 0.00, 0.10, 0.26, 0.00, 0.16, 0.00, 0.17, 0.07, 0.00, 0.13, 0.00},
+            {0.00, 0.14, 0.00, 0.07, 0.28, 0.00, 0.17, 0.00, 0.13, 0.06, 0.00, 0.15},
+            {0.15, 0.00, 0.16, 0.00, 0.13, 0.17, 0.00, 0.16, 0.00, 0.13, 0.10, 0.00},
+            {0.00, 0.15, 0.00, 0.16, 0.00, 0.12, 0.17, 0.00, 0.14, 0.00, 0.14, 0.12},
+            {0.09, 0.00, 0.16, 0.00, 0.16, 0.00, 0.11, 0.17, 0.00, 0.16, 0.00, 0.15},
+            {0.18, 0.07, 0.00, 0.15, 0.00, 0.14, 0.00, 0.09, 0.19, 0.00, 0.18, 0.00},
+            {0.00, 0.18, 0.10, 0.00, 0.14, 0.00, 0.15, 0.00, 0.10, 0.17, 0.00, 0.16},
+            {0.13, 0.00, 0.15, 0.09, 0.00, 0.16, 0.00, 0.18, 0.00, 0.12, 0.17, 0.00},
+            {0.00, 0.11, 0.00, 0.19, 0.13, 0.00, 0.16, 0.00, 0.12, 0.00, 0.08, 0.21}
+    };
     public static final int STAGE_PREPARE = 0;
     public static final int STAGE_DECODE = 1;
     public static final int STAGE_ANALYZE = 2;
@@ -97,6 +112,9 @@ public class KaraokePitchTrackGenerator {
         stabilize(notes);
         smoothLineContour(notes);
         notes = mergeNotes(notes);
+        applyPseudoKey(notes);
+        correctOctaves(notes);
+        smoothOutliers(notes);
         reporter.update(90, STAGE_WRITE);
         int count = 0;
         int observed = 0;
@@ -151,11 +169,14 @@ public class KaraokePitchTrackGenerator {
         if (pitches.size() < 2) return;
         Collections.sort(pitches);
         int median = pitches.get(pitches.size() / 2);
+        int low = pitches.get(0);
+        int high = pitches.get(pitches.size() - 1);
+        boolean mostlyFlat = high - low <= 2;
         for (int i = start; i <= end; i++) {
             Note note = notes.get(i);
             if (note.pitch < 0) continue;
             int normalized = normalizeOctave(note.pitch, median);
-            if (Math.abs(normalized - median) <= 3 && (note.quality < 0.55 || note.estimated)) {
+            if ((Math.abs(normalized - median) <= 1 || mostlyFlat) && (note.quality < 0.55 || note.estimated)) {
                 note.pitch = median;
                 note.estimated = true;
             } else {
@@ -201,6 +222,45 @@ public class KaraokePitchTrackGenerator {
         boolean observed = previous.observed || next.observed;
         double quality = Math.max(previous.quality, next.quality);
         return new Note(segment, pitch, observed, quality, estimated);
+    }
+
+    private static void applyPseudoKey(List<Note> notes) {
+        int key = detectPseudoKey(notes);
+        if (key < 0) return;
+        for (Note note : notes) {
+            if (note.pitch < 0 || (!note.estimated && note.quality > KEY_CORRECTION_MAX_QUALITY)) continue;
+            int pc = pitchClass(note.pitch);
+            if (KEY_TABLE[key][pc] > 0) continue;
+            int up = pitchClass(note.pitch + 1);
+            int down = pitchClass(note.pitch - 1);
+            int shift = KEY_TABLE[key][up] >= KEY_TABLE[key][down] ? 1 : -1;
+            note.pitch = clampMidi(note.pitch + shift);
+            note.estimated = true;
+        }
+    }
+
+    private static int detectPseudoKey(List<Note> notes) {
+        double[] distribution = new double[12];
+        double total = 0;
+        for (Note note : notes) {
+            if (note.pitch < 0) continue;
+            double duration = Math.max(1, note.segment.endMs - note.segment.startMs);
+            double weight = duration * Math.max(0.25, note.quality);
+            distribution[pitchClass(note.pitch)] += weight;
+            total += weight;
+        }
+        if (total <= 0) return -1;
+        int best = -1;
+        double bestScore = 0;
+        for (int key = 0; key < KEY_TABLE.length; key++) {
+            double score = 0;
+            for (int pc = 0; pc < distribution.length; pc++) score += KEY_TABLE[key][pc] * distribution[pc];
+            if (score > bestScore) {
+                bestScore = score;
+                best = key;
+            }
+        }
+        return best;
     }
 
     private static void correctOctaves(List<Note> notes) {
@@ -301,6 +361,10 @@ public class KaraokePitchTrackGenerator {
 
     private static int clampMidi(int pitch) {
         return Math.max(MIN_MIDI, Math.min(MAX_MIDI, pitch));
+    }
+
+    private static int pitchClass(int pitch) {
+        return ((pitch % 12) + 12) % 12;
     }
 
     private static void appendNote(StringBuilder builder, char prefix, long startMs, long endMs, int pitch, String lyric) {
@@ -631,6 +695,10 @@ public class KaraokePitchTrackGenerator {
         private double midi() {
             return KaraokePitch.frequencyToMidi(frequencyHz);
         }
+
+        private double weight() {
+            return confidence * Math.sqrt(Math.max(MIN_VOLUME, volume));
+        }
     }
 
     private static class PitchFrameCollector {
@@ -714,16 +782,16 @@ public class KaraokePitchTrackGenerator {
 
     private static class PitchWindow {
 
-        private final List<Double> values;
+        private final List<FrameValue> values;
         private final int total;
 
-        private PitchWindow(List<Double> values, int total) {
+        private PitchWindow(List<FrameValue> values, int total) {
             this.values = values;
             this.total = total;
         }
 
         private static PitchWindow from(List<PitchFrame> frames, long startMs, long endMs) {
-            List<Double> values = new ArrayList<>();
+            List<FrameValue> values = new ArrayList<>();
             int total = 0;
             long safeStart = Math.max(0, startMs - WINDOW_MARGIN_MS);
             long safeEnd = Math.max(safeStart + MIN_NOTE_MS, endMs + WINDOW_MARGIN_MS);
@@ -731,7 +799,7 @@ public class KaraokePitchTrackGenerator {
                 if (frame.timeMs < safeStart) continue;
                 if (frame.timeMs >= safeEnd) break;
                 total++;
-                if (frame.valid()) values.add(frame.midi());
+                if (frame.valid()) values.add(new FrameValue(frame.midi(), frame.weight()));
             }
             return new PitchWindow(values, total);
         }
@@ -740,18 +808,70 @@ public class KaraokePitchTrackGenerator {
             if (values.size() < 2 || total <= 0) return PitchCandidate.EMPTY;
             double ratio = values.size() / (double) total;
             if (ratio < MIN_WINDOW_VALID_RATIO) return PitchCandidate.EMPTY;
-            Collections.sort(values);
-            double median = values.get(values.size() / 2);
+            Collections.sort(values, (a, b) -> Double.compare(a.midi, b.midi));
+            double median = values.get(values.size() / 2).midi;
             double spread = percentile(0.80) - percentile(0.20);
             if (spread > MAX_WINDOW_SPREAD) return PitchCandidate.EMPTY;
-            double quality = ratio * Math.max(0.15, 1.0 - spread / Math.max(1.0, MAX_WINDOW_SPREAD));
-            return new PitchCandidate((int) Math.round(median), quality);
+            int pitch = likelyPitch((int) Math.round(median));
+            double modeQuality = modeQuality(pitch);
+            double quality = ratio
+                    * Math.max(0.15, 1.0 - spread / Math.max(1.0, MAX_WINDOW_SPREAD))
+                    * Math.max(0.35, modeQuality);
+            return new PitchCandidate(pitch, quality);
         }
 
         private double percentile(double p) {
             if (values.isEmpty()) return 0;
             int index = (int) Math.max(0, Math.min(values.size() - 1, Math.round((values.size() - 1) * p)));
-            return values.get(index);
+            return values.get(index).midi;
+        }
+
+        private int likelyPitch(int median) {
+            double[] scores = weightedScores();
+            int best = -1;
+            double bestScore = 0;
+            for (int pitch = MIN_MIDI; pitch <= MAX_MIDI; pitch++) {
+                if (scores[pitch] > bestScore) {
+                    bestScore = scores[pitch];
+                    best = pitch;
+                }
+            }
+            if (best < 0) return clampMidi(median);
+            return normalizeOctave(best, median);
+        }
+
+        private double modeQuality(int pitch) {
+            double[] scores = weightedScores();
+            double total = 0;
+            for (FrameValue value : values) total += value.weight;
+            if (total <= 0) return 0;
+            double score = 0;
+            for (int candidate = pitch - 24; candidate <= pitch + 24; candidate += 12) {
+                if (candidate >= 0 && candidate < scores.length) score = Math.max(score, scores[candidate]);
+            }
+            return Math.max(0, Math.min(1, score / total));
+        }
+
+        private double[] weightedScores() {
+            double[] scores = new double[MAX_MIDI + 1];
+            for (FrameValue value : values) {
+                int pitch = clampMidi((int) Math.round(value.midi));
+                scores[pitch] += value.weight;
+                if (pitch > MIN_MIDI) scores[pitch - 1] += value.weight * 0.22;
+                if (pitch < MAX_MIDI) scores[pitch + 1] += value.weight * 0.22;
+            }
+            return scores;
+        }
+    }
+
+    private static class FrameValue {
+
+        private final double midi;
+        private final double weight;
+
+        private FrameValue(double midi, double weight) {
+            this.midi = midi;
+            this.weight = Math.max(0.01, weight);
         }
     }
 }

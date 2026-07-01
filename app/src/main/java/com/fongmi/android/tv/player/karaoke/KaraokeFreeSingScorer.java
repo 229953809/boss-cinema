@@ -11,6 +11,7 @@ public class KaraokeFreeSingScorer {
     private static final long WARMUP_MS = 3000;
     private static final long MAX_LINE_MS = 8000;
     private static final long WORD_MARGIN_MS = 250;
+    private static final int RECENT_PITCH_SIZE = 18;
 
     private final KaraokeScoringConfig config;
     private long lastPositionMs = -1;
@@ -29,6 +30,8 @@ public class KaraokeFreeSingScorer {
     private int completedLineScoreSum;
     private int bestLineScorePercent;
     private double lastMidi = Double.NaN;
+    private final double[] recentPitch = new double[RECENT_PITCH_SIZE];
+    private int recentPitchSize;
     private KaraokeScoreSnapshot snapshot;
 
     public KaraokeFreeSingScorer() {
@@ -72,6 +75,7 @@ public class KaraokeFreeSingScorer {
         completedLineScoreSum = 0;
         bestLineScorePercent = 0;
         lastMidi = Double.NaN;
+        recentPitchSize = 0;
         snapshot = empty();
     }
 
@@ -84,9 +88,11 @@ public class KaraokeFreeSingScorer {
             lineTotalWeightMs = 0;
             lineHitWeightMs = 0;
             lastMidi = Double.NaN;
+            recentPitchSize = 0;
         }
         lineActiveMs += sliceMs;
         if (sample.voiced) lineVoicedMs += sliceMs;
+        if (sample.voiced) appendRecentPitch(sample.sungMidi);
         double score = freeScore(sample);
         totalWeightMs += sliceMs;
         hitWeightMs += sliceMs * score;
@@ -105,11 +111,17 @@ public class KaraokeFreeSingScorer {
     private double freeScore(Sample sample) {
         if (!sample.voiced) return 0;
         double coverage = 1.0;
-        double rhythm = 1.0;
+        double confidence = confidenceScore(sample.confidence);
         double volume = volumeScore(sample.volume);
         double stability = stabilityScore(sample.sungMidi);
+        double snap = snapScore(sample.sungMidi, confidence);
+        double musicality = musicalityScore(sample.sungMidi);
         double phrase = lineActiveMs <= 0 ? 0.5 : clamp01(lineVoicedMs / (double) lineActiveMs);
-        return coverage * 0.35 + rhythm * 0.25 + volume * 0.20 + stability * 0.15 + phrase * 0.05;
+        return coverage * 0.18 + confidence * 0.20 + volume * 0.13 + stability * 0.16 + snap * 0.13 + musicality * 0.15 + phrase * 0.05;
+    }
+
+    private double confidenceScore(double confidence) {
+        return clamp01((confidence - config.getMinConfidence()) / Math.max(0.1, 1.0 - config.getMinConfidence()));
     }
 
     private double volumeScore(double volume) {
@@ -128,6 +140,45 @@ public class KaraokeFreeSingScorer {
         return 0.28;
     }
 
+    private double snapScore(double sungMidi, double confidenceScore) {
+        double deviation = Math.abs(sungMidi - Math.round(sungMidi));
+        double tolerance = Math.max(0.35, config.getToleranceSemitones() / 3.0);
+        return clamp01(1.0 - deviation / tolerance) * confidenceScore;
+    }
+
+    private double musicalityScore(double sungMidi) {
+        if (recentPitchSize < 5) return 0.42;
+        double min = sungMidi;
+        double max = sungMidi;
+        for (int i = 0; i < recentPitchSize; i++) {
+            min = Math.min(min, recentPitch[i]);
+            max = Math.max(max, recentPitch[i]);
+        }
+        double range = max - min;
+        double rangeScore;
+        if (range < 0.5) rangeScore = 0.18;
+        else if (range <= 6.0) rangeScore = clamp01(range / 6.0);
+        else rangeScore = Math.max(0.28, 1.0 - (range - 6.0) / 10.0);
+        double intervalScore = 0.55;
+        if (!Double.isNaN(lastMidi)) {
+            double interval = Math.abs(sungMidi - lastMidi);
+            if (interval < 0.3) intervalScore = 0.62;
+            else if (interval <= 5.0) intervalScore = 1.0;
+            else if (interval <= 8.0) intervalScore = 0.42;
+            else intervalScore = 0.12;
+        }
+        return rangeScore * 0.5 + intervalScore * 0.5;
+    }
+
+    private void appendRecentPitch(double sungMidi) {
+        if (recentPitchSize == RECENT_PITCH_SIZE) {
+            System.arraycopy(recentPitch, 1, recentPitch, 0, RECENT_PITCH_SIZE - 1);
+            recentPitchSize--;
+        }
+        recentPitch[recentPitchSize] = sungMidi;
+        recentPitchSize++;
+    }
+
     private long nextSlice(long positionMs) {
         if (lastPositionMs < 0) {
             warmupUntilMs = positionMs + WARMUP_MS;
@@ -143,6 +194,7 @@ public class KaraokeFreeSingScorer {
             lineTotalWeightMs = 0;
             lineHitWeightMs = 0;
             lastMidi = Double.NaN;
+            recentPitchSize = 0;
             currentComboMs = 0;
             return 0;
         }
@@ -156,7 +208,8 @@ public class KaraokeFreeSingScorer {
                 && sample.getConfidence() >= config.getMinConfidence();
         double sungMidi = voiced ? KaraokePitch.frequencyToMidi(sample.getFrequencyHz()) : Double.NaN;
         double volume = sample == null ? 0 : sample.getVolume();
-        return new Sample(voiced, sungMidi, volume);
+        double confidence = sample == null ? 0 : sample.getConfidence();
+        return new Sample(voiced, sungMidi, volume, confidence);
     }
 
     private Window findWindow(List<LyricsLine> lines, long positionMs) {
@@ -231,11 +284,13 @@ public class KaraokeFreeSingScorer {
         private final boolean voiced;
         private final double sungMidi;
         private final double volume;
+        private final double confidence;
 
-        private Sample(boolean voiced, double sungMidi, double volume) {
+        private Sample(boolean voiced, double sungMidi, double volume, double confidence) {
             this.voiced = voiced;
             this.sungMidi = sungMidi;
             this.volume = volume;
+            this.confidence = confidence;
         }
     }
 

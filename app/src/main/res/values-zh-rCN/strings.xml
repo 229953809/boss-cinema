@@ -828,6 +828,8 @@
     <string name="player_karaoke_pitch">音高 %1$s</string>
     <string name="player_karaoke_pitch_score">音高 %1$s · %2$s</string>
     <string name="player_karaoke_pitch_hit">命中</string>
+    <string name="player_karaoke_pitch_perfect">完美</string>
+    <string name="player_karaoke_pitch_vibrato">颤音</string>
     <string name="player_karaoke_pitch_miss">偏差 %1$.1f 半音</string>
     <string name="player_karaoke_free_detail">音高 %1$s · 参与 %2$d%%</string>
     <string name="player_karaoke_rhythm_detail">节奏命中 %1$d%%</string>
@@ -888,10 +890,17 @@
     <string name="player_karaoke_result_score_value">%1$d 分 · %2$s</string>
     <string name="player_karaoke_result_progress">%1$s %2$d%%</string>
     <string name="player_karaoke_result_voice_coverage">演唱覆盖</string>
+    <string name="player_karaoke_result_bonus">表现加成</string>
+    <string name="player_karaoke_result_perfect">完美命中</string>
+    <string name="player_karaoke_result_vibrato">颤音奖励</string>
     <string name="player_karaoke_result_active_time">有效 %1$d 秒</string>
     <string name="player_karaoke_result_best_combo">连击 %1$d 秒</string>
     <string name="player_karaoke_result_line_average">逐句平均</string>
     <string name="player_karaoke_result_line_summary">逐句 %1$d 句 · 最佳 %2$d%%</string>
+    <string name="player_karaoke_result_pitch_headline_high">音准和稳定度都不错，表现很完整。</string>
+    <string name="player_karaoke_result_pitch_headline_mid">这次表现可以，音高再稳一点分数会更好。</string>
+    <string name="player_karaoke_result_pitch_headline_low">先把每句开头唱稳，并尽量完整唱完。</string>
+    <string name="player_karaoke_result_fun_note">娱乐评分包含音准命中、完美保持、连击和颤音奖励。</string>
     <string name="player_desktop_lyrics">桌面歌词</string>
     <string name="player_desktop_lyrics_permission">请允许显示在其他应用上层，用于显示桌面歌词</string>
     <string name="player_desktop_lyrics_position_reset">桌面歌词位置已重置</string>

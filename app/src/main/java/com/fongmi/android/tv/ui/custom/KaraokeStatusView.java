@@ -117,6 +117,8 @@ public class KaraokeStatusView extends LinearLayout {
     private String appendStats(String text, KaraokeScoreSnapshot snapshot) {
         if (snapshot == null) return text;
         String value = text;
+        if (snapshot.isPerfect()) value += " · " + getResources().getString(R.string.player_karaoke_pitch_perfect);
+        if (snapshot.hasVibrato()) value += " · " + getResources().getString(R.string.player_karaoke_pitch_vibrato);
         if (snapshot.getCurrentLineScorePercent() > 0) value += " · " + getResources().getString(R.string.player_karaoke_line_score, snapshot.getCurrentLineScorePercent());
         if (snapshot.getCurrentComboSeconds() >= 2) value += " · " + getResources().getString(R.string.player_karaoke_combo, snapshot.getCurrentComboSeconds());
         return value;

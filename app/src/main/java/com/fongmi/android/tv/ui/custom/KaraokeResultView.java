@@ -137,6 +137,9 @@ public class KaraokeResultView extends LinearLayout {
     private void addMetrics(KaraokeResult result) {
         addMetric(metricLabel(result), result.getHitPercent(), scoreColor(result.getHitPercent()), 12);
         addMetric(getResources().getString(R.string.player_karaoke_result_voice_coverage), result.getVoicedPercent(), 0xFF38BDF8, 9);
+        if (result.isPitchScoring() && result.getBonusPercent() > 0) addMetric(getResources().getString(R.string.player_karaoke_result_bonus), result.getBonusPercent(), 0xFFA78BFA, 9);
+        if (result.isPitchScoring()) addMetric(getResources().getString(R.string.player_karaoke_result_perfect), result.getPerfectPercent(), 0xFFFBBF24, 9);
+        if (result.isPitchScoring() && result.getVibratoPercent() > 0) addMetric(getResources().getString(R.string.player_karaoke_result_vibrato), result.getVibratoPercent(), 0xFF2DD4BF, 9);
         if (result.getScoredLineCount() > 0) addMetric(getResources().getString(R.string.player_karaoke_result_line_average), result.getAverageLineScorePercent(), scoreColor(result.getAverageLineScorePercent()), 9);
     }
 
@@ -174,7 +177,8 @@ public class KaraokeResultView extends LinearLayout {
         boolean showTrack = !result.getTrackLabel().isEmpty();
         boolean showRhythm = result.isScoring() && !result.isPitchScoring();
         boolean showFree = !result.isScoring();
-        if (!showTrack && !showRhythm && !showFree) return;
+        boolean showFun = result.isPitchScoring();
+        if (!showTrack && !showRhythm && !showFree && !showFun) return;
 
         LinearLayout note = new LinearLayout(getContext());
         note.setOrientation(VERTICAL);
@@ -185,6 +189,7 @@ public class KaraokeResultView extends LinearLayout {
         addView(note, noteParams);
 
         if (showTrack) addNoteLine(note, getResources().getString(R.string.player_karaoke_result_track, result.getTrackLabel()), TEXT_SECONDARY);
+        if (showFun) addNoteLine(note, getResources().getString(R.string.player_karaoke_result_fun_note), TEXT_MUTED);
         if (showRhythm) addNoteLine(note, getResources().getString(R.string.player_karaoke_result_rhythm_note), TEXT_MUTED);
         else if (showFree) addNoteLine(note, getResources().getString(R.string.player_karaoke_result_no_track), TEXT_MUTED);
     }
@@ -236,7 +241,11 @@ public class KaraokeResultView extends LinearLayout {
     }
 
     private String resultHeadline(KaraokeResult result) {
-        if (result.isPitchScoring()) return getResources().getString(R.string.player_karaoke_result_pitch_subtitle);
+        if (result.isPitchScoring()) {
+            if (result.getScorePercent() >= 85) return getResources().getString(R.string.player_karaoke_result_pitch_headline_high);
+            if (result.getScorePercent() >= 65) return getResources().getString(R.string.player_karaoke_result_pitch_headline_mid);
+            return getResources().getString(R.string.player_karaoke_result_pitch_headline_low);
+        }
         if (result.isScoring()) return getResources().getString(R.string.player_karaoke_result_rhythm_note);
         return getResources().getString(R.string.player_karaoke_result_no_track);
     }

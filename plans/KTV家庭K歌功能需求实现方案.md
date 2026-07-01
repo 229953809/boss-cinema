@@ -731,6 +731,9 @@ noteEndMs = noteStartMs + beatToMs(lengthBeat)
 - F0：使用已有 `YinPitchDetector` 提取音高帧。
 - 对齐：歌词时间轴作为音符边界；无逐字歌词时按行时长生成少量片段，不再逐字切碎。
 - 后处理：半音量化、八度校正、低置信度行内收敛、短音符合并、缺失音高小范围填补。
+- 进一步优化：
+  - 借鉴 `ultrastar_pitch` 的“窗口概率汇总 + pseudo key 统计后处理”思路：片段内用置信度/音量加权选择最可能半音，整首歌估计调性后只纠正低置信度离调音。
+  - 借鉴 UltraStar / SingStar 类评分：默认忽略八度，重视 pitch class 命中，不强求专业声乐级绝对音高。
 - 进度：生成弹窗显示百分比、阶段和预计剩余时间。
 - 缓存：生成结果写入当前播放项签名对应的 `.generated-pitch.txt`，下次优先复用。
 
@@ -745,6 +748,35 @@ noteEndMs = noteStartMs + beatToMs(lengthBeat)
 - `librosa.pyin`、`aubio`、`Essentia pYIN/Melodia` 是更成熟的轻量/传统路线，可作为后续端侧 native 或外部工具参考。
 - `UltraSinger`、`Nightingale`、`CREPE`、`Demucs`、`WhisperX` 等方案效果可能更强，但计算和依赖过重，不适合直接内置到手机/TV 主链路。
 - 当前 App 端侧最佳实践是：快速失败、明确置信度、缓存结果、允许用户换用在线/本地人工谱。
+
+### 第八阶段补充：娱乐性评分增强（已实现基础版）
+
+参考项目：
+
+- `AllKaraoke`：将分数拆成普通命中、金色音符、perfect、vibrato 等细项；颤音按同一音符内规律性方向变化判断。
+- `Frank Karaoke`：无参考谱时使用 voice-only 娱乐评分，维度包括 pitch stability、melodic movement、interval quality、streak；强调 party 场景的实时反馈。
+- `UltraStar Deluxe / Vocaluxe / Performous`：结果体验以总分、逐句命中、连击和奖励音符形成游戏反馈；评分核心仍然是轻量半音容差，不依赖重模型。
+- GitHub 搜索补充：`karaoke scoring pitch` 方向还有 `ultrastar-score`、`midi-karaoke`、`Karaoke.AI`、多个 pitch detection demo。多数项目代码规模小或实验性强，但共性都是“实时音高 + 参与度/稳定度 + 可视化反馈”，没有发现适合直接端侧内置的大型娱乐评分框架。
+- 论文/理论方向：Nakano 等 unknown melody singing evaluation 提到可用 pitch interval、vibrato、稳定性做非参考式娱乐评分；Yamaha / SingStar 类方案则用参考谱 + 容差带 + 忽略八度。
+
+已落地：
+
+- 有评分谱时：
+  - 保留原音准/节奏命中率。
+  - 新增“完美命中”：命中且偏差更小的片段。
+  - 新增“颤音奖励”：同一目标音内检测到规律小幅音高摆动。
+  - 实时状态显示“完美 / 颤音”，结果面板显示完美命中、颤音奖励。
+  - 结果面板新增“表现加成”，把完美命中和颤音按娱乐权重合成为更直观的奖励项。
+  - 结果页根据分数给出不同反馈语，避免只显示冷冰冰的专业参数。
+- 无评分谱自由唱时：
+  - 评分从单纯覆盖/音量/稳定，升级为覆盖、YIN 置信度、音量、稳定性、贴近半音、旋律变化、句内参与度的组合。
+  - 降低单纯说话或纯单调声音拿高分的概率，同时仍保持娱乐性质。
+
+边界：
+
+- 这些奖励项用于家庭娱乐，不等同专业声乐评价。
+- 颤音检测只看轻量音高轨迹，不做人声风格识别。
+- 没有参考谱时仍不能判断“唱的是不是原曲旋律”，只能评估更像唱歌、更稳定、更有旋律变化。
 
 ## UI/UX 建议
 
