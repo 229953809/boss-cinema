@@ -164,6 +164,14 @@ public class PlayerSetting {
         Prefers.put("audio_background", Math.min(Math.max(background, AUDIO_BACKGROUND_ARTWORK), AUDIO_BACKGROUND_DUSK));
     }
 
+    public static boolean isAudioBackgroundDecorated() {
+        return Prefers.getBoolean("audio_background_decorated", true);
+    }
+
+    public static void putAudioBackgroundDecorated(boolean decorated) {
+        Prefers.put("audio_background_decorated", decorated);
+    }
+
     public static boolean isBackgroundOff() {
         return getBackground() == 0;
     }

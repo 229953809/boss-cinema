@@ -1835,6 +1835,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         ArrayList<Runnable> actions = new ArrayList<>();
         addAudioMoreItem(items, actions, getString(R.string.keep), this::onKeep);
         addAudioMoreItem(items, actions, getString(R.string.nav_setting), this::onSetting);
+        addAudioMoreItem(items, actions, getString(PlayerSetting.isAudioBackgroundDecorated() ? R.string.player_audio_background_decorated_on : R.string.player_audio_background_decorated_off), this::toggleAudioBackgroundDecorated);
         if (service() != null && !player().isEmpty()) addAudioMoreItem(items, actions, getString(R.string.player_osd), this::onInfo);
         if (service() != null && player().haveTrack(C.TRACK_TYPE_AUDIO)) addAudioMoreItem(items, actions, getString(R.string.play_track_audio), () -> onTrack(C.TRACK_TYPE_AUDIO));
         if (service() != null && (player().haveTrack(C.TRACK_TYPE_TEXT) || player().isVod())) addAudioMoreItem(items, actions, getString(R.string.play_track_text), () -> onTrack(C.TRACK_TYPE_TEXT));
@@ -1858,6 +1859,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         PlayerSetting.putAudioBackground(next);
         applyAudioBackground();
         Notify.show(getString(R.string.player_audio_background_value, presets[next]));
+    }
+
+    private void toggleAudioBackgroundDecorated() {
+        boolean decorated = !PlayerSetting.isAudioBackgroundDecorated();
+        PlayerSetting.putAudioBackgroundDecorated(decorated);
+        applyAudioBackground();
+        Notify.show(getString(decorated ? R.string.player_audio_background_decorated_on : R.string.player_audio_background_decorated_off));
     }
 
     private TextView createAudioMoreItem(BottomSheetDialog dialog, String label, Runnable action) {
@@ -3258,7 +3266,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyAudioBackground() {
         if (mBinding == null) return;
-        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor));
+        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated()));
     }
 
     private void updateAudioArtworkColor(@Nullable Drawable drawable) {

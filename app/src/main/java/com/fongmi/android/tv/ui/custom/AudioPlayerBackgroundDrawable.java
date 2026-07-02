@@ -24,13 +24,19 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
     private final Path path;
     private final int style;
     private final int artworkColor;
+    private final boolean decorated;
     private int alpha;
 
     public AudioPlayerBackgroundDrawable(int style, int artworkColor) {
+        this(style, artworkColor, true);
+    }
+
+    public AudioPlayerBackgroundDrawable(int style, int artworkColor, boolean decorated) {
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         this.path = new Path();
         this.style = style;
         this.artworkColor = artworkColor;
+        this.decorated = decorated;
         this.alpha = 255;
     }
 
@@ -65,12 +71,14 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         int c2 = rotate(c1, 38f, 0.92f, 0.95f);
         int c3 = rotate(c1, 196f, 0.78f, 0.82f);
         fillLinear(canvas, w, h, c1, c2, c3, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.18f, h * 0.18f, Math.max(w, h) * 0.68f, withAlpha(Color.WHITE, 70), Color.TRANSPARENT);
         drawWave(canvas, w, h, h * 0.72f, h * 0.12f, withAlpha(c3, 130), withAlpha(c2, 30));
     }
 
     private void drawDarkNeon(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF070A18, 0xFF111B46, 0xFF070812, true);
+        if (!decorated) return;
         drawRibbon(canvas, w, h, -0.08f, 0.24f, 0xCC19E6FF, 0x2219E6FF);
         drawRibbon(canvas, w, h, 0.28f, 0.56f, 0xCCFF3AE0, 0x22FF3AE0);
         drawGrid(canvas, w, h, 0x2248D8FF, Math.max(18, w / 18));
@@ -78,6 +86,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawBlackGold(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF060608, 0xFF211808, 0xFF0A0704, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.78f, h * 0.18f, Math.max(w, h) * 0.62f, 0x99FFC857, Color.TRANSPARENT);
         drawVinyl(canvas, w * 0.26f, h * 0.3f, Math.min(w, h) * 0.5f, 0x44FFFFFF, 0x66FFC857);
         drawRibbon(canvas, w, h, 0.48f, 0.74f, 0xAAFFC857, 0x18FFC857);
@@ -85,6 +94,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawSunset(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFFFF6A3D, 0xFFFFD36E, 0xFF7F63FF, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.72f, h * 0.28f, Math.min(w, h) * 0.28f, 0xDDFFF3A3, Color.TRANSPARENT);
         drawHorizon(canvas, w, h, 0x663A1D52, 0.62f, 0.1f);
         drawWave(canvas, w, h, h * 0.78f, h * 0.08f, 0x667B61FF, 0x11FFFFFF);
@@ -92,6 +102,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawMint(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF21D4B4, 0xFFB7F66E, 0xFF35A7FF, true);
+        if (!decorated) return;
         drawWave(canvas, w, h, h * 0.38f, h * 0.09f, 0x88FFFFFF, 0x2242E695);
         drawWave(canvas, w, h, h * 0.58f, h * 0.12f, 0x662DD4BF, 0x2235A7FF);
         drawFineLines(canvas, w, h, 0x33FFFFFF, false);
@@ -99,12 +110,14 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawCandy(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFFFF4FA3, 0xFFAC5CFF, 0xFF25D8FF, false);
+        if (!decorated) return;
         drawCandyStripes(canvas, w, h);
         fillRadial(canvas, w * 0.12f, h * 0.15f, Math.min(w, h) * 0.26f, 0x88FFFFFF, Color.TRANSPARENT);
     }
 
     private void drawSky(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF26B8FF, 0xFFFFCA45, 0xFFFF706A, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.22f, h * 0.2f, Math.min(w, h) * 0.26f, 0xDDFFF6B8, Color.TRANSPARENT);
         drawCloudBand(canvas, w, h, 0.34f, 0x70FFFFFF);
         drawHorizon(canvas, w, h, 0x55455DAA, 0.74f, 0.06f);
@@ -112,6 +125,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawRose(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFFFF4D87, 0xFFFFB3C7, 0xFF817CFF, true);
+        if (!decorated) return;
         drawWave(canvas, w, h, h * 0.34f, h * 0.16f, 0x88FFFFFF, 0x18FFFFFF);
         drawWave(canvas, w, h, h * 0.66f, h * 0.18f, 0x77D83378, 0x11817CFF);
         drawFineLines(canvas, w, h, 0x26FFFFFF, true);
@@ -119,6 +133,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawCyber(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF00D4FF, 0xFFFF2FB3, 0xFFFFF25C, true);
+        if (!decorated) return;
         drawGrid(canvas, w, h, 0x55FFFFFF, Math.max(22, w / 14));
         drawRibbon(canvas, w, h, 0.14f, 0.4f, 0xAA001B34, 0x22001B34);
         drawRibbon(canvas, w, h, 0.62f, 0.88f, 0x88FFFFFF, 0x18FFFFFF);
@@ -126,6 +141,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawForest(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF1BA784, 0xFFFFD166, 0xFF3A86FF, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.2f, h * 0.16f, Math.min(w, h) * 0.24f, 0xCCFFF3A6, Color.TRANSPARENT);
         drawLeaf(canvas, w, h, 0.68f, 0.2f, 0x6642E695);
         drawLeaf(canvas, w, h, 0.82f, 0.48f, 0x5547C06B);
@@ -134,6 +150,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawLemon(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFFF9F871, 0xFF42E695, 0xFF3BB2FF, false);
+        if (!decorated) return;
         drawCitrus(canvas, w * 0.76f, h * 0.22f, Math.min(w, h) * 0.26f);
         drawCandyStripes(canvas, w, h);
         drawWave(canvas, w, h, h * 0.76f, h * 0.1f, 0x663BB2FF, 0x11FFFFFF);
@@ -141,6 +158,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawDusk(Canvas canvas, int w, int h) {
         fillLinear(canvas, w, h, 0xFF6A5CFF, 0xFFFF7A59, 0xFFFFD166, false);
+        if (!decorated) return;
         fillRadial(canvas, w * 0.68f, h * 0.22f, Math.min(w, h) * 0.22f, 0xAAFFE5A3, Color.TRANSPARENT);
         drawMountain(canvas, w, h, 0.62f, 0x77301954);
         drawMountain(canvas, w, h, 0.74f, 0x884A1841);
