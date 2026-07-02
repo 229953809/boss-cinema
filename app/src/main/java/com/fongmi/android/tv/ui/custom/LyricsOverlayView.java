@@ -35,7 +35,7 @@ public class LyricsOverlayView extends FrameLayout {
 
     private static final int ROWS = 5;
     private static final long WORD_REFRESH_MS = 50;
-    private static final int PRIMARY_COLOR = 0xFFFFD56A;
+    private static final int PRIMARY_COLOR = 0xFF7EE7D6;
 
     private final LinearLayout box;
     private final MaterialTextView[] rows = new MaterialTextView[ROWS];
