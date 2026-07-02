@@ -83,11 +83,11 @@ public class KaraokeController implements KaraokeMicRecorder.Listener {
             if (result != null && result.hasScoredNotes()) {
                 scorer = new KaraokeScorer(result, scoringConfig());
                 freeScorer = null;
-                snapshot = scorer.evaluate(player.getPosition(), sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
+                snapshot = scorer.evaluate(adjustLyricsPosition(player), sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
             } else {
                 scorer = null;
                 freeScorer = new KaraokeFreeSingScorer(scoringConfig());
-                snapshot = emptySnapshot(player.getPosition());
+                snapshot = emptySnapshot(adjustLyricsPosition(player));
             }
             notifyUpdate();
         });
@@ -105,7 +105,7 @@ public class KaraokeController implements KaraokeMicRecorder.Listener {
 
     public void update(PlayerManager player, List<LyricsLine> lyrics) {
         if (!active || player == null || player.isEmpty()) return;
-        long position = player.getPosition();
+        long position = adjustLyricsPosition(player);
         if (!player.isPlaying()) {
             if (scorer != null) snapshot = scorer.evaluate(position, sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
             notifyUpdate();
@@ -114,7 +114,7 @@ public class KaraokeController implements KaraokeMicRecorder.Listener {
         if (scorer != null) snapshot = scorer.update(position, sample.getFrequencyHz(), sample.getVolume(), sample.getConfidence());
         else if (freeScorer != null) {
             maybeAutoGenerate(player, lyrics);
-            snapshot = freeScorer.update(adjustLyricsPosition(player), sample, lyrics);
+            snapshot = freeScorer.update(position, sample, lyrics);
         }
         notifyUpdate();
     }

@@ -3948,7 +3948,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void syncKaraokePosition() {
         if (service() == null || player().isEmpty()) return;
-        long position = player().getPosition();
+        long position = Math.max(0, player().getPosition() + PlayerSetting.getLyricsTimeOffsetMs());
         boolean playing = player().isPlaying();
         mBinding.karaoke.syncPosition(position, playing);
         mBinding.audioKaraoke.syncPosition(position, playing);
