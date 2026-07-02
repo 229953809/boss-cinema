@@ -961,12 +961,12 @@
     <string name="player_audio_background_value">Background: %1$s</string>
     <string name="player_audio_background_decorated_on">Details on</string>
     <string name="player_audio_background_decorated_off">Details off</string>
-    <string name="player_audio_background_breathing_on">Glow on</string>
-    <string name="player_audio_background_breathing_off">Glow off</string>
+    <string name="player_audio_background_light_effect_on">Light effect on</string>
+    <string name="player_audio_background_light_effect_off">Light effect off</string>
     <string name="player_audio_background_decorated_turn_on">Show details</string>
     <string name="player_audio_background_decorated_turn_off">Hide details</string>
-    <string name="player_audio_background_breathing_turn_on">Turn glow on</string>
-    <string name="player_audio_background_breathing_turn_off">Turn glow off</string>
+    <string name="player_audio_background_light_effect_turn_on">Light</string>
+    <string name="player_audio_background_light_effect_turn_off">Light</string>
     <string name="player_audio_background_random_plain">New background</string>
     <string name="player_audio_background_random_decoration">New details</string>
     <string name="player_audio_background_random_mix">Random mix</string>

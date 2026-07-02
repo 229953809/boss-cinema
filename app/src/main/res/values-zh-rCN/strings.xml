@@ -959,12 +959,12 @@
     <string name="player_audio_background_value">背景：%1$s</string>
     <string name="player_audio_background_decorated_on">装饰已开</string>
     <string name="player_audio_background_decorated_off">装饰已关</string>
-    <string name="player_audio_background_breathing_on">呼吸灯已开</string>
-    <string name="player_audio_background_breathing_off">呼吸灯已关</string>
+    <string name="player_audio_background_light_effect_on">光效已开</string>
+    <string name="player_audio_background_light_effect_off">光效已关</string>
     <string name="player_audio_background_decorated_turn_on">打开装饰</string>
     <string name="player_audio_background_decorated_turn_off">关闭装饰</string>
-    <string name="player_audio_background_breathing_turn_on">打开呼吸灯</string>
-    <string name="player_audio_background_breathing_turn_off">关闭呼吸灯</string>
+    <string name="player_audio_background_light_effect_turn_on">光效</string>
+    <string name="player_audio_background_light_effect_turn_off">光效</string>
     <string name="player_audio_background_random_plain">换背景</string>
     <string name="player_audio_background_random_decoration">换装饰</string>
     <string name="player_audio_background_random_mix">随机搭配</string>

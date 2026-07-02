@@ -1859,7 +1859,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         LinearLayout[] gridRef = new LinearLayout[1];
         String[] labels = new String[]{
                 getString(PlayerSetting.isAudioBackgroundDecorated() ? R.string.player_audio_background_decorated_turn_off : R.string.player_audio_background_decorated_turn_on),
-                getString(PlayerSetting.isAudioBackgroundBreathing() ? R.string.player_audio_background_breathing_turn_off : R.string.player_audio_background_breathing_turn_on),
+                getString(PlayerSetting.isAudioBackgroundLightEffect() ? R.string.player_audio_background_light_effect_turn_off : R.string.player_audio_background_light_effect_turn_on),
                 getString(R.string.player_audio_background_random_plain),
                 getString(R.string.player_audio_background_random_decoration),
         };
@@ -1869,7 +1869,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                     updateAudioBackgroundPanel(gridRef[0]);
                 },
                 () -> {
-                    toggleAudioBackgroundBreathing();
+                    toggleAudioBackgroundLightEffect();
                     updateAudioBackgroundPanel(gridRef[0]);
                 },
                 () -> {
@@ -1891,7 +1891,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void updateAudioBackgroundPanel(LinearLayout grid) {
         if (grid == null || grid.getChildCount() == 0 || !(grid.getChildAt(0) instanceof ViewGroup row)) return;
         if (row.getChildCount() > 0 && row.getChildAt(0) instanceof TextView button) button.setText(getString(PlayerSetting.isAudioBackgroundDecorated() ? R.string.player_audio_background_decorated_turn_off : R.string.player_audio_background_decorated_turn_on));
-        if (row.getChildCount() > 1 && row.getChildAt(1) instanceof TextView button) button.setText(getString(PlayerSetting.isAudioBackgroundBreathing() ? R.string.player_audio_background_breathing_turn_off : R.string.player_audio_background_breathing_turn_on));
+        if (row.getChildCount() > 1 && row.getChildAt(1) instanceof TextView button) button.setText(getString(PlayerSetting.isAudioBackgroundLightEffect() ? R.string.player_audio_background_light_effect_turn_off : R.string.player_audio_background_light_effect_turn_on));
     }
 
     private void toggleAudioBackgroundDecorated() {
@@ -1901,11 +1901,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Notify.show(getString(decorated ? R.string.player_audio_background_decorated_on : R.string.player_audio_background_decorated_off));
     }
 
-    private void toggleAudioBackgroundBreathing() {
-        boolean breathing = !PlayerSetting.isAudioBackgroundBreathing();
-        PlayerSetting.putAudioBackgroundBreathing(breathing);
+    private void toggleAudioBackgroundLightEffect() {
+        boolean lightEffect = !PlayerSetting.isAudioBackgroundLightEffect();
+        PlayerSetting.putAudioBackgroundLightEffect(lightEffect);
         applyAudioBackground();
-        Notify.show(getString(breathing ? R.string.player_audio_background_breathing_on : R.string.player_audio_background_breathing_off));
+        Notify.show(getString(lightEffect ? R.string.player_audio_background_light_effect_on : R.string.player_audio_background_light_effect_off));
     }
 
     private void randomizeAudioPlainBackground() {
@@ -3390,7 +3390,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyAudioBackground() {
         if (mBinding == null) return;
-        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundBreathing(), PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed()));
+        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed()));
         mBinding.audioStage.invalidate();
     }
 
