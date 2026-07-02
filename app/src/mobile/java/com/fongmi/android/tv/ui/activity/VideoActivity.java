@@ -228,6 +228,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private int mLyricsSearchSeq;
     private int mAudioQueueSearchSeq;
     private int mEpisodeMaxHeight;
+    private int mAudioBackgroundRandomNonce;
     private Runnable mR1;
     private Runnable mR2;
     private Runnable mR3;
@@ -1855,6 +1856,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void showAudioBackgroundPanel() {
         BottomSheetDialog dialog = createAudioSheet();
         LinearLayout root = createAudioSheetRoot();
+        LinearLayout[] gridRef = new LinearLayout[1];
         String[] labels = new String[]{
                 getString(PlayerSetting.isAudioBackgroundDecorated() ? R.string.player_audio_background_decorated_on : R.string.player_audio_background_decorated_off),
                 getString(R.string.player_audio_background_random_plain),
@@ -1862,15 +1864,33 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 getString(R.string.player_audio_background_random_mix),
         };
         Runnable[] actions = new Runnable[]{
-                this::toggleAudioBackgroundDecorated,
-                this::randomizeAudioPlainBackground,
-                this::randomizeAudioBackgroundDecoration,
-                this::randomizeAudioBackgroundMix,
+                () -> {
+                    toggleAudioBackgroundDecorated();
+                    updateAudioBackgroundPanel(gridRef[0]);
+                },
+                () -> {
+                    randomizeAudioPlainBackground();
+                    updateAudioBackgroundPanel(gridRef[0]);
+                },
+                () -> {
+                    randomizeAudioBackgroundDecoration();
+                    updateAudioBackgroundPanel(gridRef[0]);
+                },
+                () -> {
+                    randomizeAudioBackgroundMix();
+                    updateAudioBackgroundPanel(gridRef[0]);
+                },
         };
         root.addView(createAudioSheetTitle(getString(R.string.player_audio_background)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        root.addView(createKaraokeActionGrid(dialog, true, labels, actions, 2, false), karaokeActionGridParams(10));
+        gridRef[0] = createKaraokeActionGrid(dialog, true, labels, actions, 2, false);
+        root.addView(gridRef[0], karaokeActionGridParams(10));
         dialog.setContentView(root);
         showAudioSheet(dialog);
+    }
+
+    private void updateAudioBackgroundPanel(LinearLayout grid) {
+        if (grid == null || grid.getChildCount() == 0 || !(grid.getChildAt(0) instanceof ViewGroup row) || row.getChildCount() == 0 || !(row.getChildAt(0) instanceof TextView button)) return;
+        button.setText(getString(PlayerSetting.isAudioBackgroundDecorated() ? R.string.player_audio_background_decorated_on : R.string.player_audio_background_decorated_off));
     }
 
     private void toggleAudioBackgroundDecorated() {
@@ -1882,7 +1902,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void randomizeAudioPlainBackground() {
         PlayerSetting.putAudioBackground(PlayerSetting.AUDIO_BACKGROUND_RANDOM);
-        PlayerSetting.putAudioBackgroundSeed(newAudioBackgroundSeed(0));
+        PlayerSetting.putAudioBackgroundSeed(newAudioBackgroundSeed(0, PlayerSetting.getAudioBackgroundSeed()));
         PlayerSetting.putAudioBackgroundDecorated(false);
         applyAudioBackground();
         Notify.show(getString(R.string.player_audio_background_random_plain_done));
@@ -1891,7 +1911,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void randomizeAudioBackgroundDecoration() {
         PlayerSetting.putAudioBackground(PlayerSetting.AUDIO_BACKGROUND_RANDOM);
         PlayerSetting.putAudioBackgroundDecorated(true);
-        PlayerSetting.putAudioBackgroundDecorationSeed(newAudioBackgroundSeed(1));
+        PlayerSetting.putAudioBackgroundDecorationSeed(newAudioBackgroundDecorationSeed());
         applyAudioBackground();
         Notify.show(getString(R.string.player_audio_background_random_decoration_done));
     }
@@ -1899,16 +1919,51 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void randomizeAudioBackgroundMix() {
         PlayerSetting.putAudioBackground(PlayerSetting.AUDIO_BACKGROUND_RANDOM);
         PlayerSetting.putAudioBackgroundDecorated(true);
-        PlayerSetting.putAudioBackgroundSeed(newAudioBackgroundSeed(2));
-        PlayerSetting.putAudioBackgroundDecorationSeed(newAudioBackgroundSeed(3));
+        PlayerSetting.putAudioBackgroundSeed(newAudioBackgroundSeed(2, PlayerSetting.getAudioBackgroundSeed()));
+        PlayerSetting.putAudioBackgroundDecorationSeed(newAudioBackgroundDecorationSeed());
         applyAudioBackground();
         Notify.show(getString(R.string.player_audio_background_random_mix_done));
     }
 
-    private int newAudioBackgroundSeed(int salt) {
-        long now = System.currentTimeMillis();
-        long nano = System.nanoTime();
-        return (int) (now ^ (nano << 7) ^ (nano >>> 3) ^ (salt * 0x9E3779B97F4A7C15L));
+    private int newAudioBackgroundDecorationSeed() {
+        int previous = PlayerSetting.getAudioBackgroundDecorationSeed();
+        int previousMotif = audioBackgroundDecorationMotif(previous);
+        for (int i = 0; i < 8; i++) {
+            int seed = newAudioBackgroundSeed(10 + i, previous);
+            if (audioBackgroundDecorationMotif(seed) != previousMotif) return seed;
+        }
+        return newAudioBackgroundSeed(31, previous);
+    }
+
+    private int newAudioBackgroundSeed(int salt, int previous) {
+        int previousHue = audioBackgroundHue(previous);
+        for (int i = 0; i < 8; i++) {
+            int seed = mixAudioBackgroundSeed((int) System.nanoTime() ^ (int) System.currentTimeMillis() ^ (++mAudioBackgroundRandomNonce * 0x9E3779B9) ^ salt * 0x45D9F3B);
+            if (seed != 0 && seed != previous && hueDistance(audioBackgroundHue(seed), previousHue) >= 36) return seed;
+        }
+        return mixAudioBackgroundSeed(previous ^ (++mAudioBackgroundRandomNonce * 0x7FEB352D) ^ salt * 0x846CA68B);
+    }
+
+    private int audioBackgroundDecorationMotif(int seed) {
+        return Math.floorMod(mixAudioBackgroundSeed(seed == 0 ? 0x5A17B3 : seed), 12);
+    }
+
+    private int audioBackgroundHue(int seed) {
+        return Math.floorMod(mixAudioBackgroundSeed((seed == 0 ? 0x5A17B3 : seed)), 360);
+    }
+
+    private int hueDistance(int a, int b) {
+        int distance = Math.abs(a - b);
+        return Math.min(distance, 360 - distance);
+    }
+
+    private int mixAudioBackgroundSeed(int value) {
+        value ^= value >>> 16;
+        value *= 0x7FEB352D;
+        value ^= value >>> 15;
+        value *= 0x846CA68B;
+        value ^= value >>> 16;
+        return value;
     }
 
     private TextView createAudioMoreItem(BottomSheetDialog dialog, String label, Runnable action) {
@@ -3318,6 +3373,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void applyAudioBackground() {
         if (mBinding == null) return;
         mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed()));
+        mBinding.audioStage.invalidate();
     }
 
     private void updateAudioArtworkColor(@Nullable Drawable drawable) {
