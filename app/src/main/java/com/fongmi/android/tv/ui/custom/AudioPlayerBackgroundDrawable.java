@@ -374,15 +374,15 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         int accent = style == PlayerSetting.AUDIO_BACKGROUND_ARTWORK ? vivid(artworkColor, 1.22f, 1.12f) : randomColor(seed, 12, 0.52f, 0.92f);
         if (!animated) return;
         int accent2 = rotate(accent, 58f + phase * 28f, 0.9f, 1f);
-        int mode = Math.floorMod(mixSeed(seed ^ decorationSeed ^ style * 0x45D9F3B), 6);
+        int mode = Math.floorMod(mixSeed(seed ^ decorationSeed ^ style * 0x45D9F3B) + (int) (now / 6200L), 5);
         switch (mode) {
-            case 0 -> drawLightFlow(canvas, w, h, now, phase, accent, accent2);
-            case 1 -> drawLightAurora(canvas, w, h, now, phase, accent, accent2);
-            case 2 -> drawLightTwinkle(canvas, w, h, seed, now, phase, accent, accent2);
-            case 3 -> drawLightPulse(canvas, w, h, seed, now, phase, accent, accent2);
-            case 4 -> drawLightPrism(canvas, w, h, seed, now, phase, accent, accent2);
+            case 0 -> drawLightAurora(canvas, w, h, now, phase, accent, accent2);
+            case 1 -> drawLightTwinkle(canvas, w, h, seed, now, phase, accent, accent2);
+            case 2 -> drawLightPulse(canvas, w, h, seed, now, phase, accent, accent2);
+            case 3 -> drawLightPrism(canvas, w, h, seed, now, phase, accent, accent2);
             default -> drawLightWaves(canvas, w, h, now, phase, accent, accent2);
         }
+        drawLightPresence(canvas, w, h, now, phase, accent, accent2);
     }
 
     private void drawLightFlow(Canvas canvas, int w, int h, long now, float phase, int accent, int accent2) {
@@ -492,6 +492,33 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             canvas.drawPath(path, paint);
             paint.setShader(null);
         }
+    }
+
+    private void drawLightPresence(Canvas canvas, int w, int h, long now, float phase, int accent, int accent2) {
+        float drift = (now % 7800L) / 7800f;
+        float reverse = (now % 9400L) / 9400f;
+        float cx = w * (0.12f + drift * 0.76f);
+        float cy = h * (0.18f + (float) Math.sin(now / 1900.0) * 0.08f);
+        float cx2 = w * (0.88f - reverse * 0.72f);
+        float cy2 = h * (0.72f + (float) Math.cos(now / 2300.0) * 0.1f);
+        fillRadial(canvas, cx, cy, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 42 + (int) (phase * 28)), Color.TRANSPARENT);
+        fillRadial(canvas, cx2, cy2, Math.max(w, h) * 0.5f, withAlpha(accent2, 66 + (int) (phase * 34)), Color.TRANSPARENT);
+        drawCurvedLight(canvas, w, h, drift, withAlpha(Color.WHITE, 74), withAlpha(accent, 92));
+    }
+
+    private void drawCurvedLight(Canvas canvas, int w, int h, float progress, int coreColor, int edgeColor) {
+        float startX = w * (-0.26f + progress * 1.42f);
+        float y = h * (0.18f + 0.42f * (float) Math.sin(progress * Math.PI * 2.0));
+        float thickness = Math.max(h * 0.045f, w * 0.055f);
+        path.reset();
+        path.moveTo(startX - w * 0.24f, y);
+        path.cubicTo(startX + w * 0.04f, y - h * 0.18f, startX + w * 0.34f, y + h * 0.22f, startX + w * 0.74f, y + h * 0.02f);
+        path.lineTo(startX + w * 0.74f, y + thickness);
+        path.cubicTo(startX + w * 0.34f, y + h * 0.22f + thickness, startX + w * 0.04f, y - h * 0.18f + thickness, startX - w * 0.24f, y + thickness);
+        path.close();
+        paint.setShader(new LinearGradient(startX - w * 0.24f, y, startX + w * 0.74f, y + thickness, new int[]{Color.TRANSPARENT, edgeColor, coreColor, edgeColor, Color.TRANSPARENT}, new float[]{0f, 0.24f, 0.5f, 0.76f, 1f}, Shader.TileMode.CLAMP));
+        canvas.drawPath(path, paint);
+        paint.setShader(null);
     }
 
     private void drawFlowLight(Canvas canvas, int w, int h, float progress, int color, int edgeColor) {
