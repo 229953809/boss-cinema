@@ -34,8 +34,11 @@ public class KaraokePitchTrackGenerator {
     private static final long WORD_COMPACT_MS = 280;
     private static final int FRAME_SIZE = 2048;
     private static final int HOP_SIZE = 1024;
+    private static final int COARSE_HOP_SIZE = 2048;
     private static final int ANALYSIS_TARGET_SAMPLE_RATE = 16_000;
     private static final long ANALYSIS_WINDOW_EXTRA_MS = 600;
+    private static final long PRECISION_BOUNDARY_MS = 280;
+    private static final long LOW_CONFIDENCE_FINE_MS = 520;
     private static final long DECODE_SEEK_GRACE_MS = 1200;
     private static final double ANALYSIS_HIGH_PASS_HZ = 80.0;
     private static final double ANALYSIS_LOW_PASS_HZ = 3500.0;
@@ -557,7 +560,7 @@ public class KaraokePitchTrackGenerator {
             decoder = MediaCodec.createDecoderByType(mime);
             decoder.configure(format, null, null, 0);
             decoder.start();
-            return decodeLoop(extractor, decoder, format, analysisWindows(segments), reporter, durationMs(input, format));
+            return decodeLoop(extractor, decoder, format, analysisWindows(segments), precisionWindows(segments), reporter, durationMs(input, format));
         } finally {
             try {
                 extractor.release();
@@ -573,10 +576,10 @@ public class KaraokePitchTrackGenerator {
         }
     }
 
-    private static List<PitchFrame> decodeLoop(MediaExtractor extractor, MediaCodec decoder, MediaFormat inputFormat, List<AnalysisWindow> windows, ProgressReporter reporter, long durationMs) {
+    private static List<PitchFrame> decodeLoop(MediaExtractor extractor, MediaCodec decoder, MediaFormat inputFormat, List<AnalysisWindow> windows, List<AnalysisWindow> precisionWindows, ProgressReporter reporter, long durationMs) {
         long startMs = System.currentTimeMillis();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        PitchFrameCollector collector = new PitchFrameCollector(sampleRate(inputFormat), windows);
+        PitchFrameCollector collector = new PitchFrameCollector(sampleRate(inputFormat), windows, precisionWindows);
         int windowIndex = 0;
         int seekedWindowIndex = -1;
         boolean seekByWindow = windows != null && !windows.isEmpty();
@@ -725,6 +728,26 @@ public class KaraokePitchTrackGenerator {
             }
         }
         return windows;
+    }
+
+    private static List<AnalysisWindow> precisionWindows(List<Segment> segments) {
+        List<AnalysisWindow> windows = new ArrayList<>();
+        if (segments == null || segments.isEmpty()) return windows;
+        for (Segment segment : segments) {
+            addPrecisionWindow(windows, segment.startMs);
+            addPrecisionWindow(windows, segment.endMs);
+        }
+        return windows;
+    }
+
+    private static void addPrecisionWindow(List<AnalysisWindow> windows, long centerMs) {
+        long start = Math.max(0, centerMs - PRECISION_BOUNDARY_MS);
+        long end = Math.max(start + MIN_NOTE_MS, centerMs + PRECISION_BOUNDARY_MS);
+        if (!windows.isEmpty() && start <= windows.get(windows.size() - 1).endMs) {
+            windows.get(windows.size() - 1).endMs = Math.max(windows.get(windows.size() - 1).endMs, end);
+        } else {
+            windows.add(new AnalysisWindow(start, end));
+        }
     }
 
     private static List<Segment> segments(List<LyricsLine> lines, long durationMs) {
@@ -965,24 +988,29 @@ public class KaraokePitchTrackGenerator {
         private final long[] timeRing = new long[FRAME_SIZE];
         private final float[] frame = new float[FRAME_SIZE];
         private final List<AnalysisWindow> windows;
+        private final List<AnalysisWindow> precisionWindows;
         private final List<PitchFrame> frames = new ArrayList<>();
         private YinPitchDetector detector;
         private VoiceBandpassFilter filter;
         private Biquad resampleLowPass;
         private long sampleCount;
+        private long lastFrameSampleCount = -1;
         private long previousSourceIndex;
         private double nextOutputSourcePosition;
         private double resampleStep;
         private float previousSourceSample;
         private boolean hasPreviousSourceSample;
         private int windowIndex;
+        private int precisionWindowIndex;
         private int skippedInactive;
         private int skippedSilent;
         private int sourceSampleRate;
         private int sampleRate;
+        private long forceFineUntilMs;
 
-        private PitchFrameCollector(int sourceSampleRate, List<AnalysisWindow> windows) {
+        private PitchFrameCollector(int sourceSampleRate, List<AnalysisWindow> windows, List<AnalysisWindow> precisionWindows) {
             this.windows = windows == null ? Collections.emptyList() : windows;
+            this.precisionWindows = precisionWindows == null ? Collections.emptyList() : precisionWindows;
             setSourceSampleRate(sourceSampleRate);
         }
 
@@ -1034,8 +1062,10 @@ public class KaraokePitchTrackGenerator {
             timeRing[index] = Math.max(0, timeMs);
             sampleCount++;
             if (sampleCount < FRAME_SIZE) return;
-            if ((sampleCount - FRAME_SIZE) % HOP_SIZE != 0) return;
             long centerMs = timeRing[(int) ((sampleCount - FRAME_SIZE / 2L) % FRAME_SIZE)];
+            int hop = isFinePrecision(centerMs) ? HOP_SIZE : COARSE_HOP_SIZE;
+            if (lastFrameSampleCount >= 0 && sampleCount - lastFrameSampleCount < hop) return;
+            lastFrameSampleCount = sampleCount;
             if (!isActive(centerMs)) {
                 skippedInactive++;
                 return;
@@ -1046,7 +1076,9 @@ public class KaraokePitchTrackGenerator {
                 skippedSilent++;
                 frames.add(new PitchFrame(new KaraokePitchSample(centerMs, 0, volume, 0)));
             } else {
-                frames.add(new PitchFrame(detector.detect(frame, frame.length, centerMs, volume)));
+                KaraokePitchSample sample = detector.detect(frame, frame.length, centerMs, volume);
+                if (sample.getConfidence() < MIN_CONFIDENCE) forceFineUntilMs = Math.max(forceFineUntilMs, centerMs + LOW_CONFIDENCE_FINE_MS);
+                frames.add(new PitchFrame(sample));
             }
         }
 
@@ -1056,10 +1088,13 @@ public class KaraokePitchTrackGenerator {
 
         private void resetStreamState() {
             sampleCount = 0;
+            lastFrameSampleCount = -1;
             previousSourceIndex = 0;
             nextOutputSourcePosition = 0;
             previousSourceSample = 0;
             hasPreviousSourceSample = false;
+            forceFineUntilMs = 0;
+            precisionWindowIndex = 0;
             filter = new VoiceBandpassFilter(sampleRate);
             resampleLowPass = sourceSampleRate > sampleRate ? Biquad.lowPass(ANALYSIS_LOW_PASS_HZ, sourceSampleRate) : null;
         }
@@ -1073,6 +1108,13 @@ public class KaraokePitchTrackGenerator {
             if (windows.isEmpty()) return true;
             while (windowIndex < windows.size() && timeMs > windows.get(windowIndex).endMs) windowIndex++;
             return windowIndex < windows.size() && timeMs >= windows.get(windowIndex).startMs;
+        }
+
+        private boolean isFinePrecision(long timeMs) {
+            if (timeMs <= forceFineUntilMs) return true;
+            if (precisionWindows.isEmpty()) return true;
+            while (precisionWindowIndex < precisionWindows.size() && timeMs > precisionWindows.get(precisionWindowIndex).endMs) precisionWindowIndex++;
+            return precisionWindowIndex < precisionWindows.size() && timeMs >= precisionWindows.get(precisionWindowIndex).startMs;
         }
 
         private double rms(float[] input) {
