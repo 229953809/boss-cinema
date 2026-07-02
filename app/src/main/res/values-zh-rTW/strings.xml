@@ -908,7 +908,8 @@
     <string name="player_audio_badge_audio">音訊</string>
     <string name="player_audio_badge_lyrics">歌詞</string>
     <string name="player_audio_badge_queue">佇列</string>
-    <string name="player_audio_queue">列表</string>
+    <string name="player_audio_queue">佇列</string>
+    <string name="player_audio_repeat">循環</string>
     <string name="player_audio_more">更多</string>
     <string name="player_lyrics_unknown">未知</string>
     <string name="player_lyrics_result_item">%1$s · %2$s · %3$d\n%4$s - %5$s</string>

@@ -46,7 +46,7 @@
                 android:id="@+id/audioStage"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@drawable/shape_audio_stage"
+                android:background="@drawable/shape_audio_player_background"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="28dp"
@@ -163,9 +163,19 @@
                         android:orientation="horizontal">
 
                         <androidx.appcompat.widget.AppCompatImageView
+                            android:id="@+id/audioRepeatAction"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/shape_audio_action_button"
+                            android:padding="8dp"
+                            android:scaleType="center"
+                            android:src="@drawable/ic_audio_repeat" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
                             android:id="@+id/audioPrev"
                             android:layout_width="40dp"
                             android:layout_height="40dp"
+                            android:layout_marginStart="8dp"
                             android:background="@drawable/shape_control"
                             android:padding="8dp"
                             android:scaleType="center"
@@ -186,10 +196,20 @@
                             android:id="@+id/audioNext"
                             android:layout_width="40dp"
                             android:layout_height="40dp"
+                            android:layout_marginEnd="8dp"
                             android:background="@drawable/shape_control"
                             android:padding="8dp"
                             android:scaleType="center"
                             android:src="@drawable/exo_icon_next" />
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:id="@+id/audioQueueAction"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/shape_audio_action_button"
+                            android:padding="8dp"
+                            android:scaleType="center"
+                            android:src="@drawable/ic_audio_queue" />
 
                     </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -202,28 +222,21 @@
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/audioLyricsAction"
-                            style="@style/VideoActionButton"
+                            style="@style/AudioActionButton"
                             android:layout_marginEnd="4dp"
                             android:text="@string/player_lyrics_search"
                             app:drawableTopCompat="@drawable/ic_action_search_shadow" />
 
                         <com.google.android.material.textview.MaterialTextView
-                            android:id="@+id/audioQueueAction"
-                            style="@style/VideoActionButton"
-                            android:layout_marginEnd="4dp"
-                            android:text="@string/player_audio_queue"
-                            app:drawableTopCompat="@drawable/ic_action_more_vert" />
-
-                        <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/audioKaraokeAction"
-                            style="@style/VideoActionButton"
+                            style="@style/AudioActionButton"
                             android:layout_marginEnd="4dp"
                             android:text="@string/player_karaoke_mode"
                             app:drawableTopCompat="@drawable/ic_action_audio" />
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/audioMoreAction"
-                            style="@style/VideoActionButton"
+                            style="@style/AudioActionButton"
                             android:text="@string/player_audio_more"
                             app:drawableTopCompat="@drawable/ic_action_more_vert" />
 
@@ -280,17 +293,17 @@
 
                     </androidx.appcompat.widget.LinearLayoutCompat>
 
+                    <com.fongmi.android.tv.ui.custom.LyricsOverlayView
+                        android:id="@+id/audioLyrics"
+                        android:layout_width="match_parent"
+                        android:layout_height="96dp"
+                        android:layout_marginTop="10dp" />
+
                     <com.fongmi.android.tv.ui.custom.KaraokeStatusView
                         android:id="@+id/audioKaraoke"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp" />
-
-                    <com.fongmi.android.tv.ui.custom.LyricsOverlayView
-                        android:id="@+id/audioLyrics"
-                        android:layout_width="match_parent"
-                        android:layout_height="120dp"
-                        android:layout_marginTop="10dp" />
+                        android:layout_marginTop="8dp" />
 
                 </androidx.appcompat.widget.LinearLayoutCompat>
 

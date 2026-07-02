@@ -926,7 +926,8 @@
     <string name="player_audio_badge_audio">Audio</string>
     <string name="player_audio_badge_lyrics">Lyrics</string>
     <string name="player_audio_badge_queue">Queue</string>
-    <string name="player_audio_queue">Playlist</string>
+    <string name="player_audio_queue">Queue</string>
+    <string name="player_audio_repeat">Repeat</string>
     <string name="player_audio_more">More</string>
     <string name="player_lyrics_unknown">Unknown</string>
     <string name="player_lyrics_result_item">%1$s · %2$s · %3$d\n%4$s - %5$s</string>

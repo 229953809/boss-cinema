@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
@@ -22,6 +23,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.LinearInterpolator;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -136,6 +138,8 @@ import com.fongmi.android.tv.utils.Timer;
 import com.fongmi.android.tv.utils.Traffic;
 import com.fongmi.android.tv.utils.Util;
 import com.github.catvod.crawler.SpiderDebug;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
@@ -580,6 +584,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.audioPlay.setOnClickListener(view -> checkPlay());
         mBinding.audioNext.setOnClickListener(view -> checkNext());
         mBinding.audioPrev.setOnClickListener(view -> checkPrev());
+        mBinding.audioRepeatAction.setOnClickListener(view -> onRepeat());
         mBinding.audioLyricsAction.setOnClickListener(view -> onLyricsSearch());
         mBinding.audioQueueAction.setOnClickListener(view -> onAudioQueue());
         mBinding.audioCastAction.setOnClickListener(view -> onCast());
@@ -1263,14 +1268,56 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (service() != null && player().haveTrack(C.TRACK_TYPE_AUDIO)) addAudioMoreItem(items, actions, getString(R.string.play_track_audio), () -> onTrack(C.TRACK_TYPE_AUDIO));
         if (service() != null && (player().haveTrack(C.TRACK_TYPE_TEXT) || player().isVod())) addAudioMoreItem(items, actions, getString(R.string.play_track_text), () -> onTrack(C.TRACK_TYPE_TEXT));
         addAudioMoreItem(items, actions, getString(R.string.play_cast), this::onCast);
-        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog)
-                .setItems(items.toArray(new String[0]), (dialog, which) -> actions.get(which).run())
-                .show();
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(ResUtil.dp2px(18), ResUtil.dp2px(14), ResUtil.dp2px(18), ResUtil.dp2px(18));
+        root.setBackgroundResource(R.drawable.shape_audio_more_sheet);
+        TextView title = new TextView(this);
+        title.setText(R.string.player_audio_more);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(17);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
+        for (int i = 0; i < items.size(); i++) root.addView(createAudioMoreItem(dialog, items.get(i), actions.get(i)), audioMoreItemParams(i == 0));
+        dialog.setContentView(root);
+        dialog.setOnShowListener(d -> {
+            FrameLayout sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (sheet == null) return;
+            sheet.setBackgroundColor(Color.TRANSPARENT);
+            BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            behavior.setSkipCollapsed(true);
+        });
+        dialog.show();
     }
 
     private void addAudioMoreItem(List<String> items, List<Runnable> actions, String label, Runnable action) {
         items.add(label);
         actions.add(action);
+    }
+
+    private TextView createAudioMoreItem(BottomSheetDialog dialog, String label, Runnable action) {
+        TextView view = new TextView(this);
+        view.setText(label);
+        view.setTextColor(Color.WHITE);
+        view.setTextSize(15);
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setSingleLine(true);
+        view.setPadding(ResUtil.dp2px(16), 0, ResUtil.dp2px(16), 0);
+        view.setBackgroundResource(R.drawable.shape_audio_more_item);
+        view.setOnClickListener(v -> {
+            dialog.dismiss();
+            action.run();
+        });
+        return view;
+    }
+
+    private LinearLayout.LayoutParams audioMoreItemParams(boolean first) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(48));
+        params.topMargin = ResUtil.dp2px(first ? 8 : 6);
+        return params;
     }
 
     private void onLock() {
@@ -1677,11 +1724,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void onRepeat() {
         player().setRepeatOne(!player().isRepeatOne());
         mBinding.control.action.repeat.setSelected(player().isRepeatOne());
+        setAudioRepeatSelected(player().isRepeatOne());
     }
 
     @Override
     public void onRepeatModeChanged(int repeatMode) {
         mBinding.control.action.repeat.setSelected(player().isRepeatOne());
+        setAudioRepeatSelected(player().isRepeatOne());
     }
 
     private void onScale() {
@@ -2459,10 +2508,17 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.audioNext.setEnabled(hasNext);
         mBinding.audioNext.setAlpha(hasNext ? 1f : 0.35f);
         mBinding.audioQueueAction.setVisibility(View.VISIBLE);
+        setAudioRepeatSelected(service() != null && player().isRepeatOne());
         mBinding.audioKaraokeAction.setSelected(PlayerSetting.isKaraokeMode());
         mBinding.audioKeepAction.setSelected(Keep.find(getHistoryKey()) != null);
         checkAudioPlayImg(service() != null && player().isPlaying());
         syncAudioCoverRotation();
+    }
+
+    private void setAudioRepeatSelected(boolean selected) {
+        if (mBinding == null) return;
+        mBinding.audioRepeatAction.setSelected(selected);
+        mBinding.audioRepeatAction.setAlpha(selected ? 1f : 0.62f);
     }
 
     private void syncAudioCoverRotation() {

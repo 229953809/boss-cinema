@@ -42,8 +42,8 @@ public class KaraokeStatusView extends LinearLayout {
     public KaraokeStatusView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         setOrientation(VERTICAL);
-        setGravity(Gravity.END);
-        setPadding(dp(12), dp(8), dp(12), dp(8));
+        setGravity(Gravity.CENTER_HORIZONTAL);
+        setPadding(dp(14), dp(7), dp(14), dp(8));
         setBackground(background());
         setClickable(false);
         setFocusable(false);
@@ -58,10 +58,10 @@ public class KaraokeStatusView extends LinearLayout {
         addView(title, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         addView(detail, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         LayoutParams timelineParams = new LayoutParams(meterWidth, timelineHeight());
-        timelineParams.topMargin = dp(8);
+        timelineParams.topMargin = dp(6);
         addView(timeline, timelineParams);
-        LayoutParams params = new LayoutParams(Math.max(dp(112), Math.round(meterWidth * 0.72f)), dp(30));
-        params.topMargin = dp(8);
+        LayoutParams params = new LayoutParams(Math.max(dp(112), Math.round(meterWidth * 0.82f)), dp(9));
+        params.topMargin = dp(5);
         addView(volume, params);
     }
 
@@ -146,16 +146,15 @@ public class KaraokeStatusView extends LinearLayout {
         view.setTextColor(Color.WHITE);
         view.setTextSize(sizeSp);
         view.setIncludeFontPadding(false);
-        view.setGravity(Gravity.END);
+        view.setGravity(Gravity.CENTER);
         view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
         return view;
     }
 
     private GradientDrawable background() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(0xA820232A);
-        drawable.setCornerRadius(dp(8));
-        drawable.setStroke(dp(1), 0x24FFFFFF);
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{0x332DD4BF, 0x1838BDF8, 0x33FBBF24});
+        drawable.setCornerRadius(dp(18));
+        drawable.setStroke(dp(1), 0x20FFFFFF);
         return drawable;
     }
 
@@ -165,13 +164,13 @@ public class KaraokeStatusView extends LinearLayout {
 
     private int meterWidth() {
         int widthDp = getResources().getConfiguration().screenWidthDp;
-        if (widthDp >= 720) return dp(260);
-        if (widthDp >= 540 || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) return dp(220);
-        return dp(168);
+        if (widthDp >= 720) return dp(300);
+        if (widthDp >= 540 || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) return dp(240);
+        return dp(220);
     }
 
     private int timelineHeight() {
-        return dp(isWideLayout() ? 92 : 70);
+        return dp(isWideLayout() ? 44 : 36);
     }
 
     private boolean isWideLayout() {
