@@ -67,6 +67,11 @@ public class KaraokeStatusView extends LinearLayout {
         timeline.setPlaying(playing);
     }
 
+    public void syncPosition(long positionMs, boolean playing) {
+        setPlaying(playing);
+        timeline.syncPosition(positionMs);
+    }
+
     public void setState(KaraokeStatus status, KaraokeTrack track, KaraokePitchSample sample, KaraokeScoreSnapshot snapshot) {
         if (status == null || status == KaraokeStatus.INACTIVE) {
             setVisibility(PlayerSetting.isKaraokeMode() ? INVISIBLE : GONE);
@@ -232,6 +237,14 @@ public class KaraokeStatusView extends LinearLayout {
             this.level = this.level * 0.55f + next * 0.45f;
             System.arraycopy(bars, 1, bars, 0, bars.length - 1);
             bars[bars.length - 1] = this.level;
+            invalidate();
+        }
+
+        private void syncPosition(long positionMs) {
+            long position = Math.max(0, positionMs);
+            smoothBasePosition = position;
+            smoothBaseRealtime = SystemClock.elapsedRealtime();
+            if (lastHistoryPosition >= 0 && Math.abs(position - lastHistoryPosition) > 2_000) clearHistory();
             invalidate();
         }
 

@@ -3275,6 +3275,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
+        syncKaraokePosition();
         if (isPlaying) {
             if (!suppressPiPForAudio()) mPiP.update(this, true);
             mBinding.control.play.setImageResource(androidx.media3.ui.R.drawable.exo_icon_pause);
@@ -3289,6 +3290,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void checkAudioPlayImg(boolean isPlaying) {
         mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
         syncAudioCoverRotation();
+    }
+
+    private void syncKaraokePosition() {
+        if (service() == null || player().isEmpty()) return;
+        long position = player().getPosition();
+        boolean playing = player().isPlaying();
+        mBinding.karaoke.syncPosition(position, playing);
+        mBinding.audioKaraoke.syncPosition(position, playing);
     }
 
     @Override
@@ -3798,6 +3807,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         super.onResume();
         restoreContextWall();
         if (mAudioStageVisible) setArtwork();
+        syncKaraokePosition();
     }
 
     @Override
@@ -3822,6 +3832,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setAudioOnly(false);
         setStop(false);
         if (service() != null) refreshLyrics();
+        syncKaraokePosition();
     }
 
     @Override
