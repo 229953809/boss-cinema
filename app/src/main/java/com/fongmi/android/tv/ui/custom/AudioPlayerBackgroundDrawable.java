@@ -186,7 +186,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         boolean reverse = (bg & 1) == 0;
         fillLinear(canvas, w, h, start, center, end, reverse);
         if (!decorated) return;
-        int motif = Math.floorMod(mixSeed(deco), 18);
+        int motif = Math.floorMod(mixSeed(deco), 24);
         int accent = randomColor(deco, 3, 0.58f, 0.96f);
         int accent2 = randomColor(deco, 4, 0.5f, 0.88f);
         int glow = randomColor(deco, 5, 0.28f, 0.98f);
@@ -198,90 +198,109 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             case 0 -> {
                 fillRadial(canvas, w * 0.14f, h * 0.2f, Math.max(w, h) * 0.56f, withAlpha(accent, 118), Color.TRANSPARENT);
                 fillRadial(canvas, w * 0.86f, h * 0.18f, Math.max(w, h) * 0.5f, withAlpha(accent2, 92), Color.TRANSPARENT);
-                drawGrid(canvas, w, h, withAlpha(Color.WHITE, 32), Math.max(30, w / 10));
-                drawSoftFlow(canvas, w, h, deco, 0.2f, 0.58f, 0.32f, withAlpha(Color.WHITE, 42), withAlpha(glow, 60));
+                drawMemphisPop(canvas, w, h, deco, accent, accent2, glow);
             }
             case 1 -> {
-                drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.42f, 0.7f), withAlpha(accent, 72));
-                drawSoftCurrent(canvas, w, h, deco + 31, randomRange(deco, 11, 0.58f, 0.84f), withAlpha(accent2, 52));
+                drawCheckerPoster(canvas, w, h, deco, accent, accent2);
+                drawSoftBeam(canvas, w, h, deco + 9, withAlpha(Color.WHITE, 32));
                 fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 30), Color.TRANSPARENT);
-                drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 46), false);
             }
             case 2 -> {
                 fillRadial(canvas, w * x2, h * y1, Math.max(w, h) * randomRange(deco, 10, 0.42f, 0.68f), withAlpha(glow, 132), Color.TRANSPARENT);
-                drawSoftFlow(canvas, w, h, deco, 0.28f, 0.66f, 0.26f, withAlpha(accent, 68), withAlpha(accent2, 34));
-                drawStarDust(canvas, w, h, deco, 54, withAlpha(Color.WHITE, 86), true);
+                drawChromeShards(canvas, w, h, deco, accent, accent2, Color.WHITE);
             }
             case 3 -> {
-                drawSoftVeil(canvas, w, h, deco, withAlpha(Color.WHITE, 38), withAlpha(accent, 30));
-                drawContourLines(canvas, w, h, deco, withAlpha(Color.WHITE, 42), withAlpha(accent, 32));
+                drawNeonFrame(canvas, w, h, deco, accent, accent2);
+                drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 42), false);
                 fillRadial(canvas, w * 0.18f, h * 0.82f, Math.max(w, h) * 0.4f, withAlpha(accent2, 58), Color.TRANSPARENT);
             }
             case 4 -> {
-                drawBentoWire(canvas, w, h, deco, withAlpha(Color.WHITE, 38), withAlpha(accent, 28));
-                drawSoftBeam(canvas, w, h, deco + 13, withAlpha(accent2, 58));
+                drawBauhausBlocks(canvas, w, h, deco, accent, accent2, glow);
                 fillRadial(canvas, w * 0.52f, h * 0.86f, Math.max(w, h) * 0.46f, withAlpha(glow, 64), Color.TRANSPARENT);
             }
             case 5 -> {
-                drawSoftFlow(canvas, w, h, deco, 0.12f, 0.42f, 0.2f, withAlpha(Color.WHITE, 46), withAlpha(accent, 42));
-                drawSoftFlow(canvas, w, h, deco + 41, 0.48f, 0.8f, 0.22f, withAlpha(accent2, 56), withAlpha(Color.WHITE, 22));
-                drawSoftVeil(canvas, w, h, deco + 19, withAlpha(Color.WHITE, 22), withAlpha(accent2, 24));
+                drawPixelHalftone(canvas, w, h, deco, accent, accent2);
+                drawSoftVeil(canvas, w, h, deco + 19, withAlpha(Color.WHITE, 24), withAlpha(accent2, 24));
             }
             case 6 -> {
-                drawSoftBeam(canvas, w, h, deco, withAlpha(accent, 78));
-                drawSoftBeam(canvas, w, h, deco + 17, withAlpha(accent2, 52));
-                drawDiagonalTexture(canvas, w, h, deco, withAlpha(Color.WHITE, 30));
+                drawFashionStripes(canvas, w, h, deco, withAlpha(accent, 72), withAlpha(accent2, 54));
                 fillRadial(canvas, w * x1, h * y2, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 24), Color.TRANSPARENT);
             }
             case 7 -> {
-                drawAuroraCurtain(canvas, w, h, deco, withAlpha(accent, 54), withAlpha(accent2, 38));
-                drawMistStreaks(canvas, w, h, deco + 23, 5, withAlpha(Color.WHITE, 38));
+                drawEditorialTape(canvas, w, h, deco, accent, accent2);
+                drawStarDust(canvas, w, h, deco + 37, 36, withAlpha(Color.WHITE, 54), true);
                 fillRadial(canvas, w * 0.5f, h * 0.5f, Math.max(w, h) * 0.36f, withAlpha(accent2, 38), Color.TRANSPARENT);
             }
             case 8 -> {
-                drawStarDust(canvas, w, h, deco, 96, withAlpha(Color.WHITE, 78), false);
-                drawOrthoGrid(canvas, w, h, deco, withAlpha(Color.WHITE, 24));
+                drawPerspectivePosterGrid(canvas, w, h, deco, accent, accent2);
                 drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.62f, 0.82f), withAlpha(accent2, 34));
             }
             case 9 -> {
                 fillRadial(canvas, w * x2, h * y1, Math.max(w, h) * 0.44f, withAlpha(accent, 98), Color.TRANSPARENT);
-                drawAuroraCurtain(canvas, w, h, deco, withAlpha(accent2, 48), withAlpha(Color.WHITE, 24));
-                drawStarDust(canvas, w, h, deco + 37, 38, withAlpha(Color.WHITE, 58), true);
+                drawContourLines(canvas, w, h, deco, withAlpha(Color.WHITE, 54), withAlpha(accent2, 48));
+                drawTopographicLabels(canvas, w, h, deco, withAlpha(accent, 48));
             }
             case 10 -> {
                 fillRadial(canvas, w * 0.18f, h * 0.12f, Math.max(w, h) * 0.62f, withAlpha(Color.WHITE, 42), Color.TRANSPARENT);
-                drawSoftFlow(canvas, w, h, deco, 0.42f, 0.74f, 0.2f, withAlpha(accent, 46), withAlpha(accent2, 24));
-                drawCrystalSlabs(canvas, w, h, deco + 43, withAlpha(Color.WHITE, 20), withAlpha(accent2, 26));
+                drawGlamStarburst(canvas, w, h, deco, accent, accent2);
             }
             case 11 -> {
+                drawHoloShards(canvas, w, h, deco, accent, accent2, glow);
+            }
+            case 12 -> {
                 drawGrid(canvas, w, h, withAlpha(Color.WHITE, 38), Math.max(34, w / 9));
                 drawSoftVeil(canvas, w, h, deco, withAlpha(accent, 32), withAlpha(Color.WHITE, 22));
                 drawStarDust(canvas, w, h, deco + 47, 36, withAlpha(Color.WHITE, 54), true);
             }
-            case 12 -> {
+            case 13 -> {
                 drawContourLines(canvas, w, h, deco, withAlpha(Color.WHITE, 46), withAlpha(accent2, 36));
                 drawSoftBeam(canvas, w, h, deco + 11, withAlpha(accent, 46));
                 fillRadial(canvas, w * 0.82f, h * 0.18f, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 28), Color.TRANSPARENT);
             }
-            case 13 -> {
+            case 14 -> {
                 drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 54), true);
                 drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.34f, 0.56f), withAlpha(accent, 38));
                 fillRadial(canvas, w * 0.2f, h * 0.84f, Math.max(w, h) * 0.42f, withAlpha(accent2, 52), Color.TRANSPARENT);
             }
-            case 14 -> {
+            case 15 -> {
                 drawBentoWire(canvas, w, h, deco, withAlpha(Color.WHITE, 42), withAlpha(accent2, 30));
                 drawCrystalSlabs(canvas, w, h, deco + 53, withAlpha(Color.WHITE, 20), withAlpha(accent, 24));
                 fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.46f, withAlpha(glow, 62), Color.TRANSPARENT);
             }
-            case 15 -> {
+            case 16 -> {
                 drawDiagonalTexture(canvas, w, h, deco, withAlpha(Color.WHITE, 42));
                 drawMistStreaks(canvas, w, h, deco + 17, 5, withAlpha(accent, 34));
                 drawSoftFlow(canvas, w, h, deco, 0.36f, 0.74f, 0.18f, withAlpha(accent2, 40), withAlpha(Color.WHITE, 18));
             }
-            case 16 -> {
+            case 17 -> {
                 drawOrthoGrid(canvas, w, h, deco, withAlpha(Color.WHITE, 30));
                 drawDotMatrix(canvas, w, h, deco + 71, withAlpha(accent, 40), false);
                 drawSoftBeam(canvas, w, h, deco + 3, withAlpha(Color.WHITE, 30));
+            }
+            case 18 -> {
+                drawSoftFlow(canvas, w, h, deco, 0.12f, 0.42f, 0.2f, withAlpha(Color.WHITE, 46), withAlpha(accent, 42));
+                drawSoftFlow(canvas, w, h, deco + 41, 0.48f, 0.8f, 0.22f, withAlpha(accent2, 56), withAlpha(Color.WHITE, 22));
+                drawSoftVeil(canvas, w, h, deco + 19, withAlpha(Color.WHITE, 22), withAlpha(accent2, 24));
+            }
+            case 19 -> {
+                drawAuroraCurtain(canvas, w, h, deco, withAlpha(accent, 54), withAlpha(accent2, 38));
+                drawMistStreaks(canvas, w, h, deco + 23, 5, withAlpha(Color.WHITE, 38));
+                fillRadial(canvas, w * 0.5f, h * 0.5f, Math.max(w, h) * 0.36f, withAlpha(accent2, 38), Color.TRANSPARENT);
+            }
+            case 20 -> {
+                drawSoftBeam(canvas, w, h, deco, withAlpha(accent, 78));
+                drawSoftBeam(canvas, w, h, deco + 17, withAlpha(accent2, 52));
+                drawDiagonalTexture(canvas, w, h, deco, withAlpha(Color.WHITE, 30));
+            }
+            case 21 -> {
+                drawStarDust(canvas, w, h, deco, 96, withAlpha(Color.WHITE, 78), false);
+                drawOrthoGrid(canvas, w, h, deco, withAlpha(Color.WHITE, 24));
+                drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.62f, 0.82f), withAlpha(accent2, 34));
+            }
+            case 22 -> {
+                drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.42f, 0.7f), withAlpha(accent, 72));
+                drawSoftCurrent(canvas, w, h, deco + 31, randomRange(deco, 11, 0.58f, 0.84f), withAlpha(accent2, 52));
+                drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 46), false);
             }
             default -> {
                 fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.48f, withAlpha(Color.WHITE, 50), Color.TRANSPARENT);
@@ -583,6 +602,241 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         paint.setShader(new LinearGradient(topX, 0, bottomX, h, color, Color.TRANSPARENT, Shader.TileMode.CLAMP));
         canvas.drawPath(path, paint);
         paint.setShader(null);
+    }
+
+    private void drawMemphisPop(Canvas canvas, int w, int h, int seed, int color, int color2, int color3) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        int count = 14;
+        for (int i = 0; i < count; i++) {
+            float x = w * randomRange(seed, 750 + i, 0.04f, 0.96f);
+            float y = h * randomRange(seed, 780 + i, 0.08f, 0.86f);
+            float s = Math.max(w, h) * randomRange(seed, 810 + i, 0.018f, 0.052f);
+            int c = i % 3 == 0 ? color : i % 3 == 1 ? color2 : color3;
+            paint.setColor(withAlpha(c, 38 + Math.floorMod(mixSeed(seed + i * 19), 58)));
+            canvas.save();
+            canvas.rotate(randomRange(seed, 840 + i, -28f, 28f), x, y);
+            if (i % 4 == 0) {
+                canvas.drawRect(x - s * 1.4f, y - s * 0.28f, x + s * 1.4f, y + s * 0.28f, paint);
+            } else if (i % 4 == 1) {
+                path.reset();
+                path.moveTo(x, y - s);
+                path.lineTo(x + s * 0.95f, y + s * 0.82f);
+                path.lineTo(x - s * 0.95f, y + s * 0.82f);
+                path.close();
+                canvas.drawPath(path, paint);
+            } else if (i % 4 == 2) {
+                canvas.drawRect(x - s, y - s, x + s, y + s, paint);
+            } else {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(Math.max(2f, w * 0.006f));
+                canvas.drawLine(x - s, y - s, x + s, y + s, paint);
+                canvas.drawLine(x + s, y - s, x - s, y + s, paint);
+                paint.setStyle(Paint.Style.FILL);
+            }
+            canvas.restore();
+        }
+    }
+
+    private void drawCheckerPoster(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        float size = Math.max(26f, w * randomRange(seed, 860, 0.06f, 0.11f));
+        float left = w * randomRange(seed, 861, -0.08f, 0.08f);
+        float top = h * randomRange(seed, 862, 0.05f, 0.2f);
+        int rows = 5 + Math.floorMod(mixSeed(seed + 863), 3);
+        int cols = 4 + Math.floorMod(mixSeed(seed + 864), 3);
+        for (int y = 0; y < rows; y++) {
+            for (int x = 0; x < cols; x++) {
+                if ((x + y) % 2 != 0) continue;
+                paint.setColor(withAlpha((x + y) % 4 == 0 ? color : color2, 46));
+                canvas.drawRect(left + x * size, top + y * size, left + (x + 1) * size, top + (y + 1) * size, paint);
+            }
+        }
+        drawDiagonalTexture(canvas, w, h, seed + 5, withAlpha(Color.WHITE, 22));
+    }
+
+    private void drawChromeShards(Canvas canvas, int w, int h, int seed, int color, int color2, int highlight) {
+        for (int i = 0; i < 7; i++) {
+            float x = w * randomRange(seed, 880 + i, -0.12f, 0.9f);
+            float y = h * randomRange(seed, 900 + i, 0.06f, 0.78f);
+            float ww = w * randomRange(seed, 920 + i, 0.18f, 0.42f);
+            float hh = h * randomRange(seed, 940 + i, 0.08f, 0.22f);
+            path.reset();
+            path.moveTo(x + ww * 0.18f, y);
+            path.lineTo(x + ww, y + hh * randomRange(seed, 960 + i, 0.06f, 0.34f));
+            path.lineTo(x + ww * randomRange(seed, 980 + i, 0.58f, 0.92f), y + hh);
+            path.lineTo(x, y + hh * randomRange(seed, 1000 + i, 0.42f, 0.9f));
+            path.close();
+            paint.setShader(new LinearGradient(x, y, x + ww, y + hh, new int[]{withAlpha(highlight, 68), withAlpha(i % 2 == 0 ? color : color2, 88), withAlpha(Color.WHITE, 32)}, new float[]{0f, 0.48f, 1f}, Shader.TileMode.CLAMP));
+            canvas.drawPath(path, paint);
+            paint.setShader(null);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(1.2f, w / 520f));
+            paint.setColor(withAlpha(Color.WHITE, 54));
+            canvas.drawPath(path, paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+    }
+
+    private void drawNeonFrame(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.SQUARE);
+        float margin = w * randomRange(seed, 1020, 0.05f, 0.12f);
+        float top = h * randomRange(seed, 1021, 0.08f, 0.18f);
+        float bottom = h * randomRange(seed, 1022, 0.72f, 0.9f);
+        int[] colors = new int[]{withAlpha(color, 112), withAlpha(color2, 92), withAlpha(Color.WHITE, 42)};
+        for (int i = 0; i < colors.length; i++) {
+            paint.setStrokeWidth(Math.max(2f, w * (0.004f + i * 0.004f)));
+            paint.setColor(colors[i]);
+            float inset = i * w * 0.018f;
+            canvas.drawLine(margin + inset, top + inset, w - margin - inset, top + inset, paint);
+            canvas.drawLine(w - margin - inset, top + inset, w - margin - inset, bottom - inset, paint);
+            canvas.drawLine(margin + inset, bottom - inset, w * randomRange(seed, 1030 + i, 0.46f, 0.82f), bottom - inset, paint);
+        }
+        paint.setStrokeCap(Paint.Cap.BUTT);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawBauhausBlocks(Canvas canvas, int w, int h, int seed, int color, int color2, int color3) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        for (int i = 0; i < 8; i++) {
+            float x = w * randomRange(seed, 1040 + i, -0.08f, 0.9f);
+            float y = h * randomRange(seed, 1060 + i, 0.06f, 0.82f);
+            float ww = w * randomRange(seed, 1080 + i, 0.12f, 0.36f);
+            float hh = h * randomRange(seed, 1100 + i, 0.05f, 0.16f);
+            int c = i % 3 == 0 ? color : i % 3 == 1 ? color2 : color3;
+            paint.setColor(withAlpha(c, 40 + Math.floorMod(mixSeed(seed + i * 29), 48)));
+            canvas.save();
+            canvas.rotate(randomRange(seed, 1120 + i, -12f, 12f), x + ww / 2f, y + hh / 2f);
+            if (i % 3 == 2) {
+                path.reset();
+                path.moveTo(x, y + hh);
+                path.lineTo(x + ww * 0.5f, y);
+                path.lineTo(x + ww, y + hh);
+                path.close();
+                canvas.drawPath(path, paint);
+            } else {
+                canvas.drawRect(x, y, x + ww, y + hh, paint);
+            }
+            canvas.restore();
+        }
+    }
+
+    private void drawPixelHalftone(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        float step = Math.max(16f, w * randomRange(seed, 1140, 0.038f, 0.066f));
+        float originX = w * randomRange(seed, 1141, 0.48f, 0.88f);
+        float originY = h * randomRange(seed, 1142, 0.12f, 0.42f);
+        for (float y = -step; y < h + step; y += step) {
+            for (float x = -step; x < w + step; x += step) {
+                float d = (Math.abs(x - originX) + Math.abs(y - originY)) / (w + h);
+                if (d > 0.48f || Math.floorMod(mixSeed(seed + (int) x * 7 + (int) y * 13), 4) == 0) continue;
+                float s = step * (0.18f + (0.48f - d) * 0.9f);
+                paint.setColor(withAlpha((x + y) % (step * 2) < step ? color : color2, (int) (18 + (0.48f - d) * 120)));
+                canvas.drawRect(x - s, y - s, x + s, y + s, paint);
+            }
+        }
+    }
+
+    private void drawFashionStripes(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        for (int i = -2; i < 9; i++) {
+            float x = w * (-0.22f + i * 0.16f + randomRange(seed, 1160 + i, -0.035f, 0.035f));
+            float top = h * randomRange(seed, 1180 + i, -0.08f, 0.16f);
+            float width = w * randomRange(seed, 1200 + i, 0.035f, 0.075f);
+            path.reset();
+            path.moveTo(x, top);
+            path.cubicTo(x + width * 1.7f, h * 0.24f, x - width * 1.2f, h * 0.54f, x + width * 1.6f, h * 1.08f);
+            path.lineTo(x + width * 3.4f, h * 1.08f);
+            path.cubicTo(x + width * 1.3f, h * 0.58f, x + width * 4.2f, h * 0.28f, x + width * 2.5f, top);
+            path.close();
+            paint.setColor(i % 2 == 0 ? color : color2);
+            canvas.drawPath(path, paint);
+        }
+    }
+
+    private void drawEditorialTape(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        for (int i = 0; i < 5; i++) {
+            float x = w * randomRange(seed, 1220 + i, -0.16f, 0.78f);
+            float y = h * randomRange(seed, 1240 + i, 0.12f, 0.82f);
+            float ww = w * randomRange(seed, 1260 + i, 0.24f, 0.48f);
+            float hh = h * randomRange(seed, 1280 + i, 0.028f, 0.065f);
+            canvas.save();
+            canvas.rotate(randomRange(seed, 1300 + i, -18f, 18f), x + ww / 2f, y + hh / 2f);
+            paint.setColor(withAlpha(i % 2 == 0 ? color : color2, 52 + Math.floorMod(mixSeed(seed + i * 23), 46)));
+            path.reset();
+            path.moveTo(x, y + hh * randomRange(seed, 1320 + i, 0f, 0.25f));
+            path.lineTo(x + ww * 0.96f, y);
+            path.lineTo(x + ww, y + hh);
+            path.lineTo(x + ww * 0.06f, y + hh * randomRange(seed, 1340 + i, 0.76f, 1f));
+            path.close();
+            canvas.drawPath(path, paint);
+            canvas.restore();
+        }
+    }
+
+    private void drawPerspectivePosterGrid(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        drawGrid(canvas, w, h, withAlpha(Color.WHITE, 30), Math.max(28, w / 12));
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(Math.max(1.2f, w / 520f));
+        paint.setColor(withAlpha(color, 62));
+        float vx = w * randomRange(seed, 1360, 0.34f, 0.72f);
+        float vy = h * randomRange(seed, 1361, -0.12f, 0.12f);
+        for (int i = -4; i <= 8; i++) {
+            float x = w * i / 6f;
+            canvas.drawLine(vx, vy, x, h * 1.05f, paint);
+        }
+        paint.setColor(withAlpha(color2, 48));
+        for (int i = 0; i < 8; i++) {
+            float y = h * (0.18f + i * i * 0.015f);
+            canvas.drawLine(0, y, w, y + h * 0.04f, paint);
+        }
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawTopographicLabels(Canvas canvas, int w, int h, int seed, int color) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(color);
+        for (int i = 0; i < 8; i++) {
+            float x = w * randomRange(seed, 1380 + i, 0.06f, 0.92f);
+            float y = h * randomRange(seed, 1400 + i, 0.1f, 0.84f);
+            float len = w * randomRange(seed, 1420 + i, 0.025f, 0.07f);
+            canvas.drawRect(x, y, x + len, y + Math.max(2f, h * 0.003f), paint);
+        }
+    }
+
+    private void drawGlamStarburst(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.SQUARE);
+        float cx = w * randomRange(seed, 1440, 0.18f, 0.82f);
+        float cy = h * randomRange(seed, 1441, 0.16f, 0.52f);
+        int count = 18;
+        for (int i = 0; i < count; i++) {
+            double a = Math.PI * 2 * i / count + randomRange(seed, 1460 + i, -0.08f, 0.08f);
+            float inner = Math.min(w, h) * randomRange(seed, 1480 + i, 0.035f, 0.08f);
+            float outer = Math.max(w, h) * randomRange(seed, 1500 + i, 0.18f, 0.48f);
+            paint.setStrokeWidth(Math.max(1.2f, w * randomRange(seed, 1520 + i, 0.002f, 0.008f)));
+            paint.setColor(withAlpha(i % 2 == 0 ? color : color2, 42 + Math.floorMod(mixSeed(seed + i * 41), 58)));
+            canvas.drawLine(cx + (float) Math.cos(a) * inner, cy + (float) Math.sin(a) * inner, cx + (float) Math.cos(a) * outer, cy + (float) Math.sin(a) * outer, paint);
+        }
+        paint.setStrokeCap(Paint.Cap.BUTT);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawHoloShards(Canvas canvas, int w, int h, int seed, int color, int color2, int color3) {
+        drawChromeShards(canvas, w, h, seed, color, color2, Color.WHITE);
+        drawBentoWire(canvas, w, h, seed + 53, withAlpha(Color.WHITE, 34), withAlpha(color3, 22));
+        drawDiagonalTexture(canvas, w, h, seed + 71, withAlpha(Color.WHITE, 26));
     }
 
     private void drawOrthoGrid(Canvas canvas, int w, int h, int seed, int color) {
