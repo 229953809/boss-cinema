@@ -27,7 +27,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
     private final int artworkColor;
     private final boolean decorated;
     private final boolean lightEffect;
-    private final boolean animated;
+    private boolean animated;
     private final int backgroundSeed;
     private final int decorationSeed;
     private int alpha;
@@ -92,7 +92,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         if (lightEffect) drawLightEffect(canvas, w, h);
         drawReadability(canvas, w, h);
         canvas.restore();
-        if (lightEffect && animated) scheduleSelf(frameCallback, SystemClock.uptimeMillis() + 42L);
+        if (lightEffect && animated) scheduleSelf(frameCallback, SystemClock.uptimeMillis() + 66L);
     }
 
     private void drawArtwork(Canvas canvas, int w, int h) {
@@ -348,19 +348,19 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         int seed = backgroundSeed == 0 ? artworkColor : backgroundSeed;
         int accent = style == PlayerSetting.AUDIO_BACKGROUND_ARTWORK ? vivid(artworkColor, 1.22f, 1.12f) : randomColor(seed, 12, 0.52f, 0.92f);
         int accent2 = rotate(accent, 58f + drift * 34f, 0.9f, 1f);
-        int glowAlpha = (int) (58 + phase * 82);
-        int edgeAlpha = (int) (18 + phase * 30);
+        int glowAlpha = (int) (24 + phase * 38);
+        int edgeAlpha = (int) (5 + phase * 10);
         float cx = w * (0.2f + drift * 0.62f);
         float cy = h * (0.18f + (1f - drift) * 0.22f);
         float radius = Math.max(w, h) * (0.58f + phase * 0.22f);
         fillRadial(canvas, cx, cy, radius, withAlpha(accent, glowAlpha), Color.TRANSPARENT);
-        fillRadial(canvas, w * (0.86f - drift * 0.28f), h * (0.76f + phase * 0.08f), Math.max(w, h) * (0.48f + phase * 0.18f), withAlpha(accent2, edgeAlpha + 42), Color.TRANSPARENT);
-        paint.setShader(new LinearGradient(0, h * 0.12f, w, h * 0.92f, new int[]{withAlpha(Color.WHITE, edgeAlpha), withAlpha(accent, edgeAlpha + 24), withAlpha(accent2, edgeAlpha + 8)}, new float[]{0f, 0.46f, 1f}, Shader.TileMode.CLAMP));
+        fillRadial(canvas, w * (0.86f - drift * 0.28f), h * (0.76f + phase * 0.08f), Math.max(w, h) * (0.48f + phase * 0.18f), withAlpha(accent2, edgeAlpha + 18), Color.TRANSPARENT);
+        paint.setShader(new LinearGradient(0, h * 0.12f, w, h * 0.92f, new int[]{Color.TRANSPARENT, withAlpha(accent, edgeAlpha + 8), Color.TRANSPARENT}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h, paint);
         paint.setShader(null);
         if (!animated) return;
-        drawFlowLight(canvas, w, h, sweep, withAlpha(Color.WHITE, 64 + (int) (phase * 42)), withAlpha(accent2, 42 + (int) (phase * 34)));
-        drawFlowLight(canvas, w, h, (sweep + 0.48f) % 1f, withAlpha(accent, 38 + (int) (phase * 30)), withAlpha(Color.WHITE, 24));
+        drawFlowLight(canvas, w, h, sweep, withAlpha(Color.WHITE, 24 + (int) (phase * 18)), withAlpha(accent2, 16 + (int) (phase * 18)));
+        drawFlowLight(canvas, w, h, (sweep + 0.48f) % 1f, withAlpha(accent, 14 + (int) (phase * 18)), withAlpha(Color.WHITE, 10));
     }
 
     private void drawFlowLight(Canvas canvas, int w, int h, float progress, int color, int edgeColor) {
@@ -1208,6 +1208,13 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         if (visible && lightEffect && animated) invalidateSelf();
         else unscheduleSelf(frameCallback);
         return changed;
+    }
+
+    public void setAnimated(boolean animated) {
+        if (this.animated == animated) return;
+        this.animated = animated;
+        unscheduleSelf(frameCallback);
+        invalidateSelf();
     }
 
     @Override

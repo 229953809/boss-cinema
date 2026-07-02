@@ -3963,8 +3963,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void checkAudioPlayImg(boolean isPlaying) {
         mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
-        if (mAudioStageVisible && PlayerSetting.isAudioBackgroundLightEffect() && mAudioLightEffectAnimated != isPlaying) applyAudioBackground();
+        updateAudioLightEffectAnimation(isPlaying);
         syncAudioCoverRotation();
+    }
+
+    private void updateAudioLightEffectAnimation(boolean animated) {
+        if (!mAudioStageVisible || !PlayerSetting.isAudioBackgroundLightEffect() || mAudioLightEffectAnimated == animated) return;
+        mAudioLightEffectAnimated = animated;
+        Drawable background = mBinding.audioStage.getBackground();
+        if (background instanceof AudioPlayerBackgroundDrawable drawable) drawable.setAnimated(animated);
+        else applyAudioBackground();
     }
 
     private void syncKaraokePosition() {
