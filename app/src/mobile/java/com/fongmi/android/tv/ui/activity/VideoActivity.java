@@ -182,6 +182,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private LyricsController mLyrics;
     private KaraokeController mKaraoke;
     private boolean mAudioStageVisible;
+    private boolean mAudioLightEffectAnimated;
     private boolean mKaraokeResultShown;
     private BottomSheetDialog mLyricsResultDialog;
     private BottomSheetDialog mAudioQueueDialog;
@@ -3298,12 +3299,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setAudioStageVisible(boolean visible) {
         if (mAudioStageVisible == visible) {
-            if (visible) applyAudioBackground();
             updateAudioStageText();
             updateAudioStageControls();
             return;
         }
         mAudioStageVisible = visible;
+        if (!visible) mAudioLightEffectAnimated = false;
         mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) mBinding.audioStage.bringToFront();
         if (visible) applyAudioBackground();
@@ -3390,7 +3391,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void applyAudioBackground() {
         if (mBinding == null) return;
-        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed()));
+        mAudioLightEffectAnimated = service() != null && player().isPlaying();
+        mBinding.audioStage.setBackground(new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), mAudioLightEffectAnimated, PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed()));
         mBinding.audioStage.invalidate();
     }
 
@@ -3961,6 +3963,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void checkAudioPlayImg(boolean isPlaying) {
         mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
+        if (mAudioStageVisible && PlayerSetting.isAudioBackgroundLightEffect() && mAudioLightEffectAnimated != isPlaying) applyAudioBackground();
         syncAudioCoverRotation();
     }
 

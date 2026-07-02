@@ -27,6 +27,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
     private final int artworkColor;
     private final boolean decorated;
     private final boolean lightEffect;
+    private final boolean animated;
     private final int backgroundSeed;
     private final int decorationSeed;
     private int alpha;
@@ -45,16 +46,21 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
     }
 
     public AudioPlayerBackgroundDrawable(int style, int artworkColor, boolean decorated, int backgroundSeed, int decorationSeed) {
-        this(style, artworkColor, decorated, false, backgroundSeed, decorationSeed);
+        this(style, artworkColor, decorated, false, false, backgroundSeed, decorationSeed);
     }
 
     public AudioPlayerBackgroundDrawable(int style, int artworkColor, boolean decorated, boolean lightEffect, int backgroundSeed, int decorationSeed) {
+        this(style, artworkColor, decorated, lightEffect, false, backgroundSeed, decorationSeed);
+    }
+
+    public AudioPlayerBackgroundDrawable(int style, int artworkColor, boolean decorated, boolean lightEffect, boolean animated, int backgroundSeed, int decorationSeed) {
         this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         this.path = new Path();
         this.style = style;
         this.artworkColor = artworkColor;
         this.decorated = decorated;
         this.lightEffect = lightEffect;
+        this.animated = animated;
         this.backgroundSeed = backgroundSeed;
         this.decorationSeed = decorationSeed;
         this.alpha = 255;
@@ -86,7 +92,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         if (lightEffect) drawLightEffect(canvas, w, h);
         drawReadability(canvas, w, h);
         canvas.restore();
-        if (lightEffect) scheduleSelf(frameCallback, SystemClock.uptimeMillis() + 42L);
+        if (lightEffect && animated) scheduleSelf(frameCallback, SystemClock.uptimeMillis() + 42L);
     }
 
     private void drawArtwork(Canvas canvas, int w, int h) {
@@ -336,9 +342,9 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
 
     private void drawLightEffect(Canvas canvas, int w, int h) {
         long now = SystemClock.uptimeMillis();
-        float phase = (float) ((Math.sin(now / 1350.0) + 1.0) * 0.5);
-        float drift = (float) ((Math.sin(now / 4200.0) + 1.0) * 0.5);
-        float sweep = (now % 5200L) / 5200f;
+        float phase = animated ? (float) ((Math.sin(now / 1350.0) + 1.0) * 0.5) : 0.62f;
+        float drift = animated ? (float) ((Math.sin(now / 4200.0) + 1.0) * 0.5) : 0.46f;
+        float sweep = animated ? (now % 5200L) / 5200f : 0.36f;
         int seed = backgroundSeed == 0 ? artworkColor : backgroundSeed;
         int accent = style == PlayerSetting.AUDIO_BACKGROUND_ARTWORK ? vivid(artworkColor, 1.22f, 1.12f) : randomColor(seed, 12, 0.52f, 0.92f);
         int accent2 = rotate(accent, 58f + drift * 34f, 0.9f, 1f);
@@ -352,6 +358,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         paint.setShader(new LinearGradient(0, h * 0.12f, w, h * 0.92f, new int[]{withAlpha(Color.WHITE, edgeAlpha), withAlpha(accent, edgeAlpha + 24), withAlpha(accent2, edgeAlpha + 8)}, new float[]{0f, 0.46f, 1f}, Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, w, h, paint);
         paint.setShader(null);
+        if (!animated) return;
         drawFlowLight(canvas, w, h, sweep, withAlpha(Color.WHITE, 64 + (int) (phase * 42)), withAlpha(accent2, 42 + (int) (phase * 34)));
         drawFlowLight(canvas, w, h, (sweep + 0.48f) % 1f, withAlpha(accent, 38 + (int) (phase * 30)), withAlpha(Color.WHITE, 24));
     }
@@ -1198,7 +1205,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
     @Override
     public boolean setVisible(boolean visible, boolean restart) {
         boolean changed = super.setVisible(visible, restart);
-        if (visible && lightEffect) invalidateSelf();
+        if (visible && lightEffect && animated) invalidateSelf();
         else unscheduleSelf(frameCallback);
         return changed;
     }
