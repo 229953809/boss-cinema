@@ -186,7 +186,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         boolean reverse = (bg & 1) == 0;
         fillLinear(canvas, w, h, start, center, end, reverse);
         if (!decorated) return;
-        int motif = Math.floorMod(mixSeed(deco), 12);
+        int motif = Math.floorMod(mixSeed(deco), 18);
         int accent = randomColor(deco, 3, 0.58f, 0.96f);
         int accent2 = randomColor(deco, 4, 0.5f, 0.88f);
         int glow = randomColor(deco, 5, 0.28f, 0.98f);
@@ -198,12 +198,14 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             case 0 -> {
                 fillRadial(canvas, w * 0.14f, h * 0.2f, Math.max(w, h) * 0.56f, withAlpha(accent, 118), Color.TRANSPARENT);
                 fillRadial(canvas, w * 0.86f, h * 0.18f, Math.max(w, h) * 0.5f, withAlpha(accent2, 92), Color.TRANSPARENT);
+                drawGrid(canvas, w, h, withAlpha(Color.WHITE, 32), Math.max(30, w / 10));
                 drawSoftFlow(canvas, w, h, deco, 0.2f, 0.58f, 0.32f, withAlpha(Color.WHITE, 42), withAlpha(glow, 60));
             }
             case 1 -> {
                 drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.42f, 0.7f), withAlpha(accent, 72));
                 drawSoftCurrent(canvas, w, h, deco + 31, randomRange(deco, 11, 0.58f, 0.84f), withAlpha(accent2, 52));
                 fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 30), Color.TRANSPARENT);
+                drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 46), false);
             }
             case 2 -> {
                 fillRadial(canvas, w * x2, h * y1, Math.max(w, h) * randomRange(deco, 10, 0.42f, 0.68f), withAlpha(glow, 132), Color.TRANSPARENT);
@@ -212,11 +214,11 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             }
             case 3 -> {
                 drawSoftVeil(canvas, w, h, deco, withAlpha(Color.WHITE, 38), withAlpha(accent, 30));
-                drawMistStreaks(canvas, w, h, deco, 7, withAlpha(Color.WHITE, 46));
+                drawContourLines(canvas, w, h, deco, withAlpha(Color.WHITE, 42), withAlpha(accent, 32));
                 fillRadial(canvas, w * 0.18f, h * 0.82f, Math.max(w, h) * 0.4f, withAlpha(accent2, 58), Color.TRANSPARENT);
             }
             case 4 -> {
-                drawCrystalSlabs(canvas, w, h, deco, withAlpha(Color.WHITE, 28), withAlpha(accent, 34));
+                drawBentoWire(canvas, w, h, deco, withAlpha(Color.WHITE, 38), withAlpha(accent, 28));
                 drawSoftBeam(canvas, w, h, deco + 13, withAlpha(accent2, 58));
                 fillRadial(canvas, w * 0.52f, h * 0.86f, Math.max(w, h) * 0.46f, withAlpha(glow, 64), Color.TRANSPARENT);
             }
@@ -228,6 +230,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             case 6 -> {
                 drawSoftBeam(canvas, w, h, deco, withAlpha(accent, 78));
                 drawSoftBeam(canvas, w, h, deco + 17, withAlpha(accent2, 52));
+                drawDiagonalTexture(canvas, w, h, deco, withAlpha(Color.WHITE, 30));
                 fillRadial(canvas, w * x1, h * y2, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 24), Color.TRANSPARENT);
             }
             case 7 -> {
@@ -237,7 +240,7 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
             }
             case 8 -> {
                 drawStarDust(canvas, w, h, deco, 96, withAlpha(Color.WHITE, 78), false);
-                drawMistStreaks(canvas, w, h, deco + 29, 4, withAlpha(accent, 26));
+                drawOrthoGrid(canvas, w, h, deco, withAlpha(Color.WHITE, 24));
                 drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.62f, 0.82f), withAlpha(accent2, 34));
             }
             case 9 -> {
@@ -250,10 +253,41 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
                 drawSoftFlow(canvas, w, h, deco, 0.42f, 0.74f, 0.2f, withAlpha(accent, 46), withAlpha(accent2, 24));
                 drawCrystalSlabs(canvas, w, h, deco + 43, withAlpha(Color.WHITE, 20), withAlpha(accent2, 26));
             }
+            case 11 -> {
+                drawGrid(canvas, w, h, withAlpha(Color.WHITE, 38), Math.max(34, w / 9));
+                drawSoftVeil(canvas, w, h, deco, withAlpha(accent, 32), withAlpha(Color.WHITE, 22));
+                drawStarDust(canvas, w, h, deco + 47, 36, withAlpha(Color.WHITE, 54), true);
+            }
+            case 12 -> {
+                drawContourLines(canvas, w, h, deco, withAlpha(Color.WHITE, 46), withAlpha(accent2, 36));
+                drawSoftBeam(canvas, w, h, deco + 11, withAlpha(accent, 46));
+                fillRadial(canvas, w * 0.82f, h * 0.18f, Math.max(w, h) * 0.42f, withAlpha(Color.WHITE, 28), Color.TRANSPARENT);
+            }
+            case 13 -> {
+                drawDotMatrix(canvas, w, h, deco, withAlpha(Color.WHITE, 54), true);
+                drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.34f, 0.56f), withAlpha(accent, 38));
+                fillRadial(canvas, w * 0.2f, h * 0.84f, Math.max(w, h) * 0.42f, withAlpha(accent2, 52), Color.TRANSPARENT);
+            }
+            case 14 -> {
+                drawBentoWire(canvas, w, h, deco, withAlpha(Color.WHITE, 42), withAlpha(accent2, 30));
+                drawCrystalSlabs(canvas, w, h, deco + 53, withAlpha(Color.WHITE, 20), withAlpha(accent, 24));
+                fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.46f, withAlpha(glow, 62), Color.TRANSPARENT);
+            }
+            case 15 -> {
+                drawDiagonalTexture(canvas, w, h, deco, withAlpha(Color.WHITE, 42));
+                drawMistStreaks(canvas, w, h, deco + 17, 5, withAlpha(accent, 34));
+                drawSoftFlow(canvas, w, h, deco, 0.36f, 0.74f, 0.18f, withAlpha(accent2, 40), withAlpha(Color.WHITE, 18));
+            }
+            case 16 -> {
+                drawOrthoGrid(canvas, w, h, deco, withAlpha(Color.WHITE, 30));
+                drawDotMatrix(canvas, w, h, deco + 71, withAlpha(accent, 40), false);
+                drawSoftBeam(canvas, w, h, deco + 3, withAlpha(Color.WHITE, 30));
+            }
             default -> {
                 fillRadial(canvas, w * x1, h * y1, Math.max(w, h) * 0.48f, withAlpha(Color.WHITE, 50), Color.TRANSPARENT);
                 fillRadial(canvas, w * x2, h * y2, Math.max(w, h) * 0.44f, withAlpha(accent, 66), Color.TRANSPARENT);
                 drawSoftCurrent(canvas, w, h, deco, randomRange(deco, 10, 0.4f, 0.68f), withAlpha(accent2, 42));
+                drawContourLines(canvas, w, h, deco + 83, withAlpha(Color.WHITE, 34), withAlpha(accent, 28));
                 drawStarDust(canvas, w, h, deco + 47, 46, withAlpha(Color.WHITE, 52), false);
             }
         }
@@ -549,6 +583,111 @@ public class AudioPlayerBackgroundDrawable extends Drawable {
         paint.setShader(new LinearGradient(topX, 0, bottomX, h, color, Color.TRANSPARENT, Shader.TileMode.CLAMP));
         canvas.drawPath(path, paint);
         paint.setShader(null);
+    }
+
+    private void drawOrthoGrid(Canvas canvas, int w, int h, int seed, int color) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(Math.max(1f, w / 720f));
+        paint.setColor(color);
+        int step = Math.max(34, (int) (w * randomRange(seed, 750, 0.08f, 0.14f)));
+        int offsetX = Math.floorMod(mixSeed(seed + 751), step);
+        int offsetY = Math.floorMod(mixSeed(seed + 752), step);
+        for (int x = -offsetX; x < w + step; x += step) canvas.drawLine(x, 0, x, h, paint);
+        for (int y = -offsetY; y < h + step; y += step) canvas.drawLine(0, y, w, y, paint);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawDotMatrix(Canvas canvas, int w, int h, int seed, int color, boolean cluster) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.SQUARE);
+        float step = Math.max(14f, w * (cluster ? 0.045f : 0.07f));
+        float size = Math.max(1f, w * (cluster ? 0.0024f : 0.0018f));
+        int columns = (int) (w / step) + 3;
+        int rows = (int) (h / step) + 3;
+        float ox = w * randomRange(seed, 770, -0.08f, 0.12f);
+        float oy = h * randomRange(seed, 771, -0.06f, 0.12f);
+        paint.setStrokeWidth(size);
+        for (int y = 0; y < rows; y++) {
+            for (int x = 0; x < columns; x++) {
+                int mixed = mixSeed(seed + x * 37 + y * 101);
+                if (Math.floorMod(mixed, cluster ? 5 : 3) == 0) continue;
+                float px = ox + x * step;
+                float py = oy + y * step;
+                float fade = cluster ? 1f - clamp((Math.abs(px - w * 0.72f) + Math.abs(py - h * 0.28f)) / (w + h), 0f, 1f) : 0.55f;
+                paint.setColor(withAlpha(color, (int) (12 + fade * (Math.floorMod(mixed, 38) + 10))));
+                canvas.drawPoint(px, py, paint);
+            }
+        }
+        paint.setStrokeCap(Paint.Cap.BUTT);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawDiagonalTexture(Canvas canvas, int w, int h, int seed, int color) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.SQUARE);
+        paint.setStrokeWidth(Math.max(1f, w / 780f));
+        int step = Math.max(28, (int) (w * randomRange(seed, 790, 0.07f, 0.13f)));
+        int start = -w - Math.floorMod(mixSeed(seed + 791), step);
+        for (int x = start; x < w * 2; x += step) {
+            paint.setColor(withAlpha(color, 12 + Math.floorMod(mixSeed(seed + x), 28)));
+            canvas.drawLine(x, h * 0.05f, x + w * 0.82f, h * 0.95f, paint);
+        }
+        paint.setStrokeCap(Paint.Cap.BUTT);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawContourLines(Canvas canvas, int w, int h, int seed, int color, int color2) {
+        paint.setShader(null);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        float baseY = h * randomRange(seed, 810, 0.16f, 0.72f);
+        float spacing = h * randomRange(seed, 811, 0.045f, 0.082f);
+        for (int i = -3; i <= 5; i++) {
+            float y = baseY + i * spacing;
+            float amp = h * randomRange(seed, 830 + i, 0.035f, 0.1f);
+            path.reset();
+            path.moveTo(-w * 0.12f, y);
+            path.cubicTo(w * 0.16f, y - amp, w * 0.32f, y + amp * 0.7f, w * 0.52f, y - amp * 0.24f);
+            path.cubicTo(w * 0.76f, y - amp * 1.1f, w * 0.86f, y + amp * 0.86f, w * 1.12f, y + amp * 0.12f);
+            paint.setStrokeWidth(Math.max(1f, w * randomRange(seed, 850 + i, 0.002f, 0.006f)));
+            paint.setColor(i % 2 == 0 ? color : color2);
+            canvas.drawPath(path, paint);
+        }
+        paint.setStrokeCap(Paint.Cap.BUTT);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawBentoWire(Canvas canvas, int w, int h, int seed, int lineColor, int fillColor) {
+        paint.setShader(null);
+        float left = w * randomRange(seed, 870, -0.06f, 0.14f);
+        float top = h * randomRange(seed, 871, 0.12f, 0.3f);
+        float cellW = w * randomRange(seed, 872, 0.18f, 0.28f);
+        float cellH = h * randomRange(seed, 873, 0.09f, 0.16f);
+        float gap = Math.max(8f, w * randomRange(seed, 874, 0.018f, 0.034f));
+        paint.setStyle(Paint.Style.FILL);
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 4; col++) {
+                if (Math.floorMod(mixSeed(seed + row * 17 + col * 31), 5) == 0) continue;
+                float x = left + col * (cellW + gap);
+                float y = top + row * (cellH + gap);
+                path.reset();
+                path.moveTo(x, y);
+                path.lineTo(x + cellW, y + h * randomRange(seed, 890 + col, -0.012f, 0.018f));
+                path.lineTo(x + cellW + w * randomRange(seed, 900 + row, -0.018f, 0.018f), y + cellH);
+                path.lineTo(x + w * randomRange(seed, 910 + col + row, -0.014f, 0.014f), y + cellH);
+                path.close();
+                paint.setColor(fillColor);
+                canvas.drawPath(path, paint);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(Math.max(1f, w / 680f));
+                paint.setColor(lineColor);
+                canvas.drawPath(path, paint);
+                paint.setStyle(Paint.Style.FILL);
+            }
+        }
     }
 
     private void drawAuroraCurtain(Canvas canvas, int w, int h, int seed, int color, int color2) {

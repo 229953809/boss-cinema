@@ -1945,7 +1945,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private int audioBackgroundDecorationMotif(int seed) {
-        return Math.floorMod(mixAudioBackgroundSeed(seed == 0 ? 0x5A17B3 : seed), 12);
+        return Math.floorMod(mixAudioBackgroundSeed(seed == 0 ? 0x5A17B3 : seed), 18);
     }
 
     private int audioBackgroundHue(int seed) {
