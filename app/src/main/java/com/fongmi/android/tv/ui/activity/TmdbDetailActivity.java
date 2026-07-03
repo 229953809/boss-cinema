@@ -1005,8 +1005,20 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         } else if (inlineFullscreen) {
             toggleInlinePlayback();
         } else {
-            showInlineControls(true);
+            enterInlineFullscreenOrShowControlsOnConfirm();
         }
+    }
+
+    private void enterInlineFullscreenOrShowControlsOnConfirm() {
+        if (Util.isLeanback() && canEnterInlineFullscreenOnConfirm()) {
+            enterInlineFullscreen();
+            return;
+        }
+        showInlineControls(true);
+    }
+
+    private boolean canEnterInlineFullscreenOnConfirm() {
+        return !inlineFullscreen && !inlinePiPLayout && !isInPictureInPictureMode();
     }
 
     private void cycleThemeMode() {
@@ -1451,8 +1463,8 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         button.setBackgroundTintList(ColorStateList.valueOf(colors.control));
         button.setTextColor(colors.primary);
         button.setIconTint(ColorStateList.valueOf(colors.primary));
-        button.setStrokeWidth(ResUtil.dp2px(focused ? 2 : CHIP_STROKE_DP));
-        button.setStrokeColor(ColorStateList.valueOf(focused ? colors.accent : colors.lineStrong));
+        button.setStrokeWidth(ResUtil.dp2px(focused ? FOCUS_STROKE_DP : CHIP_STROKE_DP));
+        button.setStrokeColor(ColorStateList.valueOf(focused ? FOCUS_STROKE : colors.lineStrong));
     }
 
     private void tintTextTree(View view, ThemeColors colors) {
@@ -2463,6 +2475,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         row.setPadding(ResUtil.dp2px(12), ResUtil.dp2px(10), ResUtil.dp2px(12), ResUtil.dp2px(10));
         row.setClickable(true);
         row.setFocusable(true);
+        row.setOnFocusChangeListener((view, focused) -> styleExternalLinkRow(view, currentThemeColors()));
         row.setOnClickListener(view -> openExternalLink(url));
 
         TextView label = new TextView(this);
@@ -2492,10 +2505,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private void styleExternalLinkRow(View view, ThemeColors colors) {
         if (!(view instanceof LinearLayout row)) return;
+        boolean focused = row.hasFocus();
         GradientDrawable background = new GradientDrawable();
         background.setColor(isCinemaMode() ? TmdbCinemaTheme.palette(lightTheme).ratingChip() : colors.chip);
         background.setCornerRadius(ResUtil.dp2px(10));
-        background.setStroke(ResUtil.dp2px(1), colors.line);
+        background.setStroke(ResUtil.dp2px(focused ? FOCUS_STROKE_DP : CHIP_STROKE_DP), focused ? FOCUS_STROKE : colors.line);
         row.setBackground(background);
         for (int i = 0; i < row.getChildCount(); i++) {
             View child = row.getChildAt(i);

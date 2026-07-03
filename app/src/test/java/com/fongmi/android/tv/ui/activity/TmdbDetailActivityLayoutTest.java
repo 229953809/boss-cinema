@@ -437,13 +437,13 @@ public class TmdbDetailActivityLayoutTest {
         String focusBody = focusDetailEpisode >= 0 && focusDetailEpisodeEnd > focusDetailEpisode ? activity.substring(focusDetailEpisode, focusDetailEpisodeEnd) : "";
         String alignBody = align >= 0 && alignEnd > align ? activity.substring(align, alignEnd) : "";
 
-        assertTrue("episode reverse/list tools should use their own focus refresh instead of generic yellow focus chrome",
+        assertTrue("episode reverse/list tools should refresh focus chrome without inheriting episode-card selected state",
                 activity.contains("setEpisodeToolButton(binding.episodeReverse, colors);")
                         && activity.contains("setEpisodeToolButton(binding.episodeViewMode, colors);")
                         && activity.contains("private void applyEpisodeToolButtonsFocus()")
                         && activity.contains("applyEpisodeToolButtonFocus(binding.episodeReverse, colors);")
                         && activity.contains("applyEpisodeToolButtonFocus(binding.episodeViewMode, colors);")
-                        && activity.contains("button.setStrokeColor(ColorStateList.valueOf(focused ? colors.accent : colors.lineStrong));"));
+                        && activity.contains("button.setStrokeColor(ColorStateList.valueOf(focused ? FOCUS_STROKE : colors.lineStrong));"));
         assertTrue("episode tool delayed refocus must not steal focus back from the sibling tool",
                 activity.contains("isEpisodeToolFocusedOtherThan(button)")
                         && activity.contains("retryDetailButtonFocus(button, previousFocus)")
@@ -637,7 +637,7 @@ public class TmdbDetailActivityLayoutTest {
     }
 
     @Test
-    public void detailEpisodeToolButtonsRefreshNeutralThemeChromeOnFocus() throws Exception {
+    public void detailEpisodeToolButtonsUseSharedFocusStroke() throws Exception {
         Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
         String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
         int setup = activity.indexOf("private void setEpisodeToolButton(MaterialButton button, ThemeColors colors)");
@@ -656,9 +656,9 @@ public class TmdbDetailActivityLayoutTest {
         assertTrue("episode tool focus refresh should keep text and icons on the neutral detail theme color",
                 applyBody.contains("button.setTextColor(colors.primary);")
                         && applyBody.contains("button.setIconTint(ColorStateList.valueOf(colors.primary));"));
-        assertTrue("episode tool focus refresh should use themed accent focus stroke and themed idle stroke, not the yellow generic focus stroke",
-                applyBody.contains("focused ? colors.accent : colors.lineStrong")
-                        && !applyBody.contains("FOCUS_STROKE"));
+        assertTrue("episode tool focus refresh should use the shared yellow focus stroke and themed idle stroke",
+                applyBody.contains("focused ? FOCUS_STROKE : colors.lineStrong")
+                        && !applyBody.contains("focused ? colors.accent : colors.lineStrong"));
     }
 
     @Test
@@ -739,6 +739,35 @@ public class TmdbDetailActivityLayoutTest {
                 sharedBody.contains("button.setOnKeyListener(flagKeyListener);")
                         && sharedBody.contains("adapter.setOnKeyListener")
                         && sharedBody.contains("focusNativeEnhancedInlineEpisode(scroll, recycler, adapter, layout.spanCount())"));
+    }
+
+    @Test
+    public void leanbackInlinePlayerConfirmEntersFullscreenBeforeShowingControls() throws Exception {
+        Path activityPath = findMainJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "TmdbDetailActivity.java"));
+        String activity = new String(Files.readAllBytes(activityPath), StandardCharsets.UTF_8);
+
+        int confirm = activity.indexOf("private void onInlinePanelConfirm()");
+        int helper = activity.indexOf("private void enterInlineFullscreenOrShowControlsOnConfirm()", confirm);
+        int nextMethod = activity.indexOf("private void toggleInlinePlayback()", helper);
+
+        assertTrue(activityPath + " is missing onInlinePanelConfirm", confirm >= 0);
+        assertTrue(activityPath + " is missing enterInlineFullscreenOrShowControlsOnConfirm", helper > confirm && nextMethod > helper);
+
+        String confirmBody = activity.substring(confirm, helper);
+        String helperBody = activity.substring(helper, nextMethod);
+
+        assertTrue("embedded inline confirm should delegate the non-fullscreen/no-controls case",
+                confirmBody.contains("enterInlineFullscreenOrShowControlsOnConfirm();")
+                        && confirmBody.indexOf("enterInlineFullscreenOrShowControlsOnConfirm();") > confirmBody.indexOf("toggleInlinePlayback();")
+                        && !confirmBody.contains("else {\n            showInlineControls(true);"));
+        assertTrue("TV inline confirm should enter fullscreen before falling back to the controls overlay",
+                helperBody.contains("if (Util.isLeanback() && canEnterInlineFullscreenOnConfirm())")
+                        && helperBody.contains("enterInlineFullscreen();")
+                        && helperBody.contains("private boolean canEnterInlineFullscreenOnConfirm()")
+                        && helperBody.contains("!inlinePiPLayout")
+                        && helperBody.contains("!isInPictureInPictureMode()")
+                        && helperBody.contains("showInlineControls(true);")
+                        && helperBody.indexOf("enterInlineFullscreen();") < helperBody.indexOf("showInlineControls(true);"));
     }
 
     @Test
