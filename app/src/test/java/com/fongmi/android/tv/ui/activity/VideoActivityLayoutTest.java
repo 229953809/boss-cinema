@@ -362,6 +362,26 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void leanbackDetailActionButtonsPreferSourceLineBeforeRecommendations() throws Exception {
+        Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("private void setDetailButtonsNextFocus(int fallback)");
+        int methodEnd = source.indexOf("\n    }", method);
+        String body = method >= 0 && methodEnd > method ? source.substring(method, methodEnd) : "";
+
+        assertTrue(sourcePath + " is missing setDetailButtonsNextFocus fallback handling", method >= 0);
+        assertTrue("detail action down focus must prefer the visible source line before TMDB recommendation rows",
+                body.contains("int target = isVisible(mBinding.flag) ? R.id.flag : fallback;"));
+        assertTrue("all visible/optional detail action buttons must share the same down-focus target",
+                body.contains("mBinding.content.setNextFocusDownId(target);")
+                        && body.contains("mBinding.shortDisplay.setNextFocusDownId(target);")
+                        && body.contains("mBinding.searchDetail.setNextFocusDownId(target);")
+                        && body.contains("mBinding.keep.setNextFocusDownId(target);")
+                        && body.contains("mBinding.change1.setNextFocusDownId(target);")
+                        && body.contains("mBinding.tmdbRematch.setNextFocusDownId(target);"));
+    }
+
+    @Test
     public void leanbackTmdbEpisodeDialogUsesFullscreenAdaptiveCards() throws Exception {
         Path sourcePath = findLeanbackJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "dialog", "EpisodeListDialog.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
