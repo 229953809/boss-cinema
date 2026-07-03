@@ -28,6 +28,7 @@ import com.fongmi.android.tv.ui.base.BaseFragment;
 import com.fongmi.android.tv.ui.dialog.BufferDialog;
 import com.fongmi.android.tv.ui.dialog.LutDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerButtonConfigDialog;
+import com.fongmi.android.tv.ui.dialog.PlayerOsdDialog;
 import com.fongmi.android.tv.ui.dialog.SpeedDialog;
 import com.fongmi.android.tv.ui.dialog.UaDialog;
 import com.fongmi.android.tv.utils.FileUtil;
@@ -57,6 +58,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     private String[] karaokeDifficulty;
     private String[] lyricsSize;
     private String[] lyricsSource;
+    private String[] padLiveMode;
     private String[] playCache;
     private String[] render;
     private String[] scale;
@@ -82,6 +84,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.aacText.setText(getSwitch(PlayerSetting.isPreferAAC()));
         mBinding.tunnelText.setText(getSwitch(PlayerSetting.isTunnel()));
         mBinding.exo4kCompatText.setText(getSwitch(PlayerSetting.isExoEnhanced()));
+        setPadLiveModeText();
         setPlayerButtonsText();
         mBinding.adblockText.setText(getSwitch(Setting.isAdblock()));
         mBinding.speedText.setText(format.format(PlayerSetting.getSpeed()));
@@ -132,6 +135,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.desktopLyrics.setOnLongClickListener(this::resetDesktopLyricsPosition);
         mBinding.lyricsCache.setOnClickListener(this::clearLyricsCache);
         mBinding.playerButtons.setOnClickListener(view -> PlayerButtonConfigDialog.show(this, this::setPlayerButtonsText));
+        mBinding.padLive.setOnClickListener(this::setPadLiveMode);
         mBinding.speed.setOnClickListener(this::onSpeed);
         mBinding.buffer.setOnClickListener(this::onBuffer);
         mBinding.bufferBytes.setOnClickListener(this::onBufferBytes);
@@ -190,11 +194,10 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
     }
 
     private void onOsd(View view) {
-        boolean[] checked = getOsdChecked();
-        new MaterialAlertDialogBuilder(requireActivity()).setTitle(R.string.player_osd).setNegativeButton(R.string.dialog_negative, null).setPositiveButton(R.string.dialog_positive, (dialog, which) -> {
+        PlayerOsdDialog.show(this, osd, getOsdChecked(), checked -> {
             setOsdChecked(checked);
             mBinding.osdText.setText(getOsdText(osd));
-        }).setMultiChoiceItems(osd, checked, (dialog, which, isChecked) -> checked[which] = isChecked).show();
+        });
     }
 
     private void onLyricsOffset(View view) {
@@ -292,6 +295,17 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
 
     private void setPlayerButtonsText() {
         mBinding.playerButtonsText.setText(getString(R.string.player_button_config_summary, PlayerButtonSetting.getVisibleCount(), PlayerButtonSetting.getTotalCount()));
+    }
+
+    private void setPadLiveModeText() {
+        mBinding.padLive.setVisibility(ResUtil.isPad() ? View.VISIBLE : View.GONE);
+        mBinding.padLiveText.setText((padLiveMode = ResUtil.getStringArray(R.array.select_pad_live_mode))[PlayerSetting.getPadLiveMode()]);
+    }
+
+    private void setPadLiveMode(View view) {
+        int index = (PlayerSetting.getPadLiveMode() + 1) % padLiveMode.length;
+        PlayerSetting.putPadLiveMode(index);
+        mBinding.padLiveText.setText(padLiveMode[index]);
     }
 
     private boolean[] getOsdChecked() {
