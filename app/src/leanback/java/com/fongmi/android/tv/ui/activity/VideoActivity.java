@@ -549,6 +549,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         SpiderDebug.log("video-flow", "initView after playback cost=%dms", System.currentTimeMillis() - start);
         disableLeanbackDesktopLyrics();
         mFrameParams = mBinding.video.getLayoutParams();
+        setupAudioStageOverlay();
         mClock = Clock.create(mBinding.widget.clock);
         mLyrics = new LyricsController(mBinding.lyrics);
         mLyrics.setSecondaryView(mBinding.audioLyrics);
@@ -600,6 +601,16 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void disableLeanbackDesktopLyrics() {
         if (PlayerSetting.isDesktopLyrics()) PlayerSetting.putDesktopLyrics(false);
+    }
+
+    private void setupAudioStageOverlay() {
+        ViewGroup parent = (ViewGroup) mBinding.audioStage.getParent();
+        if (parent != null) parent.removeView(mBinding.audioStage);
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        ((ViewGroup) mBinding.getRoot()).addView(mBinding.audioStage, params);
+        mBinding.audioStage.bringToFront();
     }
 
     @Override
@@ -2038,6 +2049,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void onVideo() {
+        if (mAudioStageVisible) {
+            hideProgress();
+            hideControl();
+            hideInfo();
+            focusAudioStageDefault();
+            return;
+        }
         if (!isFullscreen()) enterFullscreen();
     }
 
@@ -2557,7 +2575,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         KaraokeResult result = mKaraoke.getResult();
         if (result == null) return false;
         mKaraokeResultShown = true;
-        KaraokeResultView view = new KaraokeResultView(this).setResult(result);
+        KaraokeResultView view = new KaraokeResultView(this).setLeanbackLandscapeExpanded(true).setResult(result);
         AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog).setView(view).create();
         view.setAction(() -> {
             dialog.dismiss();
@@ -2937,6 +2955,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void showProgress() {
+        if (mAudioStageVisible) {
+            hideProgress();
+            hideCenter();
+            hideError();
+            return;
+        }
         mBinding.progress.getRoot().setVisibility(View.VISIBLE);
         App.post(mR3, 0);
         hideCenter();
@@ -3373,8 +3397,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!visible) mAudioLightEffectAnimated = false;
         mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) {
+            mBinding.audioStage.bringToFront();
+            hideProgress();
             hideControl();
             hideInfo();
+            Util.hideSystemUI(this);
         } else {
             setAudioToolRowVisible(false, false);
         }

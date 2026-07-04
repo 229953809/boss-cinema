@@ -34,6 +34,7 @@ import com.fongmi.android.tv.ui.adapter.ParseAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Timer;
+import com.fongmi.android.tv.utils.Util;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.slider.Slider;
@@ -104,10 +105,13 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private void configureWindow(Dialog dialog) {
         if (dialog == null || dialog.getWindow() == null) return;
         Window window = dialog.getWindow();
-        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND | WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.setDimAmount(0f);
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
-        WindowCompat.setDecorFitsSystemWindows(window, true);
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        Util.hideSystemUI(window);
+        if (getActivity() != null) Util.hideSystemUI(getActivity());
+        window.getDecorView().post(() -> Util.hideSystemUI(window));
     }
 
     @Override

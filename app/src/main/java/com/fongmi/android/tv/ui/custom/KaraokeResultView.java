@@ -30,6 +30,7 @@ public class KaraokeResultView extends LinearLayout {
     private static final int SURFACE_DARK = 0x33111827;
 
     private MaterialTextView action;
+    private boolean leanbackLandscapeExpanded;
 
     public KaraokeResultView(Context context) {
         super(context);
@@ -54,6 +55,12 @@ public class KaraokeResultView extends LinearLayout {
         addStats(result);
         addFootnote(result);
         addAction();
+        return this;
+    }
+
+    public KaraokeResultView setLeanbackLandscapeExpanded(boolean expanded) {
+        leanbackLandscapeExpanded = expanded;
+        setMinimumWidth(dialogWidth());
         return this;
     }
 
@@ -403,7 +410,7 @@ public class KaraokeResultView extends LinearLayout {
         if (screenDp <= 0) return dp(320);
         if (isLandscapeLayout()) {
             int maxWidthDp = Math.max(360, screenDp - 48);
-            int targetDp = Math.min(720, Math.max(480, screenDp - 96));
+            int targetDp = leanbackLandscapeExpanded ? Math.min(860, Math.max(640, screenDp - 96)) : Math.min(720, Math.max(480, screenDp - 96));
             return dp(Math.min(maxWidthDp, targetDp));
         }
         int widthDp = Math.min(isWideLayout() ? 480 : 360, Math.max(306, screenDp - 48));
@@ -413,6 +420,7 @@ public class KaraokeResultView extends LinearLayout {
     private int landscapeBodyHeight() {
         int screenDp = getResources().getConfiguration().screenHeightDp;
         if (screenDp <= 0) return dp(252);
+        if (leanbackLandscapeExpanded) return dp(Math.min(340, Math.max(276, screenDp - 96)));
         return dp(Math.min(276, Math.max(218, screenDp - 142)));
     }
 
