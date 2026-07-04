@@ -4328,6 +4328,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         for (int i = 0; i < results.size(); i++) labels[i] = getLyricsResultLabel(results.get(i));
         if (mLyricsResultDialog != null && mLyricsResultList != null && mLyricsResultDialog.isShowing()) {
             updateLyricsResultList(labels);
+            updateLyricsResultSheetHeight(labels.length);
             return;
         }
         dismissLyricsResultDialog();
@@ -4709,6 +4710,29 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             });
             mLyricsResultList.addView(item, lyricsResultItemParams(i == 0));
         }
+    }
+
+    private void updateLyricsResultSheetHeight(int count) {
+        if (mLyricsResultList == null) return;
+        if (!(mLyricsResultList.getParent() instanceof View scroll)) return;
+        ViewGroup.LayoutParams params = scroll.getLayoutParams();
+        int height = lyricsResultSheetHeight(count);
+        if (params != null && params.height != height) {
+            params.height = height;
+            scroll.setLayoutParams(params);
+        }
+        scroll.requestLayout();
+        mLyricsResultList.requestLayout();
+        if (mLyricsResultDialog == null) return;
+        FrameLayout sheet = mLyricsResultDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        if (sheet == null) return;
+        sheet.requestLayout();
+        sheet.post(() -> {
+            if (mLyricsResultDialog == null || !mLyricsResultDialog.isShowing()) return;
+            FrameLayout current = mLyricsResultDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (current == null) return;
+            BottomSheetBehavior.from(current).setState(BottomSheetBehavior.STATE_EXPANDED);
+        });
     }
 
     private TextView createLyricsResultItem(String label, boolean selected, Runnable action) {
