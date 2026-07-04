@@ -19,6 +19,9 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.player.karaoke.KaraokeResult;
 import com.google.android.material.textview.MaterialTextView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class KaraokeResultView extends LinearLayout {
 
     private static final int TEXT_PRIMARY = 0xFFF8FAFC;
@@ -219,12 +222,47 @@ public class KaraokeResultView extends LinearLayout {
     }
 
     private void addMetrics(LinearLayout parent, KaraokeResult result, boolean compact) {
-        addMetric(parent, metricLabel(result), result.getHitPercent(), scoreColor(result.getHitPercent()), compact ? 0 : 12, compact);
-        addMetric(parent, getResources().getString(R.string.player_karaoke_result_voice_coverage), result.getVoicedPercent(), 0xFF38BDF8, compact ? 8 : 9, compact);
-        if (result.isPitchScoring() && result.getBonusPercent() > 0) addMetric(parent, getResources().getString(R.string.player_karaoke_result_bonus), result.getBonusPercent(), 0xFFA78BFA, compact ? 8 : 9, compact);
-        if (result.isPitchScoring()) addMetric(parent, getResources().getString(R.string.player_karaoke_result_perfect), result.getPerfectPercent(), 0xFFFBBF24, compact ? 8 : 9, compact);
-        if (result.isPitchScoring() && result.getVibratoPercent() > 0) addMetric(parent, getResources().getString(R.string.player_karaoke_result_vibrato), result.getVibratoPercent(), 0xFF2DD4BF, compact ? 8 : 9, compact);
-        if (result.getScoredLineCount() > 0) addMetric(parent, getResources().getString(R.string.player_karaoke_result_line_average), result.getAverageLineScorePercent(), scoreColor(result.getAverageLineScorePercent()), compact ? 8 : 9, compact);
+        List<MetricSpec> metrics = metricSpecs(result);
+        if (compact) {
+            addMetricGrid(parent, metrics);
+            return;
+        }
+        for (int i = 0; i < metrics.size(); i++) {
+            MetricSpec metric = metrics.get(i);
+            addMetric(parent, metric.label, metric.progress, metric.color, i == 0 ? 12 : 9, false);
+        }
+    }
+
+    private List<MetricSpec> metricSpecs(KaraokeResult result) {
+        List<MetricSpec> metrics = new ArrayList<>();
+        metrics.add(new MetricSpec(metricLabel(result), result.getHitPercent(), scoreColor(result.getHitPercent())));
+        metrics.add(new MetricSpec(getResources().getString(R.string.player_karaoke_result_voice_coverage), result.getVoicedPercent(), 0xFF38BDF8));
+        if (result.isPitchScoring() && result.getBonusPercent() > 0) metrics.add(new MetricSpec(getResources().getString(R.string.player_karaoke_result_bonus), result.getBonusPercent(), 0xFFA78BFA));
+        if (result.isPitchScoring()) metrics.add(new MetricSpec(getResources().getString(R.string.player_karaoke_result_perfect), result.getPerfectPercent(), 0xFFFBBF24));
+        if (result.isPitchScoring() && result.getVibratoPercent() > 0) metrics.add(new MetricSpec(getResources().getString(R.string.player_karaoke_result_vibrato), result.getVibratoPercent(), 0xFF2DD4BF));
+        if (result.getScoredLineCount() > 0) metrics.add(new MetricSpec(getResources().getString(R.string.player_karaoke_result_line_average), result.getAverageLineScorePercent(), scoreColor(result.getAverageLineScorePercent())));
+        return metrics;
+    }
+
+    private void addMetricGrid(LinearLayout parent, List<MetricSpec> metrics) {
+        for (int i = 0; i < metrics.size(); i += 2) {
+            LinearLayout row = new LinearLayout(getContext());
+            row.setOrientation(HORIZONTAL);
+            LayoutParams rowParams = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46));
+            rowParams.topMargin = dp(i == 0 ? 0 : 8);
+            parent.addView(row, rowParams);
+            addMetricCell(row, metrics.get(i), 0);
+            if (i + 1 < metrics.size()) addMetricCell(row, metrics.get(i + 1), dp(8));
+            else row.addView(new View(getContext()), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        }
+    }
+
+    private void addMetricCell(LinearLayout row, MetricSpec metric, int leftMargin) {
+        MetricBarView bar = new MetricBarView(getContext());
+        bar.setState(metric.label, metric.progress, metric.color);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+        params.leftMargin = leftMargin;
+        row.addView(bar, params);
     }
 
     private void addMetric(LinearLayout parent, String label, int progress, int color, int topMargin, boolean compact) {
@@ -233,6 +271,18 @@ public class KaraokeResultView extends LinearLayout {
         LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(compact ? 46 : 52));
         params.topMargin = dp(topMargin);
         parent.addView(bar, params);
+    }
+
+    private static class MetricSpec {
+        private final String label;
+        private final int progress;
+        private final int color;
+
+        private MetricSpec(String label, int progress, int color) {
+            this.label = label;
+            this.progress = progress;
+            this.color = color;
+        }
     }
 
     private void addStats(KaraokeResult result) {
