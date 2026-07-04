@@ -229,6 +229,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private TextView mAudioQueueStatus;
     private List<LyricsResult> mLyricsSearchResults;
     private String mLyricsSearchKeyword;
+    private String mLyricsLastSearchSignature;
+    private String mLyricsLastSearchKeyword;
     private String mLyricsSelectedResultKey;
     private String mDetailLyrics;
     private String mInlineLyrics;
@@ -4229,8 +4231,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private List<String> getLyricsSearchSuggestions() {
-        if (service() == null) return LyricsRequest.searchSuggestions(getName());
-        return LyricsRequest.from(player()).searchSuggestions();
+        if (service() == null) return withLastLyricsSearchSuggestion(LyricsRequest.searchSuggestions(getName()), getName());
+        LyricsRequest request = LyricsRequest.from(player());
+        return withLastLyricsSearchSuggestion(request.searchSuggestions(), request.stableSignature());
     }
 
     private String getLyricsSearchCacheKey(String keyword) {
@@ -4238,11 +4241,43 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return LyricsRequest.from(player()).withKeyword(keyword).signature();
     }
 
+    private void rememberLyricsSearchKeyword(String keyword) {
+        String value = Objects.toString(keyword, "").trim();
+        if (TextUtils.isEmpty(value)) return;
+        mLyricsLastSearchSignature = getLyricsSearchSignature();
+        mLyricsLastSearchKeyword = value;
+    }
+
+    private String getLyricsSearchSignature() {
+        if (service() == null) return getName();
+        return LyricsRequest.from(player()).stableSignature();
+    }
+
+    private List<String> withLastLyricsSearchSuggestion(List<String> suggestions, String signature) {
+        String keyword = Objects.toString(mLyricsLastSearchKeyword, "").trim();
+        if (TextUtils.isEmpty(keyword) || !TextUtils.equals(mLyricsLastSearchSignature, signature)) return suggestions;
+        List<String> values = new ArrayList<>();
+        values.add(keyword);
+        for (String suggestion : suggestions) {
+            String value = Objects.toString(suggestion, "").trim();
+            if (TextUtils.isEmpty(value) || containsLyricsSearchSuggestion(values, value)) continue;
+            values.add(value);
+            if (values.size() >= 8) break;
+        }
+        return values;
+    }
+
+    private boolean containsLyricsSearchSuggestion(List<String> suggestions, String keyword) {
+        for (String suggestion : suggestions) if (suggestion.equalsIgnoreCase(keyword)) return true;
+        return false;
+    }
+
     private void searchLyrics(String keyword) {
         if (mLyrics == null || service() == null) return;
         updateAudioOnlyState();
         int seq = ++mLyricsSearchSeq;
         String cacheKey = getLyricsSearchCacheKey(keyword);
+        rememberLyricsSearchKeyword(keyword);
         if (TextUtils.equals(mLyricsSearchKeyword, cacheKey) && mLyricsSearchResults != null && !mLyricsSearchResults.isEmpty()) {
             showLyricsResults(seq, cacheKey, mLyricsSearchResults, true);
             return;
