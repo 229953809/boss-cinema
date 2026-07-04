@@ -239,25 +239,31 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
-    public void mobileDirectPlaybackUsesUpstreamNativeEpisodeStrip() throws Exception {
+    public void mobileDirectPlaybackUsesUpstreamNativeEpisodeGrid() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
         int predicate = source.indexOf("private boolean shouldUseUpstreamNativeEpisodeModule()");
         int bind = source.indexOf("private void setUpstreamNativeEpisodeItems(List<Episode> items)");
-        int layout = source.indexOf("private void updateEpisodeLayoutForUpstreamNative()");
+        int viewport = source.indexOf("private void updateEpisodeViewportHeight()");
+        int nextViewportMethod = source.indexOf("private boolean isTmdbEpisodeCardMode()", viewport);
         int setEpisode = source.indexOf("private void setEpisodeAdapter(List<Episode> items)");
+        String viewportBody = nextViewportMethod > viewport ? source.substring(viewport, nextViewportMethod) : "";
 
         assertTrue(sourcePath + " is missing direct native episode predicate", predicate >= 0);
         assertTrue("direct native episode mode must be scoped to the 影视原生 setting",
                 source.indexOf("return Setting.isDirectDetailPage() && !isTmdbMode();", predicate) > predicate);
         assertTrue("direct native playback must bypass enhanced episode grid binding",
                 setEpisode >= 0 && source.indexOf("if (shouldUseUpstreamNativeEpisodeModule())", setEpisode) > setEpisode);
-        assertTrue("direct native playback should restore the upstream horizontal episode strip",
+        assertTrue("direct native playback should restore the upstream episode grid",
                 bind >= 0
-                        && source.indexOf("mEpisodeAdapter.setViewType(ViewType.HORI);", bind) > bind
-                        && source.indexOf("mBinding.more.setVisibility(items.size() < 10 ? View.GONE : View.VISIBLE);", bind) > bind
-                        && layout > bind
-                        && source.indexOf("new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)", layout) > layout);
+                        && source.indexOf("mEpisodeGridMode = true;", bind) > bind
+                        && source.indexOf("mEpisodeAdapter.setViewType(ViewType.GRID);", bind) > bind
+                        && source.indexOf("mBinding.more.setVisibility(View.GONE);", bind) > bind
+                        && source.indexOf("EpisodeGroupAdapter.build(size, getSelectedEpisodePosition(items), mHistory != null && mHistory.isRevSort())", bind) > bind
+                        && source.indexOf("mBinding.episodeGroup.setVisibility(groups.size() > 1 ? View.VISIBLE : View.GONE);", bind) > bind
+                        && source.indexOf("setEpisodeItems(items);", bind) > bind);
+        assertTrue("direct native episode grid should use the standard viewport cap",
+                viewport >= 0 && !viewportBody.contains("shouldUseUpstreamNativeEpisodeModule()"));
     }
 
     @Test

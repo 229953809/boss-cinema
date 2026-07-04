@@ -850,13 +850,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void updateEpisodeViewportHeight() {
         if (mBinding.episode.getVisibility() != View.VISIBLE) return;
-        if (shouldUseUpstreamNativeEpisodeModule()) {
-            if (mEpisodeMaxHeight == 0) return;
-            mEpisodeMaxHeight = 0;
-            mBinding.episode.setMaxHeight(0);
-            mBinding.episode.requestLayout();
-            return;
-        }
         int limit = ResUtil.isPad() || ResUtil.isLand(this) ? ResUtil.dp2px(328) : ResUtil.dp2px(280);
         // The episode list lives inside a scroll container, so capping it by the
         // current on-screen remainder can collapse the viewport to a single row
@@ -1603,29 +1596,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setUpstreamNativeEpisodeItems(List<Episode> items) {
-        mEpisodeGridMode = false;
+        int size = items.size();
+        mEpisodeGridMode = true;
         mEpisodeAdapter.setUseTmdbCard(false);
-        mEpisodeAdapter.setViewType(ViewType.HORI);
-        mEpisodeGroupAdapter.addAll(List.of());
-        mBinding.episodeGroup.setVisibility(View.GONE);
+        mEpisodeAdapter.setViewType(ViewType.GRID);
         if (mBinding.episodeViewMode != null) mBinding.episodeViewMode.setVisibility(View.GONE);
         mBinding.episode.setVisibility(items.isEmpty() ? View.GONE : View.VISIBLE);
-        mBinding.more.setVisibility(items.size() < 10 ? View.GONE : View.VISIBLE);
-        updateEpisodeLayoutForUpstreamNative();
-        mEpisodeAdapter.addAll(items);
-    }
-
-    private void updateEpisodeLayoutForUpstreamNative() {
-        RecyclerView.LayoutManager manager = mBinding.episode.getLayoutManager();
-        if (!(manager instanceof LinearLayoutManager) || manager instanceof GridLayoutManager || ((LinearLayoutManager) manager).getOrientation() != LinearLayoutManager.HORIZONTAL) {
-            mBinding.episode.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        }
-        updateEpisodeDecoration(new SpaceItemDecoration(8));
-        mEpisodeMaxHeight = 0;
-        mBinding.episode.setMaxHeight(0);
-        mBinding.episode.setClipChildren(false);
-        mBinding.episode.setClipToPadding(false);
-        mBinding.episode.requestLayout();
+        mBinding.more.setVisibility(View.GONE);
+        List<EpisodeGroupAdapter.Group> groups = EpisodeGroupAdapter.build(size, getSelectedEpisodePosition(items), mHistory != null && mHistory.isRevSort());
+        mEpisodeGroupAdapter.addAll(groups);
+        mBinding.episodeGroup.setVisibility(groups.size() > 1 ? View.VISIBLE : View.GONE);
+        setEpisodeItems(items);
+        mBinding.episode.post(this::updateEpisodeViewportHeight);
     }
 
     private void updateEpisodeGroupVisibility() {
