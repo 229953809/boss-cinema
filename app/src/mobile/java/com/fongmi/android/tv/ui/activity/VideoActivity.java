@@ -4027,15 +4027,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void syncAudioBackgroundHalo(AudioPlayerBackgroundDrawable drawable) {
         if (mBinding == null || drawable == null) return;
-        View anchor = mBinding.audioDisc != null ? mBinding.audioDisc : mBinding.audioCover;
+        View anchor = mBinding.audioCover != null ? mBinding.audioCover : mBinding.audioDisc;
         if (mBinding.audioStage.getWidth() <= 0 || anchor.getWidth() <= 0 || anchor.getHeight() <= 0) return;
         int[] stage = new int[2];
         int[] view = new int[2];
         mBinding.audioStage.getLocationOnScreen(stage);
         anchor.getLocationOnScreen(view);
         float cx = view[0] - stage[0] + anchor.getWidth() / 2f;
-        float cy = view[1] - stage[1] + anchor.getHeight() / 2f;
-        float radius = Math.max(anchor.getWidth(), anchor.getHeight()) * 0.48f;
+        float cy = view[1] - stage[1] + anchor.getHeight() / 2f - (isLand() ? ResUtil.dp2px(5) : 0);
+        float radius = Math.max(anchor.getWidth(), anchor.getHeight()) * 0.56f;
         drawable.setRecordHaloAnchor(cx, cy, radius);
     }
 

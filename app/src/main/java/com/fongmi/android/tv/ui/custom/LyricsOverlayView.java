@@ -347,7 +347,7 @@ public class LyricsOverlayView extends FrameLayout {
     private void style(MaterialTextView view, int distance) {
         boolean primary = distance == 0;
         int size = lyricTextSize(primary, distance);
-        float scale = PlayerSetting.getLyricsTextSizeScale();
+        float scale = lyricTextScale();
         int color = primary ? PRIMARY_COLOR : distance == 1 ? Color.WHITE : 0xB8FFFFFF;
         view.setPadding(0, rowVerticalPadding(), 0, rowVerticalPadding());
         view.setTextSize(size * scale);
@@ -479,6 +479,17 @@ public class LyricsOverlayView extends FrameLayout {
         if (tightAudioRows()) return primary ? 15 : 10;
         if (compact) return primary ? 18 : 13;
         return primary ? 28 : distance == 1 ? 19 : 16;
+    }
+
+    private float lyricTextScale() {
+        if (!landscapeAudioStage()) return PlayerSetting.getLyricsTextSizeScale();
+        return switch (PlayerSetting.getLyricsTextSizeOption()) {
+            case 0 -> 0.78f;
+            case 1 -> 0.85f;
+            case 2 -> 1.0f;
+            case 3 -> 1.15f;
+            default -> 0.85f;
+        };
     }
 
     private int rowVerticalPadding() {
