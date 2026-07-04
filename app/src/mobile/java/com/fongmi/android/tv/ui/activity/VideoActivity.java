@@ -4388,7 +4388,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         } else {
             showDanmaku();
             restoreContextWall();
-            if (isStop()) finish();
+            // PiP 窗口点 × 关闭时，主动停止播放，避免声音继续（与正常退出保持一致）
+            if (isStop()) {
+                saveHistory(true);
+                finishPlayback();
+            }
         }
     }
 
