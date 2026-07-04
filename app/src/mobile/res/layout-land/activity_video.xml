@@ -113,7 +113,7 @@
                                 android:gravity="center"
                                 android:maxLines="2"
                                 android:textColor="@color/white"
-                                android:textSize="21sp"
+                                android:textSize="22sp"
                                 android:textStyle="bold"
                                 tools:text="八段锦口令音乐" />
 
@@ -127,7 +127,7 @@
                                 android:gravity="center"
                                 android:maxLines="1"
                                 android:textColor="@color/white_70"
-                                android:textSize="13sp"
+                                android:textSize="14sp"
                                 tools:text="站源 · 当前播放列表" />
 
                             <androidx.appcompat.widget.LinearLayoutCompat
@@ -151,7 +151,7 @@
                                     android:paddingEnd="10dp"
                                     android:text="@string/player_audio_badge_audio"
                                     android:textColor="@color/white_90"
-                                    android:textSize="12sp" />
+                                    android:textSize="13sp" />
 
                                 <com.google.android.material.textview.MaterialTextView
                                     android:id="@+id/audioBadgeLyrics"
@@ -166,7 +166,7 @@
                                     android:paddingEnd="10dp"
                                     android:text="@string/player_audio_badge_lyrics"
                                     android:textColor="@color/white_90"
-                                    android:textSize="12sp" />
+                                    android:textSize="13sp" />
 
                                 <com.google.android.material.textview.MaterialTextView
                                     android:id="@+id/audioBadgeQueue"
@@ -181,7 +181,7 @@
                                     android:paddingEnd="10dp"
                                     android:text="@string/player_audio_badge_queue"
                                     android:textColor="@color/white_90"
-                                    android:textSize="12sp" />
+                                    android:textSize="13sp" />
 
                             </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -262,7 +262,7 @@
                                         android:singleLine="true"
                                         android:text="@string/player_audio_repeat"
                                         android:textColor="@color/white_80"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
 
                                 </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -290,7 +290,7 @@
                                         android:singleLine="true"
                                         android:text="@string/play_prev"
                                         android:textColor="@color/white_80"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
 
                                 </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -318,7 +318,7 @@
                                         android:singleLine="true"
                                         android:text="@string/play"
                                         android:textColor="@color/white_80"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
 
                                 </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -346,7 +346,7 @@
                                         android:singleLine="true"
                                         android:text="@string/play_next"
                                         android:textColor="@color/white_80"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
 
                                 </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -374,7 +374,7 @@
                                         android:singleLine="true"
                                         android:text="@string/player_audio_playlist"
                                         android:textColor="@color/white_80"
-                                        android:textSize="11sp" />
+                                        android:textSize="12sp" />
 
                                 </androidx.appcompat.widget.LinearLayoutCompat>
 
@@ -393,6 +393,7 @@
                                     style="@style/AudioActionButton"
                                     android:layout_marginEnd="4dp"
                                     android:text="@string/player_lyrics_search"
+                                    android:textSize="12sp"
                                     app:drawableTopCompat="@drawable/ic_audio_lyrics" />
 
                                 <com.google.android.material.textview.MaterialTextView
@@ -400,12 +401,14 @@
                                     style="@style/AudioActionButton"
                                     android:layout_marginEnd="4dp"
                                     android:text="@string/player_karaoke_mode"
+                                    android:textSize="12sp"
                                     app:drawableTopCompat="@drawable/ic_action_ktv" />
 
                                 <com.google.android.material.textview.MaterialTextView
                                     android:id="@+id/audioMoreAction"
                                     style="@style/AudioActionButton"
                                     android:text="@string/player_audio_more"
+                                    android:textSize="12sp"
                                     app:drawableTopCompat="@drawable/ic_audio_more" />
 
                             </androidx.appcompat.widget.LinearLayoutCompat>

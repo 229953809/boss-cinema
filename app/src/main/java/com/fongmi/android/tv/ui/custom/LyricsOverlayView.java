@@ -1,6 +1,7 @@
 package com.fongmi.android.tv.ui.custom;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -470,6 +471,11 @@ public class LyricsOverlayView extends FrameLayout {
 
     private int lyricTextSize(boolean primary, int distance) {
         if (desktopMode) return primary ? 20 : 14;
+        if (landscapeAudioStage()) {
+            if (tightAudioRows()) return primary ? 24 : 16;
+            if (compact) return primary ? 30 : distance == 1 ? 22 : 19;
+            return primary ? 36 : distance == 1 ? 26 : 22;
+        }
         if (tightAudioRows()) return primary ? 15 : 10;
         if (compact) return primary ? 18 : 13;
         return primary ? 28 : distance == 1 ? 19 : 16;
@@ -482,7 +488,7 @@ public class LyricsOverlayView extends FrameLayout {
 
     private int rowMinHeight(int distance, float scale) {
         boolean primary = distance == 0;
-        int baseDp = desktopMode ? primary ? 32 : 24 : tightAudioRows() ? primary ? 24 : 14 : compact ? primary ? 44 : 24 : primary ? 62 : 34;
+        int baseDp = desktopMode ? primary ? 32 : 24 : landscapeAudioStage() ? landscapeRowMinHeight(primary) : tightAudioRows() ? primary ? 24 : 14 : compact ? primary ? 44 : 24 : primary ? 62 : 34;
         int base = dp(baseDp * scale);
         if (!audioStageMode || getHeight() <= 0) return base;
         int count = visibleRows();
@@ -494,6 +500,16 @@ public class LyricsOverlayView extends FrameLayout {
         int min = dp(tightAudioRows() ? primary ? 22 : 12 : compact ? primary ? 30 : 18 : primary ? 42 : 24);
         int budget = Math.max(min, Math.round(available * weight / totalWeight));
         return Math.min(base, budget);
+    }
+
+    private int landscapeRowMinHeight(boolean primary) {
+        if (tightAudioRows()) return primary ? 34 : 22;
+        if (compact) return primary ? 54 : 32;
+        return primary ? 72 : 42;
+    }
+
+    private boolean landscapeAudioStage() {
+        return audioStageMode && !desktopMode && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
     }
 
     private float alphaForDistance(int distance) {

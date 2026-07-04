@@ -923,6 +923,11 @@
     <string name="player_karaoke_result_pitch_headline_high">Strong pitch control and steady delivery.</string>
     <string name="player_karaoke_result_pitch_headline_mid">Good take. Keep the pitch centered for a higher score.</string>
     <string name="player_karaoke_result_pitch_headline_low">Warm up the first notes and keep singing through each line.</string>
+    <string name="player_karaoke_result_no_track_short">Free-sing estimate</string>
+    <string name="player_karaoke_result_rhythm_note_short">Lyric rhythm scoring</string>
+    <string name="player_karaoke_result_pitch_headline_high_short">Strong take</string>
+    <string name="player_karaoke_result_pitch_headline_mid_short">Center the pitch</string>
+    <string name="player_karaoke_result_pitch_headline_low_short">Start steady, sing through</string>
     <string name="player_karaoke_result_fun_note">Entertainment scoring includes pitch hits, perfect holds, combo, and vibrato bonuses.</string>
     <string name="player_desktop_lyrics">Desktop lyrics</string>
     <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>

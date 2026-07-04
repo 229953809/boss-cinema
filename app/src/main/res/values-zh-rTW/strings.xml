@@ -905,6 +905,11 @@
     <string name="player_karaoke_result_pitch_headline_high">音準和穩定度都不錯，表現很完整。</string>
     <string name="player_karaoke_result_pitch_headline_mid">這次表現可以，音高再穩一點分數會更好。</string>
     <string name="player_karaoke_result_pitch_headline_low">先把每句開頭唱穩，並盡量完整唱完。</string>
+    <string name="player_karaoke_result_no_track_short">自由唱估算</string>
+    <string name="player_karaoke_result_rhythm_note_short">歌詞節奏評分</string>
+    <string name="player_karaoke_result_pitch_headline_high_short">表現完整</string>
+    <string name="player_karaoke_result_pitch_headline_mid_short">音高再穩一點</string>
+    <string name="player_karaoke_result_pitch_headline_low_short">唱穩開頭，完整唱完</string>
     <string name="player_karaoke_result_fun_note">娛樂評分包含音準命中、完美保持、連擊和顫音獎勵。</string>
     <string name="player_desktop_lyrics">桌面歌詞</string>
     <string name="player_desktop_lyrics_permission">請允許顯示在其他應用程式上層，用於顯示桌面歌詞</string>

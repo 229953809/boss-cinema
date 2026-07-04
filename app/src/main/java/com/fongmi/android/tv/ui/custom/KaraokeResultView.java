@@ -120,15 +120,15 @@ public class KaraokeResultView extends LinearLayout {
         scoreParams.topMargin = dp(8);
         parent.addView(score, scoreParams);
 
-        MaterialTextView headline = textView(resultHeadline(result), 12, false, TEXT_SECONDARY, Gravity.CENTER);
-        headline.setSingleLine(false);
-        headline.setMaxLines(3);
+        MaterialTextView headline = textView(landscapeResultHeadline(result), 13, false, TEXT_SECONDARY, Gravity.CENTER);
+        headline.setSingleLine(true);
+        headline.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams headlineParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         headlineParams.topMargin = dp(7);
         parent.addView(headline, headlineParams);
 
         if (result.getScoredLineCount() > 0) {
-            MaterialTextView lines = textView(getResources().getString(R.string.player_karaoke_result_line_summary, result.getScoredLineCount(), result.getBestLineScorePercent()), 11, true, TEXT_PRIMARY, Gravity.CENTER);
+            MaterialTextView lines = textView(getResources().getString(R.string.player_karaoke_result_line_summary, result.getScoredLineCount(), result.getBestLineScorePercent()), 12, true, TEXT_PRIMARY, Gravity.CENTER);
             lines.setSingleLine(true);
             lines.setEllipsize(TextUtils.TruncateAt.END);
             lines.setPadding(dp(8), dp(5), dp(8), dp(5));
@@ -244,7 +244,7 @@ public class KaraokeResultView extends LinearLayout {
     }
 
     private void addStat(LinearLayout row, String text, int leftMargin, boolean compact) {
-        MaterialTextView view = textView(text, compact ? 12 : 13, true, TEXT_SECONDARY, Gravity.CENTER);
+        MaterialTextView view = textView(text, compact ? 13 : 13, true, TEXT_SECONDARY, Gravity.CENTER);
         view.setSingleLine(true);
         view.setEllipsize(TextUtils.TruncateAt.END);
         view.setPadding(dp(10), dp(compact ? 7 : 9), dp(10), dp(compact ? 7 : 9));
@@ -331,6 +331,16 @@ public class KaraokeResultView extends LinearLayout {
         }
         if (result.isScoring()) return getResources().getString(R.string.player_karaoke_result_rhythm_note);
         return getResources().getString(R.string.player_karaoke_result_no_track);
+    }
+
+    private String landscapeResultHeadline(KaraokeResult result) {
+        if (result.isPitchScoring()) {
+            if (result.getScorePercent() >= 85) return getResources().getString(R.string.player_karaoke_result_pitch_headline_high_short);
+            if (result.getScorePercent() >= 65) return getResources().getString(R.string.player_karaoke_result_pitch_headline_mid_short);
+            return getResources().getString(R.string.player_karaoke_result_pitch_headline_low_short);
+        }
+        if (result.isScoring()) return getResources().getString(R.string.player_karaoke_result_rhythm_note_short);
+        return getResources().getString(R.string.player_karaoke_result_no_track_short);
     }
 
     private MaterialTextView textView(String text, int sizeSp, boolean bold, int color, int gravity) {
