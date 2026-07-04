@@ -41,6 +41,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
@@ -3164,12 +3165,23 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             if (window != null) {
                 window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                 WindowManager.LayoutParams params = window.getAttributes();
-                params.dimAmount = 0.62f;
-                params.gravity = Gravity.CENTER;
-                params.y = isLand() ? -ResUtil.dp2px(12) : 0;
-                window.setAttributes(params);
-                window.setLayout(view.getPreferredDialogWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
-                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                if (isLandscapeAudioSheet()) {
+                    params.dimAmount = 0f;
+                    params.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+                    params.x = ResUtil.dp2px(16);
+                    params.y = 0;
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                    applyGlassWindowBlur(window, params);
+                    window.setAttributes(params);
+                    window.setLayout(audioDrawerWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
+                } else {
+                    params.dimAmount = 0.62f;
+                    params.gravity = Gravity.CENTER;
+                    params.y = isLand() ? -ResUtil.dp2px(12) : 0;
+                    window.setAttributes(params);
+                    window.setLayout(view.getPreferredDialogWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                }
             }
             view.requestActionFocus();
         });
@@ -4285,7 +4297,18 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         handleParams.gravity = Gravity.CENTER_HORIZONTAL;
         handleParams.bottomMargin = ResUtil.dp2px(14);
         root.addView(handle, handleParams);
+        if (isLandscapeAudioSheet()) styleAudioDrawerRoot(root);
         return root;
+    }
+
+    private boolean isLandscapeAudioSheet() {
+        return mAudioStageVisible && ResUtil.isLand(this);
+    }
+
+    private void styleAudioDrawerRoot(LinearLayout root) {
+        root.setPadding(ResUtil.dp2px(22), ResUtil.dp2px(10), ResUtil.dp2px(22), ResUtil.dp2px(14));
+        root.setMinimumHeight(audioDrawerHeight());
+        root.setBackground(audioDrawerBackground());
     }
 
     private TextView createAudioSheetTitle(String text) {
@@ -4418,6 +4441,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return drawable;
     }
 
+    private GradientDrawable audioDrawerBackground() {
+        GradientDrawable drawable = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xB22F315E, 0x96282955, 0x82303463});
+        drawable.setCornerRadius(ResUtil.dp2px(18));
+        drawable.setStroke(ResUtil.dp2px(1), 0x66FFFFFF);
+        return drawable;
+    }
+
     private LinearLayout.LayoutParams audioSheetTopParams(int topDp, int heightDp) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(heightDp));
         params.topMargin = ResUtil.dp2px(topDp);
@@ -4432,23 +4462,31 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private int audioQueueContentHeight(int tab) {
         if (tab == AUDIO_QUEUE_TAB_SEARCH) {
-            int max = ResUtil.getScreenHeight(this) * (ResUtil.isLand(this) ? 32 : 28) / 100;
-            int desired = ResUtil.isLand(this) ? 150 : 170;
+            int max = isLandscapeAudioSheet() ? audioDrawerListMaxHeight() : ResUtil.getScreenHeight(this) * (ResUtil.isLand(this) ? 32 : 28) / 100;
+            int desired = isLandscapeAudioSheet() ? 320 : ResUtil.isLand(this) ? 150 : 170;
             return Math.max(ResUtil.dp2px(126), Math.min(ResUtil.dp2px(desired), max));
         }
-        int max = ResUtil.getScreenHeight(this) * (ResUtil.isLand(this) ? 46 : 56) / 100;
+        int max = isLandscapeAudioSheet() ? audioDrawerListMaxHeight() : ResUtil.getScreenHeight(this) * (ResUtil.isLand(this) ? 46 : 56) / 100;
         Flag flag = getFlag();
-        int count = flag == null ? 1 : Math.max(1, Math.min(8, flag.getEpisodes().size()));
+        int count = flag == null ? 1 : Math.max(1, Math.min(isLandscapeAudioSheet() ? 12 : 8, flag.getEpisodes().size()));
         int desired = 8 + count * 46;
         return Math.max(ResUtil.dp2px(102), Math.min(ResUtil.dp2px(desired), max));
     }
 
     private int lyricsResultSheetHeight(int count) {
+        if (isLandscapeAudioSheet()) {
+            int rows = Math.max(1, Math.min(7, count));
+            return Math.max(ResUtil.dp2px(126), Math.min(ResUtil.dp2px(rows * 64 + 8), audioDrawerListMaxHeight()));
+        }
         int rows = Math.max(1, Math.min(3, count));
         return ResUtil.dp2px(rows * 64 + 8);
     }
 
     private int karaokeTrackResultSheetHeight(int count) {
+        if (isLandscapeAudioSheet()) {
+            int rows = Math.max(1, Math.min(5, count));
+            return Math.max(ResUtil.dp2px(160), Math.min(ResUtil.dp2px(rows * 82 + 8), audioDrawerListMaxHeight()));
+        }
         int rows = Math.max(1, Math.min(3, count));
         return ResUtil.dp2px(rows * 82 + 8);
     }
@@ -4458,6 +4496,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void showAudioSheet(BottomSheetDialog dialog, boolean draggable) {
+        if (isLandscapeAudioSheet()) {
+            showAudioDrawerSheet(dialog);
+            return;
+        }
         dialog.setOnShowListener(d -> {
             FrameLayout sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (sheet == null) return;
@@ -4482,6 +4524,72 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         params.dimAmount = 0f;
         window.setAttributes(params);
         window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+    }
+
+    private void showAudioDrawerSheet(BottomSheetDialog dialog) {
+        dialog.setOnShowListener(d -> {
+            FrameLayout sheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (sheet == null) return;
+            sheet.setBackgroundColor(Color.TRANSPARENT);
+            int height = audioDrawerHeight();
+            int bottomMargin = audioDrawerBottomMargin();
+            ViewGroup.LayoutParams raw = sheet.getLayoutParams();
+            raw.width = audioDrawerWidth();
+            raw.height = height;
+            if (raw instanceof CoordinatorLayout.LayoutParams params) {
+                params.gravity = Gravity.END | Gravity.BOTTOM;
+                params.setMargins(0, mStatusBarInset + ResUtil.dp2px(16), ResUtil.dp2px(16), bottomMargin);
+            } else if (raw instanceof ViewGroup.MarginLayoutParams params) {
+                params.setMargins(0, mStatusBarInset + ResUtil.dp2px(16), ResUtil.dp2px(16), bottomMargin);
+            }
+            sheet.setLayoutParams(raw);
+            BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
+            behavior.setFitToContents(false);
+            behavior.setExpandedOffset(Math.max(0, ResUtil.getScreenHeight(this) - height - bottomMargin));
+            behavior.setPeekHeight(height);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            behavior.setSkipCollapsed(true);
+            behavior.setDraggable(false);
+        });
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window == null) return;
+        window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.dimAmount = 0f;
+        applyGlassWindowBlur(window, params);
+        window.setAttributes(params);
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+    }
+
+    private void applyGlassWindowBlur(Window window, WindowManager.LayoutParams params) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
+        params.setBlurBehindRadius(28);
+        window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+    }
+
+    private int audioDrawerWidth() {
+        return clamp(Math.round(ResUtil.getScreenWidth(this) * 0.42f), ResUtil.dp2px(380), ResUtil.dp2px(560));
+    }
+
+    private int audioDrawerHeight() {
+        int screenHeight = ResUtil.getScreenHeight(this);
+        int topMargin = mStatusBarInset + ResUtil.dp2px(16);
+        int bottomMargin = audioDrawerBottomMargin();
+        int max = Math.max(ResUtil.dp2px(320), screenHeight - topMargin - bottomMargin);
+        return clamp(Math.round(screenHeight * 0.84f), ResUtil.dp2px(320), max);
+    }
+
+    private int audioDrawerBottomMargin() {
+        return ResUtil.dp2px(16) + mEpisodeBottomInset;
+    }
+
+    private int audioDrawerListMaxHeight() {
+        return Math.max(ResUtil.dp2px(126), audioDrawerHeight() - ResUtil.dp2px(88));
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     private void showLyricsSettingsSheet(BottomSheetDialog dialog) {
