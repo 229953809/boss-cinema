@@ -635,14 +635,19 @@ public class KaraokeStatusView extends LinearLayout {
         }
 
         private int volumeColor(float value, int index) {
-            int color = switch (index % 4) {
-                case 0 -> 0xFF38BDF8;
-                case 1 -> 0xFF22D3EE;
-                case 2 -> 0xFF2DD4BF;
-                default -> 0xFFA78BFA;
-            };
-            int alpha = value > 0.82f ? 0x78 : value > 0.45f ? 0x56 : 0x38;
+            float position = BAR_COUNT <= 1 ? 0f : index / (float) (BAR_COUNT - 1);
+            int color = blend(0xFFEAFBFF, 0xFFC7F9E9, position * 0.58f);
+            if (value > 0.82f) color = blend(color, 0xFFFFFFFF, 0.18f);
+            int alpha = value > 0.82f ? 0x7A : value > 0.45f ? 0x58 : 0x36;
             return withAlpha(color, alpha);
+        }
+
+        private int blend(int from, int to, float amount) {
+            float ratio = Math.max(0f, Math.min(1f, amount));
+            int r = Math.round(Color.red(from) + (Color.red(to) - Color.red(from)) * ratio);
+            int g = Math.round(Color.green(from) + (Color.green(to) - Color.green(from)) * ratio);
+            int b = Math.round(Color.blue(from) + (Color.blue(to) - Color.blue(from)) * ratio);
+            return Color.rgb(r, g, b);
         }
 
         private int withAlpha(int color, int alpha) {
@@ -781,7 +786,7 @@ public class KaraokeStatusView extends LinearLayout {
             float left = index * (barWidth + gap);
             float idleHeight = getHeight() * idle;
             rect.set(left, getHeight() - idleHeight, left + barWidth, getHeight());
-            paint.setColor(0x2538BDF8);
+            paint.setColor(0x24FFFFFF);
             canvas.drawRoundRect(rect, radius, radius, paint);
             if (value <= 0.02f) return;
             float height = getHeight() * Math.max(idle, value);
@@ -792,14 +797,14 @@ public class KaraokeStatusView extends LinearLayout {
             if (value <= 0.72f) return;
             float capHeight = Math.min(height * 0.28f, getHeight() * 0.22f);
             rect.set(left, top, left + barWidth, top + capHeight);
-            paint.setColor(value > 0.9f ? 0xFF67E8F9 : 0xCCECFEFF);
+            paint.setColor(value > 0.9f ? 0xFFEAFBFF : 0xCCEAFBFF);
             canvas.drawRoundRect(rect, radius, radius, paint);
         }
 
         private int getActiveColor(float value) {
-            if (value > 0.82f) return 0xE22DD4BF;
-            if (value > 0.45f) return 0xCC22D3EE;
-            return 0x8838BDF8;
+            if (value > 0.82f) return 0xDDEAFBFF;
+            if (value > 0.45f) return 0xBFD8FFF4;
+            return 0x82EAFBFF;
         }
     }
 }
