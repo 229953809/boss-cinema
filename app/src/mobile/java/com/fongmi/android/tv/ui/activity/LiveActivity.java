@@ -276,6 +276,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mBinding.control.prev.setOnClickListener(view -> prevChannel());
         mBinding.control.right.lock.setOnClickListener(view -> onLock());
         mBinding.control.right.rotate.setOnClickListener(view -> onRotate());
+        mBinding.control.right.pip.setOnClickListener(view -> onPiP());
         mBinding.control.action.text.setOnClickListener(this::onTrack);
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
         mBinding.control.action.video.setOnClickListener(this::onTrack);
@@ -574,6 +575,12 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     private void onRotate() {
         if (isEmbeddedLiveUi()) enterFullscreenLive();
         else exitFullscreenLive();
+    }
+
+    private void onPiP() {
+        if (service() == null || !player().haveTrack(C.TRACK_TYPE_VIDEO)) return;
+        hideControl();
+        mPiP.enter(this, LIVE_PIP_WIDTH, LIVE_PIP_HEIGHT, LiveSetting.getScale(), true);
     }
 
     private void enterFullscreenLive() {
@@ -1279,7 +1286,8 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
 
     @Override
     public void onLivePiPPanel() {
-        enterPiP("panel");
+        dismissLiveControlDialog();
+        App.post(this::onPiP, 100);
     }
 
     @Override
