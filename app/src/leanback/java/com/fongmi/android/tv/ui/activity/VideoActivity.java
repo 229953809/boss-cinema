@@ -439,6 +439,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     @Override
+    protected void onControllerReady(Player controller) {
+        mBinding.audioSeek.setPlayer(controller);
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         String oldId = getId();
         super.onNewIntent(intent);
@@ -459,8 +464,19 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mFrameParams = mBinding.video.getLayoutParams();
         mClock = Clock.create(mBinding.widget.clock);
         mLyrics = new LyricsController(mBinding.lyrics);
+        mLyrics.setSecondaryView(mBinding.audioLyrics);
+        mBinding.audioLyrics.setAudioStageMode(true);
+        mBinding.audioLyrics.setSeekListener(this::onAudioLyricsSeek);
+        mBinding.audioLyrics.setSuppressed(true);
         mKaraoke = new KaraokeController();
-        mKaraoke.setListener((status, track, sample, snapshot) -> mBinding.karaoke.setState(status, track, sample, snapshot));
+        mKaraoke.setListener((status, track, sample, snapshot) -> {
+            boolean playing = service() != null && player().isPlaying();
+            mBinding.karaoke.setPlaying(playing);
+            mBinding.audioKaraoke.setPlaying(playing);
+            mBinding.karaoke.setState(status, track, sample, snapshot);
+            mBinding.audioKaraoke.setState(status, track, sample, snapshot);
+            syncKaraokeStageVisibility();
+        });
         mKeyDown = CustomKeyDownVod.create(this);
         mObserveDetail = this::setDetail;
         mObservePlayer = this::setPlayer;
@@ -533,6 +549,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.fullscreen.setOnClickListener(view -> onFullscreen());
         mBinding.control.action.danmaku.setOnClickListener(view -> onDanmaku());
         mBinding.control.action.opening.setOnClickListener(view -> onOpening());
+        mBinding.audioPlay.setOnClickListener(view -> onKeyCenter());
+        mBinding.audioNext.setOnClickListener(view -> checkNext());
+        mBinding.audioPrev.setOnClickListener(view -> checkPrev());
+        mBinding.audioRepeatAction.setOnClickListener(view -> onRepeat());
+        mBinding.audioQueueAction.setOnClickListener(view -> onEpisodes());
+        mBinding.audioLyricsAction.setOnClickListener(view -> onLyricsSearch());
+        mBinding.audioKaraokeAction.setOnClickListener(view -> onKaraokeTrackPanel());
+        mBinding.audioMoreAction.setOnClickListener(view -> showControl(mBinding.control.action.player));
         mBinding.shortDisplay.setOnClickListener(view -> onShortDisplay());
         mBinding.control.action.speed.setOnLongClickListener(view -> onSpeedLong());
         mBinding.control.action.reset.setOnLongClickListener(view -> onResetToggle());
@@ -612,6 +636,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
         mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+        updateAudioStageControls();
         setupActionButtons();
     }
 
@@ -1135,6 +1160,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         ContentDialog.create().content(mBinding.content.getTag().toString()).show(this);
     }
 
+    private void onAudioLyricsSeek(long positionMs) {
+        if (service() == null || player().isEmpty()) return;
+        long duration = player().getDuration();
+        long target = duration > 0 ? Math.min(Math.max(0, positionMs), Math.max(0, duration - 500)) : Math.max(0, positionMs);
+        player().seekTo(target);
+        if (mHistory != null) mHistory.setPosition(target);
+        if (mLyrics != null) mLyrics.update(target);
+    }
+
     private void onSearch() {
         if (onLyricsSearch()) return;
         String keyword = mBinding.name.getText().toString();
@@ -1190,12 +1224,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void onRepeat() {
         player().setRepeatOne(!player().isRepeatOne());
         mBinding.control.action.repeat.setSelected(player().isRepeatOne());
+        setAudioRepeatSelected(player().isRepeatOne());
     }
 
     private void onKaraokeMode() {
         boolean enable = !PlayerSetting.isKaraokeMode();
         PlayerSetting.putKaraokeMode(enable);
         mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+        mBinding.audioKaraokeAction.setSelected(PlayerSetting.isKaraokeMode());
         if (PlayerSetting.isKaraokeMode()) {
             mKaraokeResultShown = false;
             refreshLyrics();
@@ -1468,6 +1504,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (enableMode && !PlayerSetting.isKaraokeMode()) {
             PlayerSetting.putKaraokeMode(true);
             mBinding.control.action.karaoke.setSelected(true);
+            mBinding.audioKaraokeAction.setSelected(true);
         }
         refreshLyrics();
         reloadKaraokeTrack();
@@ -1534,6 +1571,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     public void onRepeatModeChanged(int repeatMode) {
         mBinding.control.action.repeat.setSelected(player().isRepeatOne());
+        setAudioRepeatSelected(player().isRepeatOne());
     }
 
     private void checkNext() {
@@ -2233,14 +2271,29 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setAudioStageVisible(boolean visible) {
         if (mAudioStageVisible == visible) {
             updateAudioStageText();
+            updateAudioStageControls();
             return;
         }
         mAudioStageVisible = visible;
         mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         mBinding.lyrics.setAudioStageMode(visible);
+        mBinding.lyrics.setSuppressed(visible);
+        mBinding.audioLyrics.setSuppressed(!visible);
+        syncKaraokeStageVisibility();
         setVideoDetailsVisible(!visible);
         applyAudioStageLayout(visible);
         updateAudioStageText();
+        updateAudioStageControls();
+    }
+
+    private void syncKaraokeStageVisibility() {
+        if (mBinding == null) return;
+        if (mAudioStageVisible) {
+            mBinding.karaoke.setVisibility(View.GONE);
+            if (PlayerSetting.isKaraokeMode() && mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
+        } else {
+            mBinding.audioKaraoke.setVisibility(View.GONE);
+        }
     }
 
     private void applyAudioStageLayout(boolean visible) {
@@ -2275,6 +2328,39 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioSubtitle.setText(subtitle);
         mBinding.audioSubtitle.setVisibility(TextUtils.isEmpty(subtitle) ? View.GONE : View.VISIBLE);
         mBinding.audioBadgeLyrics.setText(PlayerSetting.isKaraokeMode() ? getString(R.string.player_karaoke_mode) : getString(R.string.player_audio_badge_lyrics));
+    }
+
+    private void updateAudioStageControls() {
+        if (mBinding == null) return;
+        boolean hasQueue = mEpisodeAdapter != null && mEpisodeAdapter.getItemCount() > 1;
+        mBinding.audioPrev.setEnabled(hasQueue);
+        mBinding.audioPrev.setAlpha(hasQueue ? 1f : 0.35f);
+        mBinding.audioNext.setEnabled(hasQueue);
+        mBinding.audioNext.setAlpha(hasQueue ? 1f : 0.35f);
+        mBinding.audioQueueAction.setEnabled(hasQueue);
+        mBinding.audioQueueAction.setAlpha(hasQueue ? 1f : 0.35f);
+        setAudioRepeatSelected(service() != null && player().isRepeatOne());
+        mBinding.audioKaraokeAction.setSelected(PlayerSetting.isKaraokeMode());
+        checkAudioPlayImg(service() != null && player().isPlaying());
+    }
+
+    private void setAudioRepeatSelected(boolean selected) {
+        if (mBinding == null) return;
+        mBinding.audioRepeatAction.setSelected(selected);
+        mBinding.audioRepeatAction.setAlpha(selected ? 1f : 0.62f);
+    }
+
+    private void checkAudioPlayImg(boolean isPlaying) {
+        if (mBinding == null) return;
+        mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
+    }
+
+    private void syncKaraokePosition() {
+        if (service() == null || player().isEmpty()) return;
+        long position = Math.max(0, player().getPosition() + PlayerSetting.getLyricsTimeOffsetMs());
+        boolean playing = player().isPlaying();
+        mBinding.karaoke.syncPosition(position, playing);
+        mBinding.audioKaraoke.syncPosition(position, playing);
     }
 
     private String getAudioStageTitle() {
@@ -2546,6 +2632,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
+        syncKaraokePosition();
+        checkAudioPlayImg(isPlaying);
         if (isPlaying) {
             hideCenter();
         } else if (isPaused()) {
@@ -2577,6 +2665,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         long position, duration;
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
+        syncKaraokePosition();
         if (mLyrics != null) mLyrics.update(player());
         if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
         position = mHistory.getPosition();
