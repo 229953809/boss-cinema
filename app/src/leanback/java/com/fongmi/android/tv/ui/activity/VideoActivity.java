@@ -577,6 +577,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mR3 = this::setTraffic;
         mR4 = this::showEmpty;
         SpiderDebug.log("video-flow", "initView state ready cost=%dms", System.currentTimeMillis() - start);
+        if (isMusicLike()) setAudioStageVisible(true);
         checkCast();
         SpiderDebug.log("video-flow", "initView preview ready cost=%dms", System.currentTimeMillis() - start);
         setRecyclerView();
@@ -823,6 +824,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void checkCast() {
         if (isCast() && !isFullscreen()) enterFullscreen();
+        else if (mAudioStageVisible) mBinding.progressLayout.showContent();
         else if (hasInitialPreview()) showInitialPreview();
         else mBinding.progressLayout.showProgress();
     }

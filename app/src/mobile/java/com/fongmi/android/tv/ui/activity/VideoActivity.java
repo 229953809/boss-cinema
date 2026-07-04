@@ -9,6 +9,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Drawable;
@@ -42,6 +43,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
@@ -265,6 +267,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private int mEpisodeSpanCount;
     private int mStatusBarInset;
     private int mEpisodeBottomInset;
+    private int mNavigationRightInset;
     private int mLyricsSearchSeq;
     private int mAudioQueueSearchSeq;
     private int mEpisodeMaxHeight;
@@ -712,8 +715,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private WindowInsetsCompat setStatusBar(WindowInsetsCompat insets) {
         int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-        int bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+        Insets nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars());
+        int bottom = nav.bottom;
         mStatusBarInset = top;
+        mNavigationRightInset = nav.right;
         applyStatusBarSpacer();
         ViewGroup.LayoutParams lp = mBinding.statusBar.getLayoutParams();
         lp.height = mAudioStageVisible ? 0 : top;
@@ -767,6 +772,54 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mEpisodeMaxHeight = available;
         mBinding.episode.setMaxHeight(available);
         mBinding.episode.requestLayout();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (mAudioStageVisible && isSystemNavigationTouch(event)) return false;
+        if (dispatchAudioStageTouch(event)) return true;
+        return super.dispatchTouchEvent(event);
+    }
+
+    private boolean dispatchAudioStageTouch(MotionEvent event) {
+        if (!mAudioStageVisible || mBinding == null || event == null) return false;
+        if (!isPointInside(mBinding.audioStage, event)) return false;
+        if (isAudioStageInteractiveTouch(event)) return false;
+        return true;
+    }
+
+    private boolean isAudioStageInteractiveTouch(MotionEvent event) {
+        return mBinding.audioLyrics.isAudioStageTouchPoint(event.getRawX(), event.getRawY())
+                || isPointInside(mBinding.audioSeek, event)
+                || isPointInside(mBinding.audioRepeatAction, event)
+                || isPointInside(mBinding.audioPrev, event)
+                || isPointInside(mBinding.audioPlay, event)
+                || isPointInside(mBinding.audioNext, event)
+                || isPointInside(mBinding.audioQueueAction, event)
+                || isPointInside(mBinding.audioLyricsAction, event)
+                || isPointInside(mBinding.audioKaraokeAction, event)
+                || isPointInside(mBinding.audioMoreAction, event)
+                || isPointInside(mBinding.audioCastAction, event)
+                || isPointInside(mBinding.audioKeepAction, event)
+                || isPointInside(mBinding.audioSettingAction, event)
+                || isPointInside(mBinding.audioTrackAction, event)
+                || isPointInside(mBinding.audioSubtitleAction, event)
+                || isPointInside(mBinding.audioInfoAction, event)
+                || isPointInside(mBinding.audioBackgroundAction, event);
+    }
+
+    private boolean isSystemNavigationTouch(MotionEvent event) {
+        if (mNavigationRightInset <= 0 && mEpisodeBottomInset <= 0) return false;
+        Rect rect = new Rect();
+        if (!mBinding.getRoot().getGlobalVisibleRect(rect)) return false;
+        return (mNavigationRightInset > 0 && event.getRawX() >= rect.right - mNavigationRightInset)
+                || (mEpisodeBottomInset > 0 && event.getRawY() >= rect.bottom - mEpisodeBottomInset);
+    }
+
+    private boolean isPointInside(View view, MotionEvent event) {
+        if (view == null || view.getVisibility() != View.VISIBLE) return false;
+        Rect rect = new Rect();
+        return view.getGlobalVisibleRect(rect) && rect.contains((int) event.getRawX(), (int) event.getRawY());
     }
 
     private void setRecyclerView() {
