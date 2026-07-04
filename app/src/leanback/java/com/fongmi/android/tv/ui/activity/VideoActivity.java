@@ -1,8 +1,12 @@
 package com.fongmi.android.tv.ui.activity;
 
 import android.annotation.SuppressLint;
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -14,6 +18,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.LinearInterpolator;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -37,6 +42,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.ui.PlayerView;
+import androidx.palette.graphics.Palette;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 
@@ -94,6 +100,7 @@ import com.fongmi.android.tv.ui.adapter.QuickAdapter;
 import com.fongmi.android.tv.ui.custom.CustomKeyDownVod;
 import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
+import com.fongmi.android.tv.ui.custom.AudioPlayerBackgroundDrawable;
 import com.fongmi.android.tv.ui.custom.KaraokeResultView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.dialog.ContentDialog;
@@ -147,6 +154,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private LyricsController mLyrics;
     private KaraokeController mKaraoke;
     private boolean mAudioStageVisible;
+    private boolean mAudioLightEffectAnimated;
     private boolean mKaraokeResultShown;
     private AlertDialog mLyricsResultDialog;
     private AlertDialog mKaraokePitchDialog;
@@ -160,6 +168,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private String mLyricsSelectedResultKey;
     private String mDetailLyrics;
     private String mInlineLyrics;
+    private ObjectAnimator mAudioCoverAnimator;
+    private int mAudioArtworkColor = Color.rgb(55, 45, 68);
     private Map<String, View> mActionButtons;
     private QuickSearchDialog mQuickSearchDialog;
     private PlayerOsdController mOsd;
@@ -1964,11 +1974,19 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void loadArtwork(String url) {
+        if (TextUtils.isEmpty(url)) {
+            mBinding.exo.setDefaultArtwork(null);
+            mBinding.audioCover.setImageResource(R.drawable.artwork);
+            updateAudioArtworkColor(null);
+            return;
+        }
+        mBinding.audioCover.setImageResource(R.drawable.artwork);
         ImgUtil.load(this, url, new CustomTarget<>() {
             @Override
             public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
                 mBinding.exo.setDefaultArtwork(resource);
                 mBinding.audioCover.setImageDrawable(resource);
+                updateAudioArtworkColor(resource);
             }
 
             @Override
@@ -1976,6 +1994,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 mBinding.exo.setDefaultArtwork(errorDrawable);
                 if (errorDrawable == null) mBinding.audioCover.setImageResource(R.drawable.artwork);
                 else mBinding.audioCover.setImageDrawable(errorDrawable);
+                updateAudioArtworkColor(errorDrawable);
             }
         });
     }
@@ -2277,7 +2296,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             return;
         }
         mAudioStageVisible = visible;
+        if (!visible) mAudioLightEffectAnimated = false;
         mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (visible) applyAudioBackground();
         mBinding.lyrics.setAudioStageMode(visible);
         mBinding.lyrics.setSuppressed(visible);
         mBinding.audioLyrics.setSuppressed(!visible);
@@ -2344,6 +2365,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setAudioRepeatSelected(service() != null && player().isRepeatOne());
         mBinding.audioKaraokeAction.setSelected(PlayerSetting.isKaraokeMode());
         checkAudioPlayImg(service() != null && player().isPlaying());
+        syncAudioCoverRotation();
     }
 
     private void setAudioRepeatSelected(boolean selected) {
@@ -2352,9 +2374,96 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioRepeatAction.setAlpha(selected ? 1f : 0.62f);
     }
 
+    private void applyAudioBackground() {
+        if (mBinding == null) return;
+        mAudioLightEffectAnimated = service() != null && player().isPlaying();
+        AudioPlayerBackgroundDrawable drawable = new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), mAudioLightEffectAnimated, PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed());
+        syncAudioBackgroundHalo(drawable);
+        mBinding.audioStage.setBackground(drawable);
+        mBinding.audioStage.post(() -> syncAudioBackgroundHalo(drawable));
+        mBinding.audioStage.invalidate();
+    }
+
+    private void syncAudioBackgroundHalo(AudioPlayerBackgroundDrawable drawable) {
+        if (mBinding == null || drawable == null) return;
+        View anchor = mBinding.audioCover != null ? mBinding.audioCover : mBinding.audioDisc;
+        if (mBinding.audioStage.getWidth() <= 0 || anchor.getWidth() <= 0 || anchor.getHeight() <= 0) return;
+        int[] stage = new int[2];
+        int[] view = new int[2];
+        mBinding.audioStage.getLocationOnScreen(stage);
+        anchor.getLocationOnScreen(view);
+        float cx = view[0] - stage[0] + anchor.getWidth() / 2f;
+        float cy = view[1] - stage[1] + anchor.getHeight() / 2f - ResUtil.dp2px(5);
+        float radius = Math.max(anchor.getWidth(), anchor.getHeight()) * 0.56f;
+        drawable.setRecordHaloAnchor(cx, cy, radius);
+    }
+
+    private void updateAudioArtworkColor(@Nullable Drawable drawable) {
+        mAudioArtworkColor = extractAudioArtworkColor(drawable);
+        if (mAudioStageVisible && PlayerSetting.getAudioBackground() == PlayerSetting.AUDIO_BACKGROUND_ARTWORK) applyAudioBackground();
+    }
+
+    private int extractAudioArtworkColor(@Nullable Drawable drawable) {
+        if (drawable == null) return Color.rgb(255, 111, 145);
+        Bitmap bitmap = null;
+        try {
+            bitmap = createPaletteBitmap(drawable);
+            Palette palette = Palette.from(bitmap).maximumColorCount(8).generate();
+            Palette.Swatch swatch = palette.getVibrantSwatch();
+            if (swatch == null) swatch = palette.getLightVibrantSwatch();
+            if (swatch == null) swatch = palette.getDominantSwatch();
+            return swatch == null ? Color.rgb(255, 111, 145) : swatch.getRgb();
+        } catch (Exception ignored) {
+            return Color.rgb(255, 111, 145);
+        } finally {
+            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+        }
+    }
+
+    private Bitmap createPaletteBitmap(Drawable drawable) {
+        int width = 72;
+        int height = 72;
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
     private void checkAudioPlayImg(boolean isPlaying) {
         if (mBinding == null) return;
         mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
+        updateAudioLightEffectAnimation(isPlaying);
+        syncAudioCoverRotation();
+    }
+
+    private void updateAudioLightEffectAnimation(boolean animated) {
+        if (!mAudioStageVisible || !PlayerSetting.isAudioBackgroundLightEffect() || mAudioLightEffectAnimated == animated) return;
+        mAudioLightEffectAnimated = animated;
+        Drawable background = mBinding.audioStage.getBackground();
+        if (background instanceof AudioPlayerBackgroundDrawable drawable) drawable.setAnimated(animated);
+        else applyAudioBackground();
+    }
+
+    private void syncAudioCoverRotation() {
+        if (!mAudioStageVisible || service() == null || !player().isPlaying()) {
+            stopAudioCoverRotation();
+            return;
+        }
+        if (mAudioCoverAnimator == null) {
+            mAudioCoverAnimator = ObjectAnimator.ofFloat(mBinding.audioCover, View.ROTATION, mBinding.audioCover.getRotation(), mBinding.audioCover.getRotation() + 360f);
+            mAudioCoverAnimator.setDuration(20000);
+            mAudioCoverAnimator.setInterpolator(new LinearInterpolator());
+            mAudioCoverAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+            mAudioCoverAnimator.setRepeatMode(ObjectAnimator.RESTART);
+        }
+        if (!mAudioCoverAnimator.isStarted()) mAudioCoverAnimator.start();
+    }
+
+    private void stopAudioCoverRotation() {
+        if (mAudioCoverAnimator == null) return;
+        mAudioCoverAnimator.cancel();
+        mAudioCoverAnimator = null;
     }
 
     private void syncKaraokePosition() {
@@ -3224,6 +3333,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         super.onStop();
         if (mOsd != null) mOsd.stop();
         if (mKaraoke != null) mKaraoke.clear();
+        stopAudioCoverRotation();
         if (PlayerSetting.isBackgroundOff()) mClock.stop();
     }
 
@@ -3269,6 +3379,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         dismissQuickSearchDialog();
         RefreshEvent.keep();
         App.removeCallbacks(mR1, mR2, mR3, mR4);
+        stopAudioCoverRotation();
         if (mOsd != null) mOsd.release();
         mViewModel.getResult().removeObserver(mObserveDetail);
         mViewModel.getPlayer().removeObserver(mObservePlayer);

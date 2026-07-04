@@ -45,6 +45,21 @@
         <item name="android:textSize">14sp</item>
     </style>
 
+    <style name="AudioActionButton" parent="Video.ContextText">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">58dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/selector_video</item>
+        <item name="android:drawablePadding">4dp</item>
+        <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:textColor">@color/white_90</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
     <style name="ShapeAppearance.WebHTV.AudioCover" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
