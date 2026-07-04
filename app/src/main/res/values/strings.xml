@@ -820,6 +820,7 @@
     <string name="player_lyrics_rows">Lyric rows</string>
     <string name="player_lyrics_size">Lyric size</string>
     <string name="player_lyrics_source">Lyric source</string>
+    <string name="player_lyrics_settings">Lyrics / Karaoke settings</string>
     <string name="player_karaoke_mode">Karaoke mode</string>
     <string name="player_karaoke_mode_enabled">Currently enabled</string>
     <string name="player_karaoke_mode_disabled">Currently disabled</string>

@@ -802,6 +802,7 @@
     <string name="player_lyrics_rows">歌詞行數</string>
     <string name="player_lyrics_size">歌詞字號</string>
     <string name="player_lyrics_source">歌詞來源</string>
+    <string name="player_lyrics_settings">歌詞/K歌設定</string>
     <string name="player_karaoke_mode">K歌模式</string>
     <string name="player_karaoke_mode_enabled">目前已開啟</string>
     <string name="player_karaoke_mode_disabled">目前已關閉</string>

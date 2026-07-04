@@ -8,4 +8,4 @@
     android:clipToPadding="false"
     android:overScrollMode="never"
     android:padding="10dp"
-    app:maxHeight="430dp" />
+    app:maxHeight="260dp" />

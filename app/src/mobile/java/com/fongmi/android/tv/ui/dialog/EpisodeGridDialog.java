@@ -120,6 +120,16 @@ public class EpisodeGridDialog extends BaseBottomSheetDialog {
         }
     }
 
+    @Override
+    protected boolean transparent() {
+        return true;
+    }
+
+    @Override
+    protected boolean stableOverlay() {
+        return true;
+    }
+
     class PageAdapter extends FragmentStateAdapter {
 
         public PageAdapter(@NonNull Fragment fragment) {
