@@ -199,6 +199,46 @@ public class VideoActivityLayoutTest {
     }
 
     @Test
+    public void mobileReadyStateKeepsPlaybackInitializationAfterPendingResumeSeek() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int method = source.indexOf("protected void onStateChanged(int state)");
+        int ready = source.indexOf("case Player.STATE_READY:", method);
+        int seek = source.indexOf("boolean pendingResumeSeekApplied = applyPendingResumeSeek();", ready);
+        int reset = source.indexOf("player().reset();", ready);
+        int shortDrama = source.indexOf("applyShortDramaMode();", ready);
+        int introSkip = source.indexOf("requestIntroSkipPlan();", ready);
+        int autoSkipGuard = source.indexOf("if (!pendingResumeSeekApplied) applyAutoIntroSkip();", ready);
+
+        assertTrue(sourcePath + " is missing onStateChanged", method >= 0);
+        assertTrue("ready playback must capture whether a pending resume seek was applied", seek > ready);
+        assertTrue("pending resume seek must not skip playback reset", reset > seek);
+        assertTrue("pending resume seek must not skip short-drama readiness", shortDrama > reset);
+        assertTrue("pending resume seek must not skip intro-skip planning", introSkip > shortDrama);
+        assertTrue("auto intro skip should wait for the deferred seek to settle", autoSkipGuard > introSkip);
+    }
+
+    @Test
+    public void mobileTmdbImageReadyRebindsDeferredSummaryAndPlaybackReveal() throws Exception {
+        Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
+        String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);
+        int listener = source.indexOf("mTmdbHeaderView.setOnImagesLoadedListener");
+        int callback = source.indexOf("onTmdbContentReady();", listener);
+        int helper = source.indexOf("private void onTmdbContentReady()");
+        int loaded = source.indexOf("mTmdbContentLoaded = true;", helper);
+        int summary = source.indexOf("if (mVod != null) setText(mVod);", helper);
+        int reveal = source.indexOf("if (shouldRevealPlaybackContentAfterTmdbLoad()) showPlaybackContent();", helper);
+        int revealHelper = source.indexOf("private boolean shouldRevealPlaybackContentAfterTmdbLoad()");
+
+        assertTrue("TMDB image completion must funnel through a dedicated content-ready callback", callback > listener);
+        assertTrue(sourcePath + " is missing onTmdbContentReady", helper >= 0);
+        assertTrue("TMDB content-ready callback must mark the TMDB page as loaded", loaded > helper);
+        assertTrue("TMDB content-ready callback must rebind the deferred native summary text", summary > loaded);
+        assertTrue("TMDB content-ready callback must reveal playback once the player is already ready", reveal > summary);
+        assertTrue(sourcePath + " is missing shouldRevealPlaybackContentAfterTmdbLoad", revealHelper > helper);
+    }
+
+    @Test
     public void mobileDirectPlaybackUsesUpstreamNativeEpisodeStrip() throws Exception {
         Path sourcePath = findMobileJavaPath().resolve(Path.of("com", "fongmi", "android", "tv", "ui", "activity", "VideoActivity.java"));
         String source = new String(Files.readAllBytes(sourcePath), StandardCharsets.UTF_8);

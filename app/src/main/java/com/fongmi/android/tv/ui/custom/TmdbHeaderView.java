@@ -2148,6 +2148,7 @@ public class TmdbHeaderView {
         }
         view.setText("★ " + rating);
         if (Setting.isFusionDetailPage()) styleFusionBackdropText(view, COLOR_FUSION_LINK_RATING);
+        else view.setTextColor(0xFFFFC107);
         view.setVisibility(View.VISIBLE);
     }
 

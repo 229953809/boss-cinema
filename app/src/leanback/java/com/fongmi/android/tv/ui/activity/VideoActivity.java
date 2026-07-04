@@ -273,6 +273,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         else startPush(activity, push);
     }
 
+    @Override
+    protected boolean customWall() {
+        return false;
+    }
+
     public static void file(FragmentActivity activity, String path) {
         file(activity, path, "");
     }
@@ -2473,6 +2478,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.progress.getRoot().setVisibility(View.GONE);
     }
 
+    private void showPlaybackContent() {
+        if (!mBinding.progressLayout.isContent()) mBinding.progressLayout.showContent();
+        hideProgress();
+    }
+
     private void showError(String text) {
         mBinding.widget.error.setVisibility(View.VISIBLE);
         mBinding.widget.text.setText(text);
@@ -3001,7 +3011,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 break;
             case Player.STATE_READY:
                 recordPlayHealth(true, "");
-                hideProgress();
+                showPlaybackContent();
                 player().reset();
                 applyShortDramaMode();
                 requestIntroSkipPlan();
@@ -3016,6 +3026,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
         if (isPlaying) {
+            showPlaybackContent();
             hideCenter();
         } else if (isPaused()) {
             if (isFullscreen()) showInfo();
@@ -3054,6 +3065,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         android.util.Log.d("VideoActivity", "onTimeChanged: position=" + position + " duration=" + duration + " canSave=" + mHistory.canSave());
+        if (position > 0 || player().isPlaying()) showPlaybackContent();
         PlaybackEventCollector.get().onProgress(mHistory, player());
         if (mHistory.canSave() && mHistory.canSync()) syncHistory();
         if (applyAutoIntroSkip()) return;

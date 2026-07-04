@@ -407,6 +407,11 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     @Override
+    protected boolean customWall() {
+        return false;
+    }
+
+    @Override
     protected PlaybackService.NavigationCallback getNavigationCallback() {
         return mNavigationCallback;
     }
@@ -436,6 +441,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         applyDetailEdgeToEdge();
         applySystemBarInsets();
         initPage();
+        setLoadingOnlyBeforeDefaultPlayback(shouldUseLoadingOnlyBeforeDefaultPlayback());
         loadContent(null);
     }
 
@@ -485,6 +491,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             player().clear();
         }
         binding.loading.setVisibility(View.VISIBLE);
+        setLoadingOnlyBeforeDefaultPlayback(shouldUseLoadingOnlyBeforeDefaultPlayback());
         hideInlineLoading();
         binding.playerError.setVisibility(View.GONE);
         binding.playerControls.setVisibility(View.GONE);
@@ -4592,6 +4599,19 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         return getIntent().getBooleanExtra("auto_play", false);
     }
 
+    private boolean shouldUseLoadingOnlyBeforeDefaultPlayback() {
+        return isAutoPlayMode() && !isFusionMode() && !isPlayerMode();
+    }
+
+    private void setLoadingOnlyBeforeDefaultPlayback(boolean loadingOnly) {
+        binding.hero.setVisibility(loadingOnly ? View.GONE : View.VISIBLE);
+        binding.scroll.setVisibility(loadingOnly ? View.GONE : View.VISIBLE);
+    }
+
+    private void revealDefaultPlaybackLoadingPage() {
+        if (shouldUseLoadingOnlyBeforeDefaultPlayback()) setLoadingOnlyBeforeDefaultPlayback(false);
+    }
+
     private boolean isInlinePlayerMode() {
         return isFusionMode() || detailPlayerActive;
     }
@@ -4774,6 +4794,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             hideInlineControls();
             return;
         }
+        if (shouldBlockInlineControlsForLoading()) {
+            hideInlineControls();
+            return;
+        }
         updateInlineTitle();
         updateInlineButtons(service() != null && player() != null && !player().isEmpty() && player().isPlaying());
         inlineControlsView().setVisibility(View.VISIBLE);
@@ -4894,6 +4918,14 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private boolean isInlineControlsVisible() {
         return binding != null && inlineControlsView().getVisibility() == View.VISIBLE;
+    }
+
+    private boolean isInlineLoadingVisible() {
+        return binding != null && (inlinePlaybackLoading || binding.playerProgress.getVisibility() == View.VISIBLE);
+    }
+
+    private boolean shouldBlockInlineControlsForLoading() {
+        return isInlineLoadingVisible() && !(isLock() && inlineFullscreen);
     }
 
     private void updateInlineButtons(boolean playing) {
@@ -5068,6 +5100,13 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         detailControlView(R.id.danmaku, View.class).setVisibility(!locked && hasPlayer && inlineControlController.hasDanmakuControl() ? View.VISIBLE : View.GONE);
         detailControlView(R.id.parse, RecyclerView.class).setVisibility(!locked && inlineFullscreen && useParse && !VodConfig.get().getParses().isEmpty() ? View.VISIBLE : View.GONE);
         if (inlineParseAdapter != null) inlineParseAdapter.notifyDataSetChanged();
+        detailActionView(R.id.player, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.decode, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.speed, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.scale, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.reset, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.repeat, View.class).setVisibility(hasPlayer ? View.VISIBLE : View.GONE);
+        detailActionView(R.id.episodes, View.class).setVisibility(selectedFlag != null && selectedFlag.getEpisodes() != null && !selectedFlag.getEpisodes().isEmpty() ? View.VISIBLE : View.GONE);
         detailActionView(R.id.text, View.class).setVisibility(hasPlayer && (player().haveTrack(C.TRACK_TYPE_TEXT) || player().isVod()) ? View.VISIBLE : View.GONE);
         detailActionView(R.id.audio, View.class).setVisibility(hasPlayer && player().haveTrack(C.TRACK_TYPE_AUDIO) ? View.VISIBLE : View.GONE);
         detailActionView(R.id.video, View.class).setVisibility(hasPlayer && player().haveTrack(C.TRACK_TYPE_VIDEO) && !inlineVideoTrackAsQuality ? View.VISIBLE : View.GONE);
@@ -6393,6 +6432,10 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
         scheduleMobileInlineSideControlMarginUpdate();
     }
 
+    private boolean shouldShowDetailFullscreenControlsOnReady() {
+        return detailPlayerActive && !isFusionMode() && inlineFullscreen && !isLock();
+    }
+
     private void applyInlineShortDramaMode() {
         if (!isShortDramaSource()) {
             resetInlineShortDramaMode();
@@ -6942,7 +6985,17 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onServiceConnected() {
         ensureInlineDanmakuController();
-        if (pendingInlineResult != null) startInlinePlayer(pendingInlineResult);
+        startPendingInlinePlayer();
+    }
+
+    @Override
+    protected void onControllerConnected() {
+        startPendingInlinePlayer();
+    }
+
+    private void startPendingInlinePlayer() {
+        if (pendingInlineResult == null || service() == null || controller() == null) return;
+        startInlinePlayer(pendingInlineResult);
     }
 
     private void ensureInlineDanmakuController() {
@@ -6981,6 +7034,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             applyInlineShortDramaMode();
             requestIntroSkipPlan();
             applyAutoIntroSkip();
+            if (shouldShowDetailFullscreenControlsOnReady()) showInlineControls(true, false);
         }
         if (state == Player.STATE_ENDED) checkInlineEnded(true);
         updateInlineDisplayPanel();
@@ -7057,6 +7111,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     @Override
     protected void onResume() {
         super.onResume();
+        if (vod != null && binding.loading.getVisibility() != View.VISIBLE) revealDefaultPlaybackLoadingPage();
         scheduleBackdropSlide(BACKDROP_SLIDE_DELAY_MS);
     }
 
@@ -7361,6 +7416,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             runOnAliveUi(() -> {
                 if (generation != loadGeneration || searchGeneration != sourceSearchGeneration || vod == null) return;
                 if (match == null) {
+                    revealDefaultPlaybackLoadingPage();
                     Notify.show(R.string.detail_source_empty);
                     return;
                 }
@@ -7381,6 +7437,7 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
             runOnAliveUi(() -> {
                 if (generation != loadGeneration || searchGeneration != sourceSearchGeneration) return;
                 if (match == null) {
+                    revealDefaultPlaybackLoadingPage();
                     Notify.show(R.string.detail_source_empty);
                     return;
                 }
