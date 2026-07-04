@@ -807,8 +807,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(DanmakuSetting.isLoad() ? View.VISIBLE : View.GONE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
-        mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
         setupActionButtons();
+        setKaraokeActionState();
         mBinding.video.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (!suppressPiPForAudio()) mPiP.update(this, view);
         });
@@ -3124,8 +3124,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setKaraokeActionState() {
-        if (mBinding.control.action.karaoke != null) mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+        if (mBinding.control.action.karaoke != null) {
+            mBinding.control.action.karaoke.setSelected(PlayerSetting.isKaraokeMode());
+            mBinding.control.action.karaoke.setVisibility(isKaraokeActionAvailable() ? View.VISIBLE : View.GONE);
+        }
         if (mBinding.audioKaraokeAction != null) mBinding.audioKaraokeAction.setSelected(PlayerSetting.isKaraokeMode());
+        applyActionButtonVisibility();
+    }
+
+    private boolean isKaraokeActionAvailable() {
+        return service() != null && (isAudioOnly() || isMusicLike());
     }
 
     private void applyKaraokeTrackChange(boolean enableMode) {
@@ -3937,6 +3945,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (service() == null) return;
         setAudioOnly(LyricsController.isAudioOnly(player()));
         setAudioStageVisible(isAudioOnly() || isMusicLike());
+        setKaraokeActionState();
     }
 
     private void setAudioStageVisible(boolean visible) {
