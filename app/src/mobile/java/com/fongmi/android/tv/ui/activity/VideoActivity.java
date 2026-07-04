@@ -749,7 +749,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         ViewGroup.LayoutParams raw = mBinding.audioBackgroundAction.getLayoutParams();
         if (!(raw instanceof FrameLayout.LayoutParams params)) return;
         int top = -mBinding.audioStage.getPaddingTop();
-        int end = -mBinding.audioStage.getPaddingEnd() - ResUtil.dp2px(12);
+        int end = -mBinding.audioStage.getPaddingEnd() - ResUtil.dp2px(4);
         if (params.topMargin == top && params.getMarginEnd() == end) return;
         params.topMargin = top;
         params.setMarginEnd(end);
