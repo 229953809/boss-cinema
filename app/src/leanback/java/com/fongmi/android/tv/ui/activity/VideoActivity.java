@@ -19,6 +19,7 @@ import android.text.TextUtils;
 import android.text.style.ClickableSpan;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -5096,6 +5097,46 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private View getFocus2() {
         return mFocus2 == null || mFocus2.getVisibility() != View.VISIBLE || mFocus2 == mBinding.control.action.opening || mFocus2 == mBinding.control.action.ending ? mBinding.control.action.next : mFocus2;
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (dispatchAudioStageTouch(event)) return true;
+        return super.dispatchTouchEvent(event);
+    }
+
+    private boolean dispatchAudioStageTouch(MotionEvent event) {
+        if (!mAudioStageVisible || mBinding == null || event == null) return false;
+        if (!isPointInside(mBinding.audioStage, event)) return false;
+        if (isAudioStageInteractiveTouch(event)) return false;
+        if (event.getActionMasked() == MotionEvent.ACTION_UP) focusAudioStageDefault();
+        return true;
+    }
+
+    private boolean isAudioStageInteractiveTouch(MotionEvent event) {
+        return isPointInside(mBinding.audioLyrics, event)
+                || isPointInside(mBinding.audioSeek, event)
+                || isPointInside(mBinding.audioRepeatAction, event)
+                || isPointInside(mBinding.audioPrev, event)
+                || isPointInside(mBinding.audioPlay, event)
+                || isPointInside(mBinding.audioNext, event)
+                || isPointInside(mBinding.audioQueueAction, event)
+                || isPointInside(mBinding.audioLyricsAction, event)
+                || isPointInside(mBinding.audioKaraokeAction, event)
+                || isPointInside(mBinding.audioMoreAction, event)
+                || isPointInside(mBinding.audioCastAction, event)
+                || isPointInside(mBinding.audioKeepAction, event)
+                || isPointInside(mBinding.audioSettingAction, event)
+                || isPointInside(mBinding.audioTrackAction, event)
+                || isPointInside(mBinding.audioSubtitleAction, event)
+                || isPointInside(mBinding.audioInfoAction, event)
+                || isPointInside(mBinding.audioBackgroundAction, event);
+    }
+
+    private boolean isPointInside(View view, MotionEvent event) {
+        if (view == null || view.getVisibility() != View.VISIBLE) return false;
+        Rect rect = new Rect();
+        return view.getGlobalVisibleRect(rect) && rect.contains((int) event.getRawX(), (int) event.getRawY());
     }
 
     @Override
