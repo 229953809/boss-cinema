@@ -36,7 +36,7 @@ public final class EpisodeTitleCompact {
             Pattern.compile("(?i)[上下](?:集|部)?|前篇|后篇|後篇|正片|预告|預告|花絮")
     };
     private static final Pattern TECH_SUFFIX = Pattern.compile("(?i)^[\\s._\\-\\[\\]()（）【】]+(?:4K|8K|2160P|1080P|720P|HDR|HDR10|DV|DOLBY|HEVC|H265|H\\.265|H264|H\\.264|AV1|AAC|FLAC|WEB-DL|WEBRIP|BLURAY|BD|HD|国语|国配|粤语|中字|中英双字|简中|繁中|内嵌字幕|无字)(?:[\\s._\\-\\[\\]()（）【】]+(?:4K|8K|2160P|1080P|720P|HDR|HDR10|DV|DOLBY|HEVC|H265|H\\.265|H264|H\\.264|AV1|AAC|FLAC|WEB-DL|WEBRIP|BLURAY|BD|HD|国语|国配|粤语|中字|中英双字|简中|繁中|内嵌字幕|无字))*[\\s._\\-\\[\\]()（）【】]*$");
-    private static final Pattern EDGE_SEPARATORS = Pattern.compile("^[\\s._\\-·|/\\\\:：,，;；\\[\\]()（）【】《》]+|[\\s._\\-·|/\\\\:：,，;；\\[\\]()（）【】《》]+$");
+    private static final String EDGE_SEPARATOR_CHARS = "._-·|/\\:：,，;；[]()（）【】《》";
     private static final int MAX_COMPACT_LENGTH = 14;
 
     private EpisodeTitleCompact() {
@@ -199,7 +199,7 @@ public final class EpisodeTitleCompact {
     }
 
     private static boolean isSeparator(char c) {
-        return Character.isWhitespace(c) || "-_.·|/\\:：,，;；[]()（）【】《》".indexOf(c) >= 0;
+        return Character.isWhitespace(c) || EDGE_SEPARATOR_CHARS.indexOf(c) >= 0;
     }
 
     private static boolean startsEpisode(String text) {
@@ -337,6 +337,22 @@ public final class EpisodeTitleCompact {
     }
 
     private static String cleanupEdge(String text) {
-        return EDGE_SEPARATORS.matcher(text == null ? "" : text.trim()).replaceAll("");
+        String value = text == null ? "" : text.trim();
+        int start = 0;
+        int end = value.length();
+        while (start < end && isSeparator(value.charAt(start))) start++;
+        while (end > start && shouldTrimTrailingEdge(value, start, end)) end--;
+        return value.substring(start, end).trim();
+    }
+
+    private static boolean shouldTrimTrailingEdge(String value, int start, int end) {
+        char c = value.charAt(end - 1);
+        if (!isSeparator(c)) return false;
+        return c != '》' || !hasBookTitleOpen(value, start, end - 1);
+    }
+
+    private static boolean hasBookTitleOpen(String value, int start, int end) {
+        for (int i = start; i < end; i++) if (value.charAt(i) == '《') return true;
+        return false;
     }
 }
