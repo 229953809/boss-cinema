@@ -234,7 +234,7 @@
                             style="@style/AudioActionButton"
                             android:layout_marginEnd="4dp"
                             android:text="@string/player_lyrics_search"
-                            app:drawableTopCompat="@drawable/ic_action_search_shadow" />
+                            app:drawableTopCompat="@drawable/ic_audio_lyrics" />
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/audioKaraokeAction"
@@ -247,7 +247,7 @@
                             android:id="@+id/audioMoreAction"
                             style="@style/AudioActionButton"
                             android:text="@string/player_audio_more"
-                            app:drawableTopCompat="@drawable/ic_action_more_vert" />
+                            app:drawableTopCompat="@drawable/ic_audio_more" />
 
                     </androidx.appcompat.widget.LinearLayoutCompat>
 
