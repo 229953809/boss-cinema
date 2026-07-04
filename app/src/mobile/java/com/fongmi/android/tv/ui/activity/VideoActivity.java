@@ -3166,6 +3166,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 WindowManager.LayoutParams params = window.getAttributes();
                 params.dimAmount = 0.62f;
                 params.gravity = Gravity.CENTER;
+                params.y = isLand() ? -ResUtil.dp2px(12) : 0;
                 window.setAttributes(params);
                 window.setLayout(view.getPreferredDialogWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
                 window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
