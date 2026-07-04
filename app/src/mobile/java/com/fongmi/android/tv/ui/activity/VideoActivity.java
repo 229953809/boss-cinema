@@ -5210,9 +5210,20 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        if (shouldRecreateAudioStageForOrientation(newConfig)) {
+            recreate();
+            return;
+        }
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_PORTRAIT && !isRotate() && !isLock()) exitFullscreen();
         if (isAutoRotate() && isPort() && newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) enterFullscreen();
         if (isFullscreen()) Util.hideSystemUI(this);
+    }
+
+    private boolean shouldRecreateAudioStageForOrientation(Configuration config) {
+        if (!mAudioStageVisible || config == null) return false;
+        if (config.orientation == Configuration.ORIENTATION_LANDSCAPE) return isPort();
+        if (config.orientation == Configuration.ORIENTATION_PORTRAIT) return isLand();
+        return false;
     }
 
     @Override
