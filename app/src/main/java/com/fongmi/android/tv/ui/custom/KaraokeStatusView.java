@@ -145,7 +145,7 @@ public class KaraokeStatusView extends LinearLayout {
     }
 
     private boolean showMeter(KaraokeStatus status, KaraokeTrack track, KaraokeScoreSnapshot snapshot) {
-        return showTimeline(status, track, snapshot);
+        return showVolume(status) || showTimeline(status, track, snapshot);
     }
 
     private float getVolumeLevel(KaraokeStatus status, KaraokePitchSample sample) {
