@@ -4477,30 +4477,52 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
 
     private String episodeMeta(JsonObject detail) {
         List<String> parts = new ArrayList<>();
-        String date = string(detail, "air_date");
-        if (!TextUtils.isEmpty(date)) parts.add(date);
-        if (detail != null && detail.has("runtime") && !detail.get("runtime").isJsonNull()) {
-            int runtime = detail.get("runtime").getAsInt();
-            if (runtime > 0) parts.add(getString(R.string.detail_runtime_format, runtime));
-        }
-        if (detail != null && detail.has("vote_average") && !detail.get("vote_average").isJsonNull()) {
-            double vote = detail.get("vote_average").getAsDouble();
-            if (vote > 0) parts.add(getString(R.string.detail_score, String.format(Locale.US, "%.1f", vote)));
+        try {
+            String date = string(detail, "air_date");
+            if (!TextUtils.isEmpty(date)) parts.add(date);
+            if (detail != null && detail.has("runtime") && !detail.get("runtime").isJsonNull()) {
+                try {
+                    int runtime = detail.get("runtime").getAsInt();
+                    if (runtime > 0) parts.add(getString(R.string.detail_runtime_format, runtime));
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException getting runtime: " + e.getMessage());
+                }
+            }
+            if (detail != null && detail.has("vote_average") && !detail.get("vote_average").isJsonNull()) {
+                try {
+                    double vote = detail.get("vote_average").getAsDouble();
+                    if (vote > 0) parts.add(getString(R.string.detail_score, String.format(Locale.US, "%.1f", vote)));
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException getting vote_average: " + e.getMessage());
+                }
+            }
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in episodeMeta: " + e.getMessage(), e);
         }
         return TextUtils.join(" · ", parts);
     }
 
     private String episodeCrew(JsonObject detail) {
         Map<String, List<String>> jobs = new LinkedHashMap<>();
-        for (JsonElement element : array(detail, "crew")) {
-            if (!element.isJsonObject()) continue;
-            JsonObject person = element.getAsJsonObject();
-            String job = string(person, "job", "department");
-            String name = string(person, "name");
-            if (TextUtils.isEmpty(job) || TextUtils.isEmpty(name)) continue;
-            List<String> names = jobs.computeIfAbsent(job, key -> new ArrayList<>());
-            if (!names.contains(name) && names.size() < 4) names.add(name);
-            if (jobs.size() >= 6) break;
+        try {
+            for (JsonElement element : array(detail, "crew")) {
+                try {
+                    if (!element.isJsonObject()) continue;
+                    JsonObject person = element.getAsJsonObject();
+                    String job = string(person, "job", "department");
+                    String name = string(person, "name");
+                    if (TextUtils.isEmpty(job) || TextUtils.isEmpty(name)) continue;
+                    List<String> names = jobs.computeIfAbsent(job, key -> new ArrayList<>());
+                    if (!names.contains(name) && names.size() < 4) names.add(name);
+                    if (jobs.size() >= 6) break;
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException in episodeCrew element: " + e.getMessage());
+                } catch (Throwable e) {
+                    android.util.Log.e("TmdbDetailActivity", "Error parsing crew element: " + e.getMessage());
+                }
+            }
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in episodeCrew: " + e.getMessage(), e);
         }
         List<String> lines = new ArrayList<>();
         for (Map.Entry<String, List<String>> entry : jobs.entrySet()) {
@@ -8012,13 +8034,23 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private int tmdbSeasonYear(JsonObject detail, int seasonNumber) {
-        for (JsonElement element : array(detail, "seasons")) {
-            if (!element.isJsonObject()) continue;
-            JsonObject object = element.getAsJsonObject();
-            if (!object.has("season_number") || object.get("season_number").isJsonNull()) continue;
-            if (object.get("season_number").getAsInt() != seasonNumber) continue;
-            int year = firstYear(string(object, "air_date"));
-            return year > 0 ? year : firstYear(string(object, "name"));
+        try {
+            for (JsonElement element : array(detail, "seasons")) {
+                try {
+                    if (!element.isJsonObject()) continue;
+                    JsonObject object = element.getAsJsonObject();
+                    if (!object.has("season_number") || object.get("season_number").isJsonNull()) continue;
+                    if (object.get("season_number").getAsInt() != seasonNumber) continue;
+                    int year = firstYear(string(object, "air_date"));
+                    return year > 0 ? year : firstYear(string(object, "name"));
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException in tmdbSeasonYear parsing element: " + e.getMessage());
+                } catch (Throwable e) {
+                    android.util.Log.e("TmdbDetailActivity", "Error parsing season element: " + e.getMessage());
+                }
+            }
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in tmdbSeasonYear: " + e.getMessage(), e);
         }
         return 0;
     }
@@ -8148,17 +8180,28 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private int firstSeasonNumber(JsonObject detail) {
-        JsonArray seasons = array(detail, "seasons");
-        int fallback = -1;
-        for (JsonElement element : seasons) {
-            if (!element.isJsonObject()) continue;
-            JsonObject object = element.getAsJsonObject();
-            if (!object.has("season_number") || object.get("season_number").isJsonNull()) continue;
-            int number = object.get("season_number").getAsInt();
-            if (number > 0) return number;
-            if (fallback == -1) fallback = number;
+        try {
+            JsonArray seasons = array(detail, "seasons");
+            int fallback = -1;
+            for (JsonElement element : seasons) {
+                try {
+                    if (!element.isJsonObject()) continue;
+                    JsonObject object = element.getAsJsonObject();
+                    if (!object.has("season_number") || object.get("season_number").isJsonNull()) continue;
+                    int number = object.get("season_number").getAsInt();
+                    if (number > 0) return number;
+                    if (fallback == -1) fallback = number;
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException in firstSeasonNumber: " + e.getMessage());
+                } catch (Throwable e) {
+                    android.util.Log.e("TmdbDetailActivity", "Error parsing season in firstSeasonNumber: " + e.getMessage());
+                }
+            }
+            return fallback;
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in firstSeasonNumber: " + e.getMessage(), e);
+            return -1;
         }
-        return fallback;
     }
 
     private Map<Integer, Integer> seasonEpisodeCounts(JsonObject detail) {
@@ -8170,13 +8213,19 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private void addSeasonCount(Map<Integer, Integer> counts, JsonElement element, boolean regularOnly) {
-        if (!element.isJsonObject()) return;
-        JsonObject object = element.getAsJsonObject();
-        if (!object.has("season_number") || object.get("season_number").isJsonNull()) return;
-        int number = object.get("season_number").getAsInt();
-        if (regularOnly && number <= 0) return;
-        int count = object.has("episode_count") && !object.get("episode_count").isJsonNull() ? object.get("episode_count").getAsInt() : 0;
-        counts.put(number, count);
+        try {
+            if (!element.isJsonObject()) return;
+            JsonObject object = element.getAsJsonObject();
+            if (!object.has("season_number") || object.get("season_number").isJsonNull()) return;
+            int number = object.get("season_number").getAsInt();
+            if (regularOnly && number <= 0) return;
+            int count = object.has("episode_count") && !object.get("episode_count").isJsonNull() ? object.get("episode_count").getAsInt() : 0;
+            counts.put(number, count);
+        } catch (ClassCastException e) {
+            android.util.Log.e("TmdbDetailActivity", "ClassCastException in addSeasonCount: " + e.getMessage());
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in addSeasonCount: " + e.getMessage());
+        }
     }
 
     private String normalize(String text) {
@@ -8403,12 +8452,22 @@ public class TmdbDetailActivity extends PlaybackActivity implements TrackDialog.
     }
 
     private String certificationForRegion(JsonArray results, String region, boolean tv) {
-        if (TextUtils.isEmpty(region)) return "";
-        for (JsonElement element : results) {
-            if (!element.isJsonObject()) continue;
-            JsonObject object = element.getAsJsonObject();
-            if (!region.equalsIgnoreCase(string(object, "iso_3166_1"))) continue;
-            return tv ? string(object, "rating") : firstReleaseCertification(object);
+        try {
+            if (TextUtils.isEmpty(region)) return "";
+            for (JsonElement element : results) {
+                try {
+                    if (!element.isJsonObject()) continue;
+                    JsonObject object = element.getAsJsonObject();
+                    if (!region.equalsIgnoreCase(string(object, "iso_3166_1"))) continue;
+                    return tv ? string(object, "rating") : firstReleaseCertification(object);
+                } catch (ClassCastException e) {
+                    android.util.Log.e("TmdbDetailActivity", "ClassCastException in certificationForRegion element: " + e.getMessage());
+                } catch (Throwable e) {
+                    android.util.Log.e("TmdbDetailActivity", "Error parsing certification element: " + e.getMessage());
+                }
+            }
+        } catch (Throwable e) {
+            android.util.Log.e("TmdbDetailActivity", "Error in certificationForRegion: " + e.getMessage(), e);
         }
         return "";
     }
