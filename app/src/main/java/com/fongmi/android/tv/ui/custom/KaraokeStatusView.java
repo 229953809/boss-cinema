@@ -75,6 +75,8 @@ public class KaraokeStatusView extends LinearLayout {
 
     public void setState(KaraokeStatus status, KaraokeTrack track, KaraokePitchSample sample, KaraokeScoreSnapshot snapshot) {
         if (status == null || status == KaraokeStatus.INACTIVE) {
+            timeline.setLevel(0);
+            timeline.setState(null, null);
             setVisibility(PlayerSetting.isKaraokeMode() ? INVISIBLE : GONE);
             return;
         }
@@ -143,7 +145,7 @@ public class KaraokeStatusView extends LinearLayout {
     }
 
     private boolean showMeter(KaraokeStatus status, KaraokeTrack track, KaraokeScoreSnapshot snapshot) {
-        return showVolume(status) || showTimeline(status, track, snapshot);
+        return showTimeline(status, track, snapshot);
     }
 
     private float getVolumeLevel(KaraokeStatus status, KaraokePitchSample sample) {
