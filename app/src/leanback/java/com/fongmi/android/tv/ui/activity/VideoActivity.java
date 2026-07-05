@@ -969,6 +969,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setQualityVisible(result.getUrl().isMulti());
         result.getUrl().set(mQualityAdapter.getPosition());
         if (result.hasArtwork() && !shouldKeepPushArtwork()) setArtwork(result.getArtwork());
+        else applyPlaybackArtwork(getPlaybackEpisode());
         if (result.hasDesc()) {
             mBinding.content.setTag(result.getDesc());
             setPlaybackLyrics(result.getDesc());
@@ -5215,6 +5216,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (view == null || view.getVisibility() != View.VISIBLE || !view.isEnabled()) return;
         if (view instanceof ViewGroup group) {
             for (int i = 0; i < group.getChildCount(); i++) collectAudioStageFocusables(group.getChildAt(i), focusables);
+            return;
         }
         if (view.isFocusable()) focusables.add(view);
     }
