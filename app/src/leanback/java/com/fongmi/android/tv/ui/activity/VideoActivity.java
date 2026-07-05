@@ -1375,11 +1375,25 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private boolean onLyricsSearch() {
         if (!isLyricsSearchAvailable()) return false;
-        showLyricsSearchSheet(getName(), ++mLyricsSearchSheetSeq);
+        LyricsRequest request = createLyricsSearchRequest();
+        String keyword = request == null ? getName() : request.displayKeyword();
+        String signature = request == null ? getName() : request.stableSignature();
+        showLyricsSearchSheet(keyword, request, signature, ++mLyricsSearchSheetSeq);
         return true;
     }
 
-    private void showLyricsSearchSheet(String keyword, int seq) {
+    @Nullable
+    private LyricsRequest createLyricsSearchRequest() {
+        if (service() == null) return null;
+        try {
+            return LyricsRequest.from(player());
+        } catch (Throwable e) {
+            SpiderDebug.log("lyrics-ui", "search request fallback error=%s", e.getMessage());
+            return null;
+        }
+    }
+
+    private void showLyricsSearchSheet(String keyword, @Nullable LyricsRequest request, String signature, int seq) {
         long start = System.currentTimeMillis();
         BottomSheetDialog dialog = createAudioSheet();
         LinearLayout root = createAudioSheetRoot();
@@ -1426,7 +1440,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             }
         });
         mLyricsSearchDialog = dialog;
-        loadLyricsSearchSuggestions(dialog, root, input, searchButton, keyword, seq, mLyricsSearchSeq);
+        loadLyricsSearchSuggestions(dialog, root, input, searchButton, request, keyword, signature, seq, mLyricsSearchSeq);
     }
 
     private void focusLyricsSearchTarget(EditText input, View focusTarget) {
@@ -1436,26 +1450,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         focusTarget.requestFocus();
     }
 
-    private void loadLyricsSearchSuggestions(BottomSheetDialog dialog, LinearLayout root, EditText input, View searchButton, String fallbackKeyword, int seq, int searchSeqAtOpen) {
+    private void loadLyricsSearchSuggestions(BottomSheetDialog dialog, LinearLayout root, EditText input, View searchButton, @Nullable LyricsRequest request, String fallbackKeyword, String signature, int seq, int searchSeqAtOpen) {
         Task.execute(() -> {
             long start = System.currentTimeMillis();
-            LyricsRequest request = null;
-            try {
-                if (service() != null) request = LyricsRequest.from(player());
-            } catch (Throwable e) {
-                SpiderDebug.log("lyrics-ui", "search sheet request fallback error=%s", e.getMessage());
-            }
-            String keyword = request == null ? fallbackKeyword : request.displayKeyword();
-            String signature = request == null ? fallbackKeyword : request.stableSignature();
             List<String> suggestions = request == null ? LyricsRequest.searchSuggestions(fallbackKeyword) : request.searchSuggestions();
             List<String> values = withLastLyricsSearchSuggestion(suggestions, signature);
             App.post(() -> {
                 if (seq != mLyricsSearchSheetSeq || !dialog.isShowing()) return;
                 String current = input.getText() == null ? "" : input.getText().toString();
-                if (!TextUtils.isEmpty(keyword) && (TextUtils.isEmpty(current) || TextUtils.equals(current, fallbackKeyword))) {
-                    input.setText(keyword);
-                    if (input.getText() != null) input.setSelection(input.getText().length());
-                }
                 View firstSuggestion = addLyricsSearchSuggestions(dialog, root, input, searchButton, values);
                 View focusTarget = firstSuggestion == null ? searchButton : firstSuggestion;
                 focusLyricsSearchTarget(input, focusTarget);
