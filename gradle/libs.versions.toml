@@ -1,5 +1,5 @@
 [versions]
-releaseVersion = "1.11.0-alpha01"
+releaseVersion = "1.11.0-alpha01-fongmi"
 releaseVersionCode = "1011000001"
 # SDK
 compileSdkVersion = "36"
