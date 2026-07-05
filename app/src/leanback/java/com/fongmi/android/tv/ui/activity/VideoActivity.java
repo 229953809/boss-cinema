@@ -1377,7 +1377,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (!isLyricsSearchAvailable()) return false;
         LyricsRequest request = createLyricsSearchRequest();
         String keyword = request == null ? getName() : request.displayKeyword();
-        String signature = request == null ? getName() : request.stableSignature();
+        String signature = getLyricsSearchSuggestionSignature(request, getName());
         showLyricsSearchSheet(keyword, request, signature, ++mLyricsSearchSheetSeq);
         return true;
     }
@@ -3966,9 +3966,9 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private List<String> getLyricsSearchSuggestions() {
-        if (service() == null) return withLastLyricsSearchSuggestion(LyricsRequest.searchSuggestions(getName()), getName());
+        if (service() == null) return withLastLyricsSearchSuggestion(LyricsRequest.searchSuggestions(getName()), getLyricsSearchSuggestionSignature(null, getName()));
         LyricsRequest request = LyricsRequest.from(player());
-        return withLastLyricsSearchSuggestion(request.searchSuggestions(), request.stableSignature());
+        return withLastLyricsSearchSuggestion(request.searchSuggestions(), getLyricsSearchSuggestionSignature(request, getName()));
     }
 
     private String getLyricsSearchCacheKey(String keyword) {
@@ -3988,8 +3988,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private String getLyricsSearchSignature() {
-        if (service() == null) return getName();
-        return LyricsRequest.from(player()).stableSignature();
+        if (service() == null) return getLyricsSearchSuggestionSignature(null, getName());
+        return getLyricsSearchSuggestionSignature(LyricsRequest.from(player()), getName());
+    }
+
+    private String getLyricsSearchSuggestionSignature(@Nullable LyricsRequest request, String fallback) {
+        if (request == null || TextUtils.isEmpty(request.getTitle())) return Objects.toString(fallback, "");
+        return "lyrics-ui|" + request.getTitle() + "|" + request.getArtist() + "|" + request.getDurationSec();
     }
 
     private List<String> withLastLyricsSearchSuggestion(List<String> suggestions, String signature) {
@@ -4032,10 +4037,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 return;
             }
             String cacheKey = request.signature();
-            String stableSignature = request.stableSignature();
+            String searchSuggestionSignature = getLyricsSearchSuggestionSignature(request, keyword);
             App.post(() -> {
                 if (seq != mLyricsSearchSeq || isFinishing()) return;
-                rememberLyricsSearchKeyword(keyword, stableSignature);
+                rememberLyricsSearchKeyword(keyword, searchSuggestionSignature);
                 if (TextUtils.equals(mLyricsSearchKeyword, cacheKey) && mLyricsSearchResults != null && !mLyricsSearchResults.isEmpty()) {
                     showLyricsResults(seq, cacheKey, mLyricsSearchResults, true);
                     return;
