@@ -135,6 +135,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_MPA = 0x03;
   public static final int TS_STREAM_TYPE_MPA_LSF = 0x04;
   public static final int TS_STREAM_TYPE_AAC_ADTS = 0x0F;
+  public static final int TS_STREAM_TYPE_SAMPLE_AES_AAC = 0xCF;
   public static final int TS_STREAM_TYPE_AAC_LATM = 0x11;
   public static final int TS_STREAM_TYPE_AC3 = 0x81;
   public static final int TS_STREAM_TYPE_DTS = 0x8A;
@@ -144,6 +145,7 @@ public final class TsExtractor implements Extractor {
   public static final int TS_STREAM_TYPE_H262 = 0x02;
   public static final int TS_STREAM_TYPE_H263 = 0x10; // MPEG-4 Part 2 and H.263
   public static final int TS_STREAM_TYPE_H264 = 0x1B;
+  public static final int TS_STREAM_TYPE_SAMPLE_AES_H264 = 0xDB;
   public static final int TS_STREAM_TYPE_H265 = 0x24;
   public static final int TS_STREAM_TYPE_MHAS = 0x2D;
   public static final int TS_STREAM_TYPE_ID3 = 0x15;

@@ -618,6 +618,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (out.chunk != null) {
       return;
     }
+    @Nullable
+    Uri sampleAesSegmentKeyUri =
+        getSampleAesEncryptionKeyUri(playlist, segmentBaseHolder.segmentBase);
+    out.chunk =
+        maybeCreateEncryptionChunkFor(
+            sampleAesSegmentKeyUri,
+            selectedTrackIndex,
+            /* isInitSegment= */ false,
+            cmcdDataFactory);
+    if (out.chunk != null) {
+      return;
+    }
 
     boolean isIndependent = isIndependent(segmentBaseHolder, playlist);
     boolean shouldSpliceIn =
@@ -654,6 +666,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             previous,
             /* mediaSegmentKey= */ keyCache.get(mediaSegmentKeyUri),
             /* initSegmentKey= */ keyCache.get(initSegmentKeyUri),
+            /* sampleAesSegmentKey= */ keyCache.get(sampleAesSegmentKeyUri),
             shouldSpliceIn,
             isIndependent,
             playerId,
@@ -1233,6 +1246,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return null;
     }
     return UriUtil.resolveToUri(playlist.baseUri, segmentBase.fullSegmentEncryptionKeyUri);
+  }
+
+  @Nullable
+  private static Uri getSampleAesEncryptionKeyUri(
+      HlsMediaPlaylist playlist, @Nullable HlsMediaPlaylist.SegmentBase segmentBase) {
+    if (segmentBase == null || segmentBase.sampleAesEncryptionKeyUri == null) {
+      return null;
+    }
+    return UriUtil.resolveToUri(playlist.baseUri, segmentBase.sampleAesEncryptionKeyUri);
   }
 
   private void deactivatePlaylistForSelectedTrack() {

@@ -113,6 +113,28 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       ExtractorInput sniffingExtractorInput,
       PlayerId playerId)
       throws IOException {
+    return createExtractor(
+        uri,
+        format,
+        muxedCaptionFormats,
+        timestampAdjuster,
+        responseHeaders,
+        sniffingExtractorInput,
+        playerId,
+        /* isSampleAesIdentityEncrypted= */ false);
+  }
+
+  @Override
+  public BundledHlsMediaChunkExtractor createExtractor(
+      Uri uri,
+      Format format,
+      @Nullable List<Format> muxedCaptionFormats,
+      TimestampAdjuster timestampAdjuster,
+      Map<String, List<String>> responseHeaders,
+      ExtractorInput sniffingExtractorInput,
+      PlayerId playerId,
+      boolean isSampleAesIdentityEncrypted)
+      throws IOException {
     @FileTypes.Type
     int formatInferredFileType = FileTypes.inferFileTypeFromMimeType(format.sampleMimeType);
     @FileTypes.Type
@@ -128,6 +150,19 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     addFileTypeIfValidAndNotPresent(uriInferredFileType, fileTypeOrder);
     for (int fileType : DEFAULT_EXTRACTOR_ORDER) {
       addFileTypeIfValidAndNotPresent(fileType, fileTypeOrder);
+    }
+
+    if (isSampleAesIdentityEncrypted && uriInferredFileType == FileTypes.TS) {
+      Extractor extractor =
+          checkNotNull(
+              createExtractorByFileType(
+                  FileTypes.TS, format, muxedCaptionFormats, timestampAdjuster));
+      return new BundledHlsMediaChunkExtractor(
+          extractor,
+          format,
+          timestampAdjuster,
+          subtitleParserFactory,
+          parseSubtitlesDuringExtraction);
     }
 
     // Extractor to be used if the type is not recognized.

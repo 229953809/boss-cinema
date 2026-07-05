@@ -73,6 +73,30 @@ public interface HlsExtractorFactory {
       throws IOException;
 
   /**
+   * Creates an {@link Extractor} for extracting HLS media chunks, with an additional hint that the
+   * current segment uses HLS SAMPLE-AES identity sample encryption.
+   */
+  default HlsMediaChunkExtractor createExtractor(
+      Uri uri,
+      Format format,
+      @Nullable List<Format> muxedCaptionFormats,
+      TimestampAdjuster timestampAdjuster,
+      Map<String, List<String>> responseHeaders,
+      ExtractorInput sniffingExtractorInput,
+      PlayerId playerId,
+      boolean isSampleAesIdentityEncrypted)
+      throws IOException {
+    return createExtractor(
+        uri,
+        format,
+        muxedCaptionFormats,
+        timestampAdjuster,
+        responseHeaders,
+        sniffingExtractorInput,
+        playerId);
+  }
+
+  /**
    * Sets the {@link SubtitleParser.Factory} to use for parsing subtitles during extraction. The
    * default factory value is implementation dependent.
    *

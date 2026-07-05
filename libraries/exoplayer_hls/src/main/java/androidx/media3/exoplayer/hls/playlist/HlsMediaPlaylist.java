@@ -118,6 +118,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      * @param byteRangeOffset See {@link #byteRangeOffset}.
      * @param byteRangeLength See {@link #byteRangeLength}.
      * @param fullSegmentEncryptionKeyUri See {@link #fullSegmentEncryptionKeyUri}.
+     * @param sampleAesEncryptionKeyUri See {@link #sampleAesEncryptionKeyUri}.
      * @param encryptionIV See {@link #encryptionIV}.
      */
     public Segment(
@@ -125,6 +126,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long byteRangeOffset,
         long byteRangeLength,
         @Nullable String fullSegmentEncryptionKeyUri,
+        @Nullable String sampleAesEncryptionKeyUri,
         @Nullable String encryptionIV) {
       this(
           uri,
@@ -135,6 +137,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           /* relativeStartTimeUs= */ C.TIME_UNSET,
           /* drmInitData= */ null,
           fullSegmentEncryptionKeyUri,
+          sampleAesEncryptionKeyUri,
           encryptionIV,
           byteRangeOffset,
           byteRangeLength,
@@ -153,6 +156,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      * @param relativeStartTimeUs See {@link #relativeStartTimeUs}.
      * @param drmInitData See {@link #drmInitData}.
      * @param fullSegmentEncryptionKeyUri See {@link #fullSegmentEncryptionKeyUri}.
+     * @param sampleAesEncryptionKeyUri See {@link #sampleAesEncryptionKeyUri}.
      * @param encryptionIV See {@link #encryptionIV}.
      * @param byteRangeOffset See {@link #byteRangeOffset}.
      * @param byteRangeLength See {@link #byteRangeLength}.
@@ -168,6 +172,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long relativeStartTimeUs,
         @Nullable DrmInitData drmInitData,
         @Nullable String fullSegmentEncryptionKeyUri,
+        @Nullable String sampleAesEncryptionKeyUri,
         @Nullable String encryptionIV,
         long byteRangeOffset,
         long byteRangeLength,
@@ -181,6 +186,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           relativeStartTimeUs,
           drmInitData,
           fullSegmentEncryptionKeyUri,
+          sampleAesEncryptionKeyUri,
           encryptionIV,
           byteRangeOffset,
           byteRangeLength,
@@ -206,6 +212,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           relativeStartTimeUs,
           drmInitData,
           fullSegmentEncryptionKeyUri,
+          sampleAesEncryptionKeyUri,
           encryptionIV,
           byteRangeOffset,
           byteRangeLength,
@@ -233,6 +240,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      * @param relativeStartTimeUs See {@link #relativeStartTimeUs}.
      * @param drmInitData See {@link #drmInitData}.
      * @param fullSegmentEncryptionKeyUri See {@link #fullSegmentEncryptionKeyUri}.
+     * @param sampleAesEncryptionKeyUri See {@link #sampleAesEncryptionKeyUri}.
      * @param encryptionIV See {@link #encryptionIV}.
      * @param byteRangeOffset See {@link #byteRangeOffset}.
      * @param byteRangeLength See {@link #byteRangeLength}.
@@ -248,6 +256,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long relativeStartTimeUs,
         @Nullable DrmInitData drmInitData,
         @Nullable String fullSegmentEncryptionKeyUri,
+        @Nullable String sampleAesEncryptionKeyUri,
         @Nullable String encryptionIV,
         long byteRangeOffset,
         long byteRangeLength,
@@ -262,6 +271,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           relativeStartTimeUs,
           drmInitData,
           fullSegmentEncryptionKeyUri,
+          sampleAesEncryptionKeyUri,
           encryptionIV,
           byteRangeOffset,
           byteRangeLength,
@@ -279,6 +289,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           relativeStartTimeUs,
           drmInitData,
           fullSegmentEncryptionKeyUri,
+          sampleAesEncryptionKeyUri,
           encryptionIV,
           byteRangeOffset,
           byteRangeLength,
@@ -323,6 +334,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     @Nullable public final String fullSegmentEncryptionKeyUri;
 
     /**
+     * The SAMPLE-AES identity key uri as defined by #EXT-X-KEY, or null if the segment does not use
+     * SAMPLE-AES encryption with identity key.
+     */
+    @Nullable public final String sampleAesEncryptionKeyUri;
+
+    /**
      * The encryption initialization vector as defined by #EXT-X-KEY, or null if the segment is not
      * encrypted.
      */
@@ -352,6 +369,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long relativeStartTimeUs,
         @Nullable DrmInitData drmInitData,
         @Nullable String fullSegmentEncryptionKeyUri,
+        @Nullable String sampleAesEncryptionKeyUri,
         @Nullable String encryptionIV,
         long byteRangeOffset,
         long byteRangeLength,
@@ -363,6 +381,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       this.relativeStartTimeUs = relativeStartTimeUs;
       this.drmInitData = drmInitData;
       this.fullSegmentEncryptionKeyUri = fullSegmentEncryptionKeyUri;
+      this.sampleAesEncryptionKeyUri = sampleAesEncryptionKeyUri;
       this.encryptionIV = encryptionIV;
       this.byteRangeOffset = byteRangeOffset;
       this.byteRangeLength = byteRangeLength;

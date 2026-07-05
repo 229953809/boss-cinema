@@ -37,6 +37,7 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.ExtractorInput;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.extractor.metadata.id3.PrivFrame;
 import com.google.common.base.Ascii;
@@ -45,6 +46,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,6 +82,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param mediaSegmentKey The media segment decryption key, if fully encrypted. Null otherwise.
    * @param initSegmentKey The initialization segment decryption key, if fully encrypted. Null
    *     otherwise.
+   * @param sampleAesSegmentKey The media segment SAMPLE-AES identity key, if samples are encrypted.
+   *     Null otherwise.
    * @param shouldSpliceIn Whether samples for this chunk should be spliced into existing samples.
    * @param isIndependent Whether the chunk starts with a keyframe.
    * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
@@ -101,6 +105,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable HlsMediaChunk previousChunk,
       @Nullable byte[] mediaSegmentKey,
       @Nullable byte[] initSegmentKey,
+      @Nullable byte[] sampleAesSegmentKey,
       boolean shouldSpliceIn,
       boolean isIndependent,
       PlayerId playerId,
@@ -123,6 +128,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @Nullable
     byte[] mediaSegmentIv =
         mediaSegmentEncrypted
+            ? getEncryptionIvArray(checkNotNull(mediaSegment.encryptionIV))
+            : null;
+    @Nullable
+    byte[] sampleAesSegmentIv =
+        sampleAesSegmentKey != null
             ? getEncryptionIvArray(checkNotNull(mediaSegment.encryptionIV))
             : null;
     DataSource mediaDataSource = buildDataSource(dataSource, mediaSegmentKey, mediaSegmentIv);
@@ -179,6 +189,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           isSameInitData
                   && isFollowingChunk
                   && !previousChunk.extractorInvalidated
+                  && canReuseExtractorForSampleAes(
+                      previousChunk, sampleAesSegmentKey, sampleAesSegmentIv)
                   && previousChunk.discontinuitySequenceNumber == discontinuitySequenceNumber
               ? previousChunk.extractor
               : null;
@@ -213,6 +225,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         previousExtractor,
         id3Decoder,
         scratchId3Data,
+        sampleAesSegmentKey,
+        sampleAesSegmentIv,
         shouldSpliceIn,
         isIndependent,
         playerId);
@@ -289,6 +303,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final ParsableByteArray scratchId3Data;
   private final boolean mediaSegmentEncrypted;
   private final boolean initSegmentEncrypted;
+  @Nullable private final byte[] sampleAesSegmentKey;
+  @Nullable private final byte[] sampleAesSegmentIv;
   private final PlayerId playerId;
   private final long timestampAdjusterInitializationTimeoutMs;
 
@@ -332,6 +348,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable HlsMediaChunkExtractor previousExtractor,
       Id3Decoder id3Decoder,
       ParsableByteArray scratchId3Data,
+      @Nullable byte[] sampleAesSegmentKey,
+      @Nullable byte[] sampleAesSegmentIv,
       boolean shouldSpliceIn,
       boolean isIndependent,
       PlayerId playerId) {
@@ -363,6 +381,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.previousExtractor = previousExtractor;
     this.id3Decoder = id3Decoder;
     this.scratchId3Data = scratchId3Data;
+    this.sampleAesSegmentKey = sampleAesSegmentKey;
+    this.sampleAesSegmentIv = sampleAesSegmentIv;
     this.shouldSpliceIn = shouldSpliceIn;
     this.isIndependent = isIndependent;
     this.playerId = playerId;
@@ -502,7 +522,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @RequiresNonNull("output")
   private void loadMedia() throws IOException {
     feedDataToExtractor(
-        dataSource, dataSpec, mediaSegmentEncrypted, /* initializeTimestampAdjuster= */ true);
+        dataSource,
+        dataSpec,
+        mediaSegmentEncrypted || sampleAesSegmentKey != null,
+        /* initializeTimestampAdjuster= */ true);
   }
 
   /**
@@ -587,7 +610,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                   timestampAdjuster,
                   dataSource.getResponseHeaders(),
                   extractorInput,
-                  playerId);
+                  playerId,
+                  sampleAesSegmentKey != null && sampleAesSegmentIv != null);
       if (extractor.isPackedAudioExtractor()) {
         output.setSampleOffsetUs(
             id3Timestamp != C.TIME_UNSET
@@ -599,7 +623,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         output.setSampleOffsetUs(/* sampleOffsetUs= */ 0L);
       }
       output.onNewExtractor();
-      extractor.init(output);
+      ExtractorOutput extractorOutput =
+          sampleAesSegmentKey != null && sampleAesSegmentIv != null
+              ? new SampleAesExtractorOutput(output, sampleAesSegmentKey, sampleAesSegmentIv)
+              : output;
+      extractor.init(extractorOutput);
     }
     output.setDrmInitData(drmInitData);
     return extractorInput;
@@ -692,5 +720,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return new Aes128DataSource(dataSource, fullSegmentEncryptionKey, encryptionIv);
     }
     return dataSource;
+  }
+
+  private static boolean canReuseExtractorForSampleAes(
+      HlsMediaChunk previousChunk,
+      @Nullable byte[] sampleAesSegmentKey,
+      @Nullable byte[] sampleAesSegmentIv) {
+    if (sampleAesSegmentKey == null) {
+      return previousChunk.sampleAesSegmentKey == null;
+    }
+    return previousChunk.sampleAesSegmentKey != null
+        && Arrays.equals(previousChunk.sampleAesSegmentKey, sampleAesSegmentKey)
+        && Arrays.equals(previousChunk.sampleAesSegmentIv, sampleAesSegmentIv);
   }
 }

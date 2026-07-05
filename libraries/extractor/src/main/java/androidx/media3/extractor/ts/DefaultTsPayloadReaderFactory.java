@@ -154,6 +154,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
         return new PesReader(
             new MpegAudioReader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AAC_ADTS:
+      case TsExtractor.TS_STREAM_TYPE_SAMPLE_AES_AAC:
         return isSet(FLAG_IGNORE_AAC_STREAM)
             ? null
             : new PesReader(
@@ -209,6 +210,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
       case TsExtractor.TS_STREAM_TYPE_H263:
         return new PesReader(new H263Reader(buildUserDataReader(esInfo), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_H264:
+      case TsExtractor.TS_STREAM_TYPE_SAMPLE_AES_H264:
         return isSet(FLAG_IGNORE_H264_STREAM)
             ? null
             : new PesReader(
