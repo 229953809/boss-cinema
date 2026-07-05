@@ -4260,7 +4260,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (mKaraoke == null || service() == null) return;
         boolean loadTrack = !mSkipKaraokeTrackAutoLoad;
         mKaraoke.refresh(this, player(), audioContent, loadTrack);
-        if (mSkipKaraokeTrackAutoLoad && !player().isEmpty()) mSkipKaraokeTrackAutoLoad = false;
     }
 
     private void debugPlaybackControl(String event) {

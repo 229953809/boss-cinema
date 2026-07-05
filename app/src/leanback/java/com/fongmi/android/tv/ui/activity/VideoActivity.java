@@ -3790,7 +3790,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (mKaraoke == null || service() == null) return;
         boolean loadTrack = !mSkipKaraokeTrackAutoLoad;
         mKaraoke.refresh(this, player(), audioContent, loadTrack);
-        if (mSkipKaraokeTrackAutoLoad && !player().isEmpty()) mSkipKaraokeTrackAutoLoad = false;
     }
 
     private boolean isLyricsSearchAvailable() {
