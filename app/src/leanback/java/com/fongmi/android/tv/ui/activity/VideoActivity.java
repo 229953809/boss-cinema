@@ -5432,13 +5432,15 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void finishAudioSeekPreview() {
         if (!mAudioSeekPreviewing) return;
         long offset = mAudioSeekPreviewOffset;
+        long current = service() == null || player().isEmpty() ? 0 : player().getPosition();
+        long duration = service() == null || player().isEmpty() ? 0 : Math.max(0, player().getDuration());
+        long target = duration > 0 ? Math.min(Math.max(0, current + offset), duration) : Math.max(0, current + offset);
         mAudioSeekPreviewOffset = 0;
         mAudioSeekPreviewDirection = 0;
         mAudioSeekPreviewRepeat = 0;
         mAudioSeekPreviewing = false;
-        mBinding.audioSeek.clearSeekPreview();
-        if (offset == 0) return;
-        onSeekEnd(offset);
+        if (offset != 0) onSeekEnd(offset);
+        mBinding.audioSeek.commitSeekPreview(target);
     }
 
     private boolean isAudioStageNavigationKey(KeyEvent event) {

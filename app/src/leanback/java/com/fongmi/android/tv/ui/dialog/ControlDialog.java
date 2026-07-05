@@ -100,6 +100,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     public void onStart() {
         super.onStart();
         configureWindow(getDialog());
+        focusInitialControl();
     }
 
     private void configureWindow(Dialog dialog) {
@@ -142,6 +143,8 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setPlayer();
         setParse();
         binding.controlScroll.post(() -> binding.controlScroll.scrollTo(0, 0));
+        binding.getRoot().post(this::focusInitialControl);
+        binding.getRoot().postDelayed(this::focusInitialControl, 180);
     }
 
     private void setControlPadding() {
@@ -179,6 +182,46 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
             ((Listener) requireActivity()).onKaraokeTrackPanel();
             return true;
         });
+        bindRemoteFocus();
+    }
+
+    private void bindRemoteFocus() {
+        List<View> views = Arrays.asList(
+                binding.fullscreen, binding.lut, binding.reset, binding.repeat, binding.timer, binding.karaoke,
+                binding.player, binding.decode, binding.opening, binding.ending,
+                binding.text, binding.audio, binding.video, binding.danmaku, binding.title,
+                binding.episodeColumn1, binding.episodeColumn2, binding.compactEpisodeTitle
+        );
+        for (View view : views) setRemoteFocusable(view);
+        for (TextView view : speeds) setRemoteFocusable(view);
+        for (TextView view : scales) setRemoteFocusable(view);
+    }
+
+    private void setRemoteFocusable(View view) {
+        if (view == null) return;
+        view.setFocusable(true);
+        view.setFocusableInTouchMode(true);
+    }
+
+    private void focusInitialControl() {
+        if (binding == null || !isAdded()) return;
+        binding.controlScroll.scrollTo(0, 0);
+        View target = firstFocusable(
+                binding.fullscreen, binding.lut, binding.reset, binding.repeat, binding.timer, binding.karaoke,
+                binding.player, binding.decode, binding.opening, binding.ending
+        );
+        if (target == null) target = firstFocusable(speeds.toArray(new View[0]));
+        if (target == null) target = binding.controlScroll;
+        target.requestFocus();
+    }
+
+    private View firstFocusable(View... views) {
+        for (View view : views) {
+            if (view == null || view.getVisibility() != View.VISIBLE || !view.isEnabled()) continue;
+            if (!view.isFocusable()) setRemoteFocusable(view);
+            return view;
+        }
+        return null;
     }
 
     private void onTimer(View view) {
