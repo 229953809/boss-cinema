@@ -257,6 +257,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private boolean useParse;
     private int mLyricsSearchSeq;
     private int mLyricsSearchSheetSeq;
+    private int mLyricsRefreshSeq;
     private int mAudioQueueSearchSeq;
     private int mStatusBarInset;
     private int mEpisodeBottomInset;
@@ -3283,13 +3284,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             return;
         }
         mBinding.audioCover.setImageResource(R.drawable.artwork);
-        ImgUtil.load(this, url, new CustomTarget<>() {
+        int size = ResUtil.dp2px(256);
+        ImgUtil.load(this, url, size, size, new CustomTarget<>() {
             @Override
             public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
                 if (!TextUtils.equals(mArtworkRequestOwner, owner)) return;
                 mBinding.exo.setDefaultArtwork(resource);
                 mBinding.audioCover.setImageDrawable(resource);
-                updateAudioArtworkColor(colorKey, resource);
+                scheduleAudioArtworkColorUpdate(owner, colorKey, resource);
             }
 
             @Override
@@ -3298,7 +3300,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 mBinding.exo.setDefaultArtwork(errorDrawable);
                 if (errorDrawable == null) mBinding.audioCover.setImageResource(R.drawable.artwork);
                 else mBinding.audioCover.setImageDrawable(errorDrawable);
-                updateAudioArtworkColor(colorKey, errorDrawable);
+                scheduleAudioArtworkColorUpdate(owner, colorKey, errorDrawable);
             }
         });
     }
@@ -3594,15 +3596,36 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void refreshLyricsNow() {
         if (mLyrics == null || service() == null) return;
+        int seq = ++mLyricsRefreshSeq;
         setAudioOnly(LyricsController.isAudioOnly(player()));
         boolean audioContent = isAudioOnly() || isMusicLike();
         setAudioStageVisible(audioContent);
-        if (!mLyrics.hasChoice(player()) && showInlineLyrics()) {
-            refreshKaraoke(audioContent);
+        if (!audioContent) {
+            mLyrics.refresh(player(), false);
+            scheduleRefreshKaraoke(seq, false, 0);
             return;
         }
-        mLyrics.refresh(player(), audioContent);
-        refreshKaraoke(audioContent);
+        LyricsRequest request = LyricsRequest.from(player());
+        String playbackKey = Objects.toString(mPlaybackEpisodeKey, "");
+        Task.execute(() -> {
+            boolean hasChoice = mLyrics.hasChoice(request);
+            App.post(() -> {
+                if (seq != mLyricsRefreshSeq || service() == null || !TextUtils.equals(playbackKey, Objects.toString(mPlaybackEpisodeKey, ""))) return;
+                if (!hasChoice && showInlineLyrics()) {
+                    scheduleRefreshKaraoke(seq, true, 420);
+                    return;
+                }
+                mLyrics.refresh(player(), true);
+                scheduleRefreshKaraoke(seq, true, 420);
+            });
+        });
+    }
+
+    private void scheduleRefreshKaraoke(int seq, boolean audioContent, long delayMs) {
+        App.post(() -> {
+            if (seq != mLyricsRefreshSeq) return;
+            refreshKaraoke(audioContent);
+        }, delayMs);
     }
 
     private void setAudioStageVisible(boolean visible) {
@@ -3624,7 +3647,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         } else {
             setAudioToolRowVisible(false, false);
         }
-        if (visible) applyAudioBackground();
+        if (visible) scheduleAudioBackground(96);
         syncAudioStageSurface(visible);
         applyAudioBackgroundActionInsets();
         applyAudioStageLayout(visible);
@@ -3754,13 +3777,18 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void applyAudioBackground() {
-        if (mBinding == null) return;
+        if (mBinding == null || !mAudioStageVisible) return;
         mAudioLightEffectAnimated = service() != null && player().isPlaying();
         AudioPlayerBackgroundDrawable drawable = new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), mAudioLightEffectAnimated, PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed());
         syncAudioBackgroundHalo(drawable);
         mBinding.audioStage.setBackground(drawable);
         mBinding.audioStage.post(() -> syncAudioBackgroundHalo(drawable));
         mBinding.audioStage.invalidate();
+    }
+
+    private void scheduleAudioBackground(long delayMs) {
+        if (mApplyAudioBackgroundRunnable == null) return;
+        App.post(mApplyAudioBackgroundRunnable, delayMs);
     }
 
     private void randomizeAudioBackgroundMix(boolean notify) {
@@ -3837,6 +3865,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }
     }
 
+    private void scheduleAudioArtworkColorUpdate(String owner, String key, @Nullable Drawable drawable) {
+        App.post(() -> {
+            if (!TextUtils.equals(mArtworkRequestOwner, owner)) return;
+            updateAudioArtworkColor(key, drawable);
+        }, 180);
+    }
+
     private int extractAudioArtworkColor(@Nullable Drawable drawable) {
         if (drawable == null) return Color.rgb(255, 111, 145);
         Bitmap bitmap = null;
@@ -3876,7 +3911,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mAudioLightEffectAnimated = animated;
         Drawable background = mBinding.audioStage.getBackground();
         if (background instanceof AudioPlayerBackgroundDrawable drawable) drawable.setAnimated(animated);
-        else applyAudioBackground();
+        else scheduleAudioBackground(96);
     }
 
     private void syncAudioCoverRotation() {
@@ -5974,6 +6009,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     protected void onDestroy() {
         mLyricsSearchSeq++;
+        mLyricsRefreshSeq++;
         dismissLyricsResultDialog();
         if (mLyrics != null) mLyrics.release();
         if (mKaraoke != null) mKaraoke.release();

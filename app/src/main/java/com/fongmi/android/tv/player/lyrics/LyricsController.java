@@ -117,6 +117,10 @@ public class LyricsController {
         return request.isValid() && repository.hasChoice(request);
     }
 
+    public boolean hasChoice(LyricsRequest request) {
+        return request != null && request.isValid() && repository.hasChoice(request);
+    }
+
     public void reload(PlayerManager player, boolean audioOnly, String keyword, Callback callback) {
         if (player == null || !audioOnly) {
             clear();
