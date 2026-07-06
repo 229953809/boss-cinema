@@ -1024,6 +1024,14 @@ public class Setting {
         Prefers.put("tmdb_episode_file_size", enabled);
     }
 
+    public static boolean getTmdbEpisodeShowScrapedName() {
+        return Prefers.getBoolean("tmdb_episode_show_scraped_name", true);
+    }
+
+    public static void putTmdbEpisodeShowScrapedName(boolean showScraped) {
+        Prefers.put("tmdb_episode_show_scraped_name", showScraped);
+    }
+
     public static int nextTmdbDetailTheme(int theme) {
         return clampTmdbDetailTheme(theme) == 2 ? 1 : 2;
     }

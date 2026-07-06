@@ -28,6 +28,10 @@
     <string name="detail_episode_view_list">List</string>
     <string name="detail_episode_view_grid_action">Switch to grid</string>
     <string name="detail_episode_view_list_action">Switch to list</string>
+    <string name="detail_episode_file_name_original">Original</string>
+    <string name="detail_episode_file_name_scraped">Scraped</string>
+    <string name="detail_episode_file_name_original_action">Switch to original filename</string>
+    <string name="detail_episode_file_name_scraped_action">Switch to scraped filename</string>
 
     <!-- Keep -->
     <string name="keep">Keep</string>
