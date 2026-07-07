@@ -48,6 +48,15 @@ MPV 作为独立播放器类型接入，不能自动切换到 Exo。播放失败
 - MPV 已声明 `COMMAND_GET_TEXT_OFFSET`、`COMMAND_SET_TEXT_OFFSET`、`COMMAND_GET_AUDIO_OFFSET`、`COMMAND_SET_AUDIO_OFFSET`。
 - 字幕延迟从 UI 的毫秒值换算成 MPV 秒值写入 `sub-delay`；音频延迟同样写入 `audio-delay`。
 - 新媒体打开时会重新下发当前字幕/音频延迟，避免切集后 UI 状态和 MPV 实际属性不一致。
+- MPV 失败已增加 Java 层错误前缀和本地化文案映射：
+  - `MPV_LOAD_FAILED`
+  - `MPV_HLS_PLAYBACK_FAILED`
+  - `MPV_UNEXPECTED_IMAGE`
+  - `MPV_NO_AV_DATA`
+  - `MPV_INVALID_MEDIA_DATA`
+  - `MPV_DECODE_FAILED`
+  - `MPV_VIDEO_OUTPUT_FAILED`
+- 失败日志会输出结构化诊断：uri、HLS、file-loaded、playback-restart、视频尺寸、position、duration、tracks、path、file-format、video/audio codec、hwdec、vo。
 
 ### Header 处理
 
@@ -293,6 +302,37 @@ MPV 属性使用秒：
 对应 Exo：
 
 Exo/FongMi Media3 扩展直接支持 offset command，上层 `OffsetDialog` 只检查 command 是否可用，不区分播放器类型。MPV 必须声明同样的 command，才能让原有 offset UI 对 MPV 生效。
+
+### 10. 没有 native reason/error 时，Java 错误分类只能是过渡层
+
+问题：
+
+当前仓库没有 `libplayer.so` 对应的 JNI/native 源码，Java 只能收到 `MPV_EVENT_END_FILE` 的 event id，拿不到 `mpv_event_end_file.reason` 和 `mpv_event_end_file.error`。这会导致 MPV 失败时很难正规区分：
+
+- 正常 EOF
+- 用户 stop
+- 网络错误
+- demuxer/container 错误
+- decode 错误
+- VO/AO 初始化失败
+
+处理：
+
+本次先在 Java 层补齐过渡分类：
+
+- 加载超时/未进入 `START_FILE`：`MPV_LOAD_FAILED`
+- HLS 输入层失败：`MPV_HLS_PLAYBACK_FAILED`
+- 加载到图片而不是视频：`MPV_UNEXPECTED_IMAGE`
+- 没有音视频数据：`MPV_NO_AV_DATA`
+- 异常媒体数据：`MPV_INVALID_MEDIA_DATA`
+- 已加载但没有可播放输出：`MPV_DECODE_FAILED`
+- Surface/VO 输出失败：`MPV_VIDEO_OUTPUT_FAILED`
+
+`MpvPlayerEngine.getErrorMessage()` 将这些前缀映射成本地化文案，避免用户界面只显示“连接超时”。`MpvPlayer.fail()` 会额外记录结构化 diagnostics，便于 adb 日志定位。
+
+对应 Exo：
+
+Exo 的 `PlaybackException.errorCode` 和 `PlaybackAnalyticsListener` 能提供 renderer、format、decoder 等上下文。MPV 要达到同等可靠度，后续必须把 native `END_FILE reason/error` 暴露到 Java；日志推断只能作为兜底，不应长期作为唯一错误来源。
 
 ## 参考过的开源项目
 

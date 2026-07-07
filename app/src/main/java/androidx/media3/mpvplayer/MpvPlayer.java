@@ -61,10 +61,17 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private static final int MAX_LOAD_START_RETRIES = 2;
     private static final double SECONDS_TO_MS = 1000.0;
     private static final String HLS_LOAD_OPTIONS = "demuxer=lavf,demuxer-lavf-format=hls,demuxer-lavf-probesize=10485760,demuxer-lavf-analyzeduration=5";
-    private static final String HLS_PLAYBACK_FAILED_MESSAGE = "MPV_HLS_PLAYBACK_FAILED";
     private static final int RECENT_LOG_LIMIT = 32;
     private static final String HEADER_ACCEPT = "Accept";
     private static final String HEADER_ORIGIN = "Origin";
+
+    public static final String ERROR_HLS_PLAYBACK_FAILED = "MPV_HLS_PLAYBACK_FAILED";
+    public static final String ERROR_LOAD_FAILED = "MPV_LOAD_FAILED";
+    public static final String ERROR_UNEXPECTED_IMAGE = "MPV_UNEXPECTED_IMAGE";
+    public static final String ERROR_NO_AV_DATA = "MPV_NO_AV_DATA";
+    public static final String ERROR_INVALID_MEDIA_DATA = "MPV_INVALID_MEDIA_DATA";
+    public static final String ERROR_DECODE_FAILED = "MPV_DECODE_FAILED";
+    public static final String ERROR_VIDEO_OUTPUT_FAILED = "MPV_VIDEO_OUTPUT_FAILED";
 
     private static final Commands COMMANDS = new Commands.Builder()
             .add(COMMAND_PLAY_PAUSE)
@@ -457,7 +464,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             invalidateState();
             startStateRefresh();
         } catch (Throwable e) {
-            fail(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+            fail(mpvError(ERROR_LOAD_FAILED, e.getMessage(), e), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
         }
     }
 
@@ -579,7 +586,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             }
             case MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> {
                 if (loadedUnexpectedImage()) {
-                    fail(new IOException("MPV loaded image entry instead of video: " + stringProperty("path", "") + recentLogSuffix()), PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED);
+                    fail(mpvError(ERROR_UNEXPECTED_IMAGE, "path=" + stringProperty("path", "")), PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED);
                     return;
                 }
                 fileLoaded = true;
@@ -861,7 +868,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             safeSetPropertyString("vo", config.vo());
             SpiderDebug.log("mpv", "surface attached surface=%s vo=%s", surface, config.vo());
         } catch (Throwable e) {
-            fail(e, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
+            fail(mpvError(ERROR_VIDEO_OUTPUT_FAILED, e.getMessage(), e), PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED);
         }
     }
 
@@ -1257,7 +1264,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             loadCurrentUri();
             scheduleLoadStartRetry();
         } catch (Throwable e) {
-            fail(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+            fail(mpvError(ERROR_LOAD_FAILED, e.getMessage(), e), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
         }
     }
 
@@ -1288,7 +1295,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private void validateEarlyEndFile() {
         if (released || stopping || fileLoaded || eofReached || playerError != null || playbackState != Player.STATE_BUFFERING) return;
         if (booleanProperty("idle-active", idleActive)) {
-            fail(new IOException("MPV failed to load media" + recentLogSuffix()), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+            fail(mpvError(ERROR_LOAD_FAILED, "idle-active=true"), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
         } else {
             startStateRefresh();
         }
@@ -1307,9 +1314,27 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 || sawPngVideo
                 || recentLogsContain("no audio or video data played", "invalid data found when processing input", "video: png")
                 || playbackRestarted && videoSize.width <= 0 && videoSize.height <= 0 && positionMs() <= 0)) {
-            return HLS_PLAYBACK_FAILED_MESSAGE + recentLogSuffix();
+            return ERROR_HLS_PLAYBACK_FAILED + detailSuffix("hls input failed");
         }
-        return "MPV failed to play media" + recentLogSuffix();
+        if (sawNoAvData || recentLogsContain("no audio or video data played")) return ERROR_NO_AV_DATA + detailSuffix("no audio or video data played");
+        if (sawInvalidData || sawPngVideo || recentLogsContain("invalid data found when processing input", "video: png")) return ERROR_INVALID_MEDIA_DATA + detailSuffix("invalid media data");
+        return ERROR_DECODE_FAILED + detailSuffix("no playable audio/video output");
+    }
+
+    private IOException mpvError(String code, String detail) {
+        return new IOException(code + detailSuffix(detail));
+    }
+
+    private IOException mpvError(String code, @Nullable String detail, Throwable cause) {
+        return new IOException(code + detailSuffix(detail), cause);
+    }
+
+    private String detailSuffix(@Nullable String detail) {
+        StringBuilder builder = new StringBuilder();
+        if (!TextUtils.isEmpty(detail)) builder.append(": ").append(detail);
+        String recent = recentLogSuffix();
+        if (!TextUtils.isEmpty(recent)) builder.append(recent);
+        return builder.toString();
     }
 
     private void rememberLog(String line) {
@@ -1441,7 +1466,27 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         closeContentFds();
         mainHandler.removeCallbacks(endFileValidationRunnable);
         stopStateRefresh();
+        SpiderDebug.log("mpv", "fail code=%d message=%s diagnostics=%s", errorCode, e.getMessage(), diagnosticSummary());
         invalidateState();
+    }
+
+    private String diagnosticSummary() {
+        List<String> parts = new ArrayList<>();
+        parts.add("uri=" + currentPlayableUri);
+        parts.add("hls=" + currentLikelyHls);
+        parts.add("loaded=" + fileLoaded);
+        parts.add("restart=" + playbackRestarted);
+        parts.add("size=" + videoSize.width + "x" + videoSize.height);
+        parts.add("position=" + cachedPositionMs);
+        parts.add("duration=" + cachedDurationMs);
+        parts.add("tracks=" + currentTracks.getGroups().size());
+        parts.add("path=" + stringProperty("path", ""));
+        parts.add("file-format=" + stringProperty("file-format", ""));
+        parts.add("video-codec=" + stringProperty("video-codec", ""));
+        parts.add("audio-codec=" + stringProperty("audio-codec", ""));
+        parts.add("hwdec=" + stringProperty("hwdec-current", ""));
+        parts.add("vo=" + stringProperty("current-vo", stringProperty("vo-configured", "")));
+        return String.join(" ", parts);
     }
 
     private String recentLogSuffix() {

@@ -144,13 +144,15 @@ Exo 对应实现：
 - byte range 资源不因代理返回全文件而异常。
 - key 请求失败能定位到 key URL 和 HTTP 状态。
 
-### [ ] 5. libmpv 失败原因上报
+### [ ] 5. libmpv 失败原因上报（Java 层分类已补，native reason/error 待补）
 
 现状：
 
 - Java 只收到 `MPV_EVENT_END_FILE` 的 event id。
 - 没有拿到 `mpv_event_end_file.reason` 和 `error`。
-- 当前靠 recent mpv logs 推断 `Video: png`、`Invalid data`、`no audio or video data played`。
+- 当前已用 recent mpv logs 和播放属性推断 `Video: png`、`Invalid data`、`no audio or video data played`。
+- `MpvPlayer` 已补充结构化诊断日志，失败时输出 uri、HLS、file-loaded、playback-restart、video size、position、duration、tracks、path、file-format、codec、hwdec、vo 等信息。
+- MPV 错误前缀已映射到本地化错误文案，避免所有问题都显示为连接超时。
 
 Exo 对应实现：
 
@@ -159,16 +161,17 @@ Exo 对应实现：
 
 实施方向：
 
-- 修改 native JNI，把 `MPV_EVENT_END_FILE` 的 reason/error 传到 Java。
-- Java 层建立 MPV error -> Media3 `PlaybackException` 映射表。
-- 区分网络失败、格式不支持、没有音视频、VO/AO 初始化失败、用户 stop、正常 EOF。
-- 保留日志兜底，但不能把日志解析作为唯一错误来源。
+- 已完成：Java 层建立 MPV error -> Media3 `PlaybackException` 前缀和 UI 文案映射。
+- 已完成：区分加载失败、HLS 输入失败、没有音视频、异常图片/容器、解码失败、视频输出失败。
+- 待完成：补入 native JNI 源码或明确 native 库来源，把 `MPV_EVENT_END_FILE.reason/error` 传到 Java。
+- 待完成：有 native reason/error 后，区分用户 stop、正常 EOF、network error、demuxer error、decode error，减少日志推断占比。
 
 验收：
 
 - 用户看到的 MPV 错误不再全是连接超时。
 - 停止/切集不会误报失败。
 - 格式错误、网络错误、解码错误可区分。
+- native reason/error 接入后，日志推断只作为兜底。
 
 ### [ ] 6. 切换媒体生命周期继续固化
 
