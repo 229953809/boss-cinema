@@ -62,9 +62,11 @@ curl -L -x http://127.0.0.1:7897 https://raw.githubusercontent.com/mpv-player/mp
 - `vid`、`aid`、`sid` 是轨道选择属性，运行期返回实际选中的轨道；不存在时可能返回 `no`。
 - `audio-delay`、`sub-delay` 是音频/字幕延迟对应属性。
 - `sub-scale`、`sub-pos` 可用于 MPV 原生字幕大小/位置；`sub-pos=100` 是默认位置，数值更小更靠上，数值大于 100 更靠下。
+- `sub-color`、`sub-border-color`、`sub-shadow-color`、`sub-back-color`、`sub-border-size`、`sub-shadow-offset` 可用于把 Android caption 基础样式映射到 MPV/libass。
 - `user-agent`、`http-header-fields`、`referrer`、`hls-bitrate` 是官方网络选项；`http-header-fields` 是 string list。
 - `hwdec-software-fallback` 控制硬解失败后是否回退软解；本项目 hard 模式必须设置为 `no`，因为视频软解只能用户手动切。
 - `cache-secs`、`cache-pause`、`cache-pause-wait`、`demuxer-max-bytes`、`demuxer-max-back-bytes`、`demuxer-readahead-secs`、`stream-buffer-size` 是当前 MPV 缓冲映射的主要选项。
+- MPV EDL 可承接 Exo 拼接源，inline 写法为 `edl://file=%<byte_length>%<url>,length=<seconds>;...`。
 - 原生 `mpv_event_end_file` 有 `reason` 和 `error`，当前项目 JNI 只转发 event id，因此需要扩展 JNI 才能避免继续靠日志猜失败原因。
 
 ## 当前架构
@@ -327,6 +329,26 @@ MPVLib.command(new String[]{"sub-add", playableUri(uri), "auto"});
 - 只添加字幕不等于 UI 可见轨道。
 - 添加后需要刷新 `track-list` 并通知 Media3 tracks changed。
 
+### EDL 拼接
+
+Exo 拼接源格式：
+
+```text
+url|||durationUs***url|||durationUs
+```
+
+MPV 侧必须转换为 EDL，不能直接 `loadfile` 原始字符串：
+
+```text
+edl://file=%<byte_length>%<url>,length=<seconds>;file=%<byte_length>%<url>,length=<seconds>
+```
+
+规则：
+
+- `durationUs` 转为秒，使用 `Locale.US` 格式化。
+- URL 必须用 `%<byte_length>%<value>`，不要直接拼普通字符串。
+- EDL 本身不是 HLS，不要再用 HLS proxy 判断包裹整个 `edl://`。
+
 ## properties 使用规则
 
 当前已 observe：
@@ -342,6 +364,9 @@ MPVLib.command(new String[]{"sub-add", playableUri(uri), "auto"});
 - `idle-active`
 - `width`
 - `height`
+- `track-list`
+- `chapter`
+- `chapter-list`
 
 当前运行期设置：
 
@@ -356,15 +381,27 @@ MPVLib.command(new String[]{"sub-add", playableUri(uri), "auto"});
 - `referrer`
 - `http-header-fields`
 - `force-media-title`
+- `vid`
+- `aid`
+- `sid`
+- `chapter`
+- `sub-delay`
+- `audio-delay`
+- `sub-scale`
+- `sub-pos`
+- `sub-color`
+- `sub-border-color`
+- `sub-shadow-color`
+- `sub-back-color`
+- `sub-border-size`
+- `sub-shadow-offset`
 
 后续建议新增：
 
-- `track-list` 或 `track-list/count` 系列：轨道发现。
-- `aid`、`sid`、`vid`：轨道选择。
-- `audio-delay`、`sub-delay`：音频/字幕延迟。
-- `video-codec`、`audio-codec`、`hwdec-current`：诊断。
+- `video-codec`、`audio-codec`、`hwdec-current`：诊断已用字符串读取，后续可结构化快照。
 - `container-fps`、`estimated-vf-fps`：帧率诊断。
 - `decoder-frame-drop-count`、`frame-drop-count`：卡顿诊断。
+- `secondary-sid`：第二字幕，需要先设计 UI 和历史选择存储。
 
 注意：
 
@@ -463,13 +500,18 @@ MPV 路径：
 6. proxy 请求真实 item。
 7. 如果 item 是 nested playlist，则继续重写。
 8. 如果 item 是 PNG 前缀 TS，则剥掉 PNG prefix 后返回 `video/MP2T`。
+9. 如果 item 是可缓存二进制且长度已知，则边播边写入 MPV HLS 独立缓存。
+10. VOD playlist 解析 `#EXTINF` 时间轴，按预载设置预取后续分片；seek 后按新位置重新预载。
 
 当前限制：
 
-- Range 还未完整透传。
-- Byte-range/fMP4/live playlist 未系统验证。
-- 错误分类还不够细。
+- Range 已透传，上游 206/Content-Range/Accept-Ranges 会返回给 MPV；缓存命中也支持 Range。
+- `URI="..."` 已覆盖 `#EXT-X-KEY` 和 `#EXT-X-MAP`，fMP4 init segment 和 AES key 会走代理。
+- `#EXT-X-BYTERANGE` 保留原 tag，由 MPV 对代理 URL 发 Range；代理负责透传或本地 206。
+- HLS proxy 已记录 playlist live/vod、playlist/item 请求数和最近 HTTP 状态，用于 OSD 诊断和直播恢复。
+- live playlist 会触发受限同内核重载，但 fMP4/AES/多级 master/live 刷新仍需实机专项验证。
 - 代理 session TTL 是兜底策略，不是完整请求取消机制。
+- 当前不复用 Exo `SimpleCache`；MPV cache key 必须包含 headers，避免 key/segment 串缓存。
 
 改 proxy 前必须对照：
 
@@ -640,11 +682,22 @@ adb install -r app/build/outputs/apk/mobileArm64_v8a/debug/app-mobile-arm64_v8a-
 2. `MPV_FORMAT_NODE` 到 Java 的结构化读取。
 3. command result 或异步 command reply。
 
-优先扩展 Java 适配：
+已完成的 Java 适配：
 
 1. `track-list` -> Media3 `Tracks`。
 2. `aid/sid/vid` -> 项目 `TrackUtil` 等价选择。
 3. `audio-delay/sub-delay` -> PlayerManager offset 接口。
 4. MPV diagnostic snapshot -> OSD。
+5. `chapter-list/chapter` -> 现有标题 UI。
+6. Exo 拼接 URL -> MPV EDL。
+7. HLS proxy Range/fMP4 map/key/VOD 缓存/预载/seek 后预载。
+8. Android caption 基础样式 -> MPV libass 属性。
 
-这些能力补齐后，后续 MPV 问题才能更接近“工程调试”，而不是靠猜日志。
+仍需新增上层接口或 UI 的能力：
+
+1. 第二字幕：`secondary-sid`、第二字幕位置/样式、历史选择存储。
+2. 截图/缩略图：`MPVLib.grabThumbnail(int)` 的调用入口、线程策略、保存/展示策略。
+3. MPV profile/options：白名单 UI，禁止用户破坏 `vo`、`gpu-context`、`idle`、`config-dir` 等关键项。
+4. shader/profile：MPV 专用画质路线，LUT 已由用户决定单独排期。
+
+native reason/error 补齐后，后续 MPV 问题才能更接近“工程调试”，而不是靠猜日志。

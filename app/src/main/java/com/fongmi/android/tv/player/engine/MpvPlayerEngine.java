@@ -7,6 +7,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
@@ -30,12 +31,14 @@ import java.util.concurrent.TimeUnit;
 public class MpvPlayerEngine implements PlayerEngine {
 
     private static final long MB = 1024L * 1024L;
+    private static final int MAX_LIVE_HLS_RELOADS = 2;
 
     private MpvPlayer player;
     private PlaySpec spec;
     private boolean playWhenReady;
     private boolean retriedFormat;
     private int decode;
+    private int liveHlsReloads;
 
     public MpvPlayerEngine(int decode, Player.Listener listener) {
         this.decode = decode;
@@ -104,6 +107,7 @@ public class MpvPlayerEngine implements PlayerEngine {
         this.spec = spec;
         this.playWhenReady = playWhenReady;
         this.retriedFormat = false;
+        this.liveHlsReloads = 0;
         SpiderDebug.log("player-engine", "start mpv decode=%d position=%d play=%s url=%s headers=%s", decode, position, playWhenReady, spec.getUrl(), spec.getHeaders());
         MediaItem item = ExoUtil.getMediaItem(spec, decode);
         if (position > 0) player.setMediaItem(item, position);
@@ -222,6 +226,7 @@ public class MpvPlayerEngine implements PlayerEngine {
     public ErrorAction handleError(PlaybackException e) {
         SpiderDebug.log("player-engine", "handleError mpv code=%d message=%s format=%s retried=%s url=%s", e.errorCode, e.getMessage(), spec == null ? null : spec.getFormat(), retriedFormat, spec == null ? null : spec.getUrl());
         if (shouldRetryFormat(e)) return retryFormat();
+        if (shouldReloadLiveHls(e)) return reloadLiveHls();
         return ErrorAction.FATAL;
     }
 
@@ -247,6 +252,29 @@ public class MpvPlayerEngine implements PlayerEngine {
         else player.setMediaItem(item);
         player.prepare();
         if (playWhenReady) player.play();
+        else player.pause();
+        return ErrorAction.RECOVERED;
+    }
+
+    private boolean shouldReloadLiveHls(PlaybackException e) {
+        if (spec == null || liveHlsReloads >= MAX_LIVE_HLS_RELOADS) return false;
+        return player.shouldReloadLiveHls(e);
+    }
+
+    private ErrorAction reloadLiveHls() {
+        liveHlsReloads++;
+        PlaybackParameters parameters = player.getPlaybackParameters();
+        boolean repeat = isRepeatOne();
+        boolean wasPlayWhenReady = player.getPlayWhenReady();
+        playWhenReady = wasPlayWhenReady;
+        SpiderDebug.log("player-engine", "reloadLiveHls mpv attempt=%d/%d url=%s", liveHlsReloads, MAX_LIVE_HLS_RELOADS, spec.getUrl());
+        player.stop();
+        MediaItem item = ExoUtil.getMediaItem(spec, decode);
+        player.setMediaItem(item);
+        player.prepare();
+        player.setPlaybackParameters(parameters);
+        player.setRepeatMode(repeat ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
+        if (wasPlayWhenReady) player.play();
         else player.pause();
         return ErrorAction.RECOVERED;
     }

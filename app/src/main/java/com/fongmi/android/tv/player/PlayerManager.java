@@ -1258,6 +1258,7 @@ public class PlayerManager implements ParseCallback {
             }
             if (action == PlayerEngine.ErrorAction.RECOVERED) {
                 if (spec != null) setDanmakus(spec.getDanmakus());
+                if (player != null && player.getPlaybackState() == Player.STATE_BUFFERING) App.post(runnable, Constant.TIMEOUT_PLAY);
                 return;
             }
             if (action == PlayerEngine.ErrorAction.FATAL) {

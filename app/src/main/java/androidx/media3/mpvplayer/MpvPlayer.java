@@ -2,6 +2,7 @@ package androidx.media3.mpvplayer;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -12,6 +13,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import android.view.accessibility.CaptioningManager;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -31,6 +33,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
 
 import com.github.catvod.crawler.SpiderDebug;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.Futures;
@@ -41,6 +44,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,6 +66,11 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private static final int MAX_LOAD_START_RETRIES = 2;
     private static final double SECONDS_TO_MS = 1000.0;
     private static final double DEFAULT_SUBTITLE_TEXT_SIZE_FRACTION = 0.0533;
+    private static final double MICROSECONDS_TO_SECONDS = 1_000_000.0;
+    private static final String CONCAT_SOURCE_SEPARATOR = "***";
+    private static final String CONCAT_SOURCE_SEPARATOR_REGEX = "\\*\\*\\*";
+    private static final String CONCAT_DURATION_SEPARATOR = "|||";
+    private static final String CONCAT_DURATION_SEPARATOR_REGEX = "\\|\\|\\|";
     private static final String HLS_LOAD_OPTIONS = "demuxer=lavf,demuxer-lavf-format=hls,demuxer-lavf-probesize=10485760,demuxer-lavf-analyzeduration=5";
     private static final int RECENT_LOG_LIMIT = 32;
     private static final String HEADER_ACCEPT = "Accept";
@@ -329,6 +338,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         pendingSeekPositionMs = cachedPositionMs;
         if (initialized && playbackState != Player.STATE_IDLE) {
             seekMpv(cachedPositionMs);
+            if (currentLikelyHls) hlsProxy.preloadAround(cachedPositionMs);
             if (playbackState == Player.STATE_ENDED) playbackState = Player.STATE_BUFFERING;
         }
         invalidateState();
@@ -408,8 +418,19 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 "硬解 " + emptyDash(stringProperty("hwdec-current", "")),
                 "输出 " + emptyDash(stringProperty("current-vo", stringProperty("vo-configured", ""))),
                 "缓存 " + formatSeconds(doubleProperty("demuxer-cache-duration", 0)),
+                "代理 " + hlsProxy.diagnostics(),
                 "丢帧 " + Math.max(0, intProperty("frame-drop-count", 0)) + "/" + Math.max(0, intProperty("vo-drop-frame-count", 0)),
                 "章节 " + chapterText());
+    }
+
+    public boolean shouldReloadLiveHls(PlaybackException error) {
+        if (!currentLikelyHls || hlsProxy.isCurrentVodPlaylist()) return false;
+        String message = error == null ? "" : error.getMessage();
+        if (hlsProxy.isCurrentLivePlaylist() && hlsProxy.hasRecentCurrentHttpError()) return true;
+        if (!hlsProxy.isCurrentLivePlaylist()) return false;
+        return startsWith(message, ERROR_LOAD_FAILED)
+                || startsWith(message, ERROR_HLS_PLAYBACK_FAILED)
+                || (startsWith(message, ERROR_NO_AV_DATA) && durationMs() == C.TIME_UNSET);
     }
 
     @Override
@@ -665,6 +686,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 addSubtitleConfigurations();
                 if (pendingSeekPositionMs != C.TIME_UNSET) {
                     seekMpv(pendingSeekPositionMs);
+                    if (currentLikelyHls) hlsProxy.preloadAround(pendingSeekPositionMs);
                     pendingSeekPositionMs = C.TIME_UNSET;
                 }
                 safeSetPropertyBoolean("pause", !playWhenReady);
@@ -725,6 +747,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     }
 
     private boolean isLikelyHls(MediaItem item, String uri) {
+        if (uri != null && uri.startsWith("edl://")) return false;
         if (item.localConfiguration != null) {
             String mimeType = item.localConfiguration.mimeType;
             if (MimeTypes.APPLICATION_M3U8.equals(mimeType)
@@ -857,6 +880,10 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         return a != null && a.equalsIgnoreCase(b);
     }
 
+    private boolean startsWith(String value, String prefix) {
+        return value != null && value.startsWith(prefix);
+    }
+
     @Nullable
     private String originOf(String uri) {
         if (TextUtils.isEmpty(uri)) return null;
@@ -877,13 +904,47 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     }
 
     private String playableUri(Uri uri) throws IOException {
+        String value = uri.toString();
+        if (isConcatenatingUri(value)) return edlUri(value);
         if ("content".equalsIgnoreCase(uri.getScheme())) {
             ParcelFileDescriptor fd = context.getContentResolver().openFileDescriptor(uri, "r");
             if (fd == null) throw new IOException("Unable to open content uri: " + uri);
             contentFds.add(fd);
             return "fd://" + fd.getFd();
         }
-        return uri.toString();
+        return value;
+    }
+
+    private boolean isConcatenatingUri(String uri) {
+        return uri != null && uri.contains(CONCAT_SOURCE_SEPARATOR) && uri.contains(CONCAT_DURATION_SEPARATOR);
+    }
+
+    private String edlUri(String uri) throws IOException {
+        StringBuilder builder = new StringBuilder("edl://");
+        int count = 0;
+        for (String split : uri.split(CONCAT_SOURCE_SEPARATOR_REGEX)) {
+            String[] info = split.split(CONCAT_DURATION_SEPARATOR_REGEX, 2);
+            if (info.length < 2 || TextUtils.isEmpty(info[0])) continue;
+            if (count++ > 0) builder.append(';');
+            builder.append("file=").append(edlValue(info[0]));
+            long durationUs = parseLong(info[1], C.TIME_UNSET);
+            if (durationUs > 0) builder.append(",length=").append(String.format(Locale.US, "%.3f", durationUs / MICROSECONDS_TO_SECONDS));
+        }
+        if (count == 0) throw new IOException("Invalid concatenating media uri");
+        SpiderDebug.log("mpv", "concat uri converted to EDL segments=%d", count);
+        return builder.toString();
+    }
+
+    private String edlValue(String value) {
+        return "%" + value.getBytes(StandardCharsets.UTF_8).length + "%" + value;
+    }
+
+    private long parseLong(String value, long fallback) {
+        try {
+            return Long.parseLong(value);
+        } catch (Throwable ignored) {
+            return fallback;
+        }
     }
 
     private void addSubtitleConfigurations() {
@@ -1211,6 +1272,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         if (!initialized) return;
         safeSetPropertyDouble("sub-scale", subtitleScale());
         safeSetPropertyDouble("sub-pos", subtitlePosition());
+        applyCaptionStyle();
     }
 
     @Nullable
@@ -1468,6 +1530,41 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     private double subtitlePosition() {
         return Math.max(0, Math.min(150, 100.0 - subtitlePosition * 100.0));
+    }
+
+    private void applyCaptionStyle() {
+        CaptionStyle style = captionStyle();
+        safeSetPropertyString("sub-color", mpvColor(style.foreground));
+        safeSetPropertyString("sub-border-color", mpvColor(style.edge));
+        safeSetPropertyString("sub-shadow-color", mpvColor(style.edge));
+        safeSetPropertyString("sub-back-color", mpvColor(style.background));
+        safeSetPropertyDouble("sub-border-size", style.borderSize);
+        safeSetPropertyDouble("sub-shadow-offset", style.shadowOffset);
+    }
+
+    private CaptionStyle captionStyle() {
+        if (!PlayerSetting.isCaption()) return new CaptionStyle(Color.WHITE, Color.BLACK, Color.TRANSPARENT, 3.0, 0.0);
+        try {
+            CaptioningManager manager = (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
+            CaptioningManager.CaptionStyle style = manager == null ? null : manager.getUserStyle();
+            if (style == null) return new CaptionStyle(Color.WHITE, Color.BLACK, Color.TRANSPARENT, 3.0, 0.0);
+            int foreground = style.hasForegroundColor() ? style.foregroundColor : Color.WHITE;
+            int background = style.hasBackgroundColor() ? style.backgroundColor : Color.TRANSPARENT;
+            int edge = style.hasEdgeColor() ? style.edgeColor : Color.BLACK;
+            int edgeType = style.hasEdgeType() ? style.edgeType : CaptioningManager.CaptionStyle.EDGE_TYPE_OUTLINE;
+            return switch (edgeType) {
+                case CaptioningManager.CaptionStyle.EDGE_TYPE_NONE -> new CaptionStyle(foreground, edge, background, 0.0, 0.0);
+                case CaptioningManager.CaptionStyle.EDGE_TYPE_DROP_SHADOW -> new CaptionStyle(foreground, edge, background, 0.0, 2.0);
+                case CaptioningManager.CaptionStyle.EDGE_TYPE_RAISED, CaptioningManager.CaptionStyle.EDGE_TYPE_DEPRESSED -> new CaptionStyle(foreground, edge, background, 1.0, 1.0);
+                default -> new CaptionStyle(foreground, edge, background, 3.0, 0.0);
+            };
+        } catch (Throwable ignored) {
+            return new CaptionStyle(Color.WHITE, Color.BLACK, Color.TRANSPARENT, 3.0, 0.0);
+        }
+    }
+
+    private String mpvColor(int color) {
+        return String.format(Locale.US, "#%02X%02X%02X", Color.red(color), Color.green(color), Color.blue(color));
     }
 
     private String failedLoadedMediaMessage() {
@@ -1781,5 +1878,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             out.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (IOException ignored) {
         }
+    }
+
+    private record CaptionStyle(int foreground, int edge, int background, double borderSize, double shadowOffset) {
     }
 }
