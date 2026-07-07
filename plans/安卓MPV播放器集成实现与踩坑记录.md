@@ -60,6 +60,27 @@ MPV 作为独立播放器类型接入，不能自动切换到 Exo。播放失败
 - 失败日志会输出结构化诊断：uri、HLS、file-loaded、playback-restart、视频尺寸、position、duration、tracks、path、file-format、video/audio codec、hwdec、vo。
 - MPV 遇到 `MediaItem.DrmConfiguration` 会直接上报 `MPV_DRM_UNSUPPORTED`，不进入 libmpv `loadfile`。
 
+2026-07-07 再追加：
+
+- MPV 已实现 `REPEAT_MODE_ONE`，现有“单集循环/重复播放”按钮可通过同一套 `PlayerManager.setRepeatOne()` 生效。
+- MPV `chapter-list` / `chapter` 已映射到 Media3 `MediaEdition`，现有“标题/章节”按钮可展示并跳转章节。当前这是兼容现有 UI 的务实实现；长期如果要区分“版本/Edition”和“章节/Chapter”，应再抽独立 Chapter 模型。
+- MPV 字幕样式已接入现有字幕面板：
+  - 字体大小 -> `sub-scale`
+  - 上下位置 -> `sub-pos`
+  - reset -> `sub-scale=1.0`、`sub-pos=100`
+  - `sub-pos` 的方向与 Exo `SubtitleView.setBottomPosition()` 相反，必须用 `100 - position * 100` 映射，才能保证 UI 的“上移/下移”方向一致。
+- MPV 运行态诊断已接入 OSD 和当前媒体能力报告，包含 file format、video/audio codec、`hwdec-current`、VO、demuxer cache、丢帧、章节数等。
+- 现有播放参数面板中的通用项已映射到 MPV：
+  - 缓冲时间 -> `demuxer-readahead-secs` + `cache-secs`
+  - 缓冲容量 -> `demuxer-max-bytes`
+  - 回退缓冲 -> `demuxer-max-back-bytes`
+  - 高性能缓冲 -> 更大的 demuxer cache / stream buffer
+  - 音频直通 -> `audio-spdif=ac3,eac3,dts,dts-hd,truehd`
+  - AAC 优先 -> 没有手动音轨 override 时优先选择 AAC 音轨 id
+- MPV hard 模式已显式设置 `hwdec-software-fallback=no`，避免 libmpv 在视频硬解失败后自行切到软解。soft 模式仍由用户手动选择 `hwdec=no`。
+- 音频不要套用“视频硬解失败切软解”的策略。MPV 音频解码天然走 FFmpeg/AudioTrack 链路；直通只对 AC3/EAC3/DTS/TrueHD 等编码启用，AAC 优先只是选轨偏好，不是强制转码。
+- LUT/Media3 VideoEffect 暂缓，不在当前 MPV parity 批次实现。MPV 后续应走 `glsl-shaders` / `vf` / profile，而不是硬兼容 Exo 的 Media3 `Effect`。
+
 ### Header 处理
 
 MPV 路径会从 `MediaItem.requestMetadata.extras` 读取原始请求头，并补齐：
@@ -405,6 +426,99 @@ MPV 之前的黑屏/连接超时主要出现在“首播成功后切集或切到
 - recent mpv log。
 - 是否出现旧 session item 404。
 - 是否有 video size、track-list、hwdec-current、vo 信息。
+
+### 13. MPV 硬解失败不能由 libmpv 自动切软解
+
+问题：
+
+外层 `MpvPlayerEngine.handleError()` 不返回 `DECODE`，只能保证项目不会走 `PlayerManager.retryHardDecodeSwitch()`。但 mpv 自身还有硬解失败后回退到软件解码的选项。官方 manual 中该选项为：
+
+- `hwdec-software-fallback=<yes|no|N>`，默认约等价于连续若干帧硬解失败后回退软解。
+
+如果不显式关闭，用户选择“硬解”时仍可能被 libmpv 内部切到软解，违背“视频硬解失败只能手动切软解”的约束。
+
+处理：
+
+`MpvPlayerEngine.buildConfig()` 在 hard 模式设置：
+
+- `hwdec=mediacodec,mediacodec-copy`
+- `hwdec-software-fallback=no`
+
+soft 模式由用户手动切换，设置：
+
+- `hwdec=no`
+
+对应 Exo：
+
+Exo 的 decoder fallback 是 `DefaultRenderersFactory.setEnableDecoderFallback(...)` 控制的播放器内部能力。MPV 不直接复用这个开关。对 MPV 来说，视频 hard/soft 的边界由 `hwdec` 和 `hwdec-software-fallback` 保证。
+
+后续注意：
+
+- OSD 必须显示 `hwdec-current`，方便确认实际是否硬解。
+- 失败时仍保持 MPV 报错，不允许自动切 Exo。
+- 如要做“受控软解重试”，必须单独设计 UI/确认策略，不能默认开启。
+
+### 14. MPV 缓冲不是 Exo LoadControl，但要映射现有通用设置
+
+问题：
+
+Exo 的缓冲由 `LoadControl`、`OkHttpDataSource`、`SimpleCache`、`PreCache` 等多层共同完成。MPV 没有 Exo `LoadControl`，但有 demuxer cache / stream buffer / cache pause 体系。如果只设置固定 `demuxer-readahead-secs=20`，播放参数面板对 MPV 基本无感。
+
+处理：
+
+当前 MPV 缓冲映射：
+
+- `cache=yes`
+- `cache-secs=<缓冲时间映射>`
+- `cache-pause=yes`
+- `cache-pause-initial=no`
+- `cache-pause-wait=<1..10 秒>`
+- `demuxer-max-bytes=<缓冲容量>`
+- `demuxer-max-back-bytes=<回退缓冲>`
+- `demuxer-readahead-secs=<5..60 秒>`
+- `stream-buffer-size=1MiB/4MiB`
+
+这里没有启用 `demuxer-cache-wait=yes`，因为它会要求开播前尽量填满 demuxer cache，容易把正常开播变成“黑屏等待”。当前更适合用 `cache-pause-wait` 控制重缓冲恢复等待。
+
+对应 Exo：
+
+Exo 高性能缓冲会增加 max buffer、target buffer bytes 和带宽估算。MPV 当前只映射到内存 demuxer cache；Exo `PreCache` 和 `SimpleCache` 还没有接入 MPV。后续如果要做离线/分片缓存，应优先在 `MpvHlsProxy` 层实现并严格处理 header、Range、key、session 隔离。
+
+### 15. 字幕样式不要直接操作 Exo SubtitleView
+
+问题：
+
+Exo 字幕由 `PlayerView.getSubtitleView()` 渲染，MPV 字幕由 libass/OSD 渲染。MPV 播放时继续只改 Exo `SubtitleView`，UI 设置会保存，但屏幕上的 MPV 字幕不会变化。
+
+处理：
+
+`PlayerEngine` 新增：
+
+- `supportsSubtitleStyle()`
+- `setSubtitleStyle(float textSize, float position)`
+
+`SubtitleDialog` 检测当前播放器支持原生字幕样式时，不再操作 `SubtitleView`，而是保存 `PlayerSetting` 后直接调用 `PlayerManager.setSubtitleStyle()`。MPV 侧映射到：
+
+- `sub-scale`
+- `sub-pos`
+
+对应 Exo：
+
+Exo 仍保留原逻辑，继续操作 `SubtitleView`。这属于“同一 UI、不同底层实现”，不是强行让 MPV 共享 Exo 渲染组件。
+
+### 16. 章节/标题的最佳实践取舍
+
+问题：
+
+现有 UI 使用 Media3 `MediaEdition` 承载“标题/版本”列表。MPV 的常见能力是 `chapter-list` / `chapter`，语义更接近章节，不完全等价于多版本 Edition。
+
+处理：
+
+为了让现有“标题”按钮先在 MPV 下可用，当前把 MPV `chapter-list` 映射为 `MediaEdition.edition(...)`，用户选择后写入 MPV `chapter` 属性跳转。标签优先使用 MPV chapter title，没有 title 时显示 `Chapter N`。
+
+对应 Exo：
+
+Exo 直接暴露 Media3 `getCurrentMediaEditions()` 和 `selectEdition()`。MPV 当前只是兼容 UI 契约。长期如果要同时支持“多版本/多标题”和“章节”，应新增 `Chapter` 模型或在 UI 上区分展示，避免把两个概念混在一起。
 
 ## 参考过的开源项目
 

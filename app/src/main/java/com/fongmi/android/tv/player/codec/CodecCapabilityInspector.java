@@ -63,11 +63,16 @@ public final class CodecCapabilityInspector {
     }
 
     public static String buildCurrentMediaReport(Context context, PlayerManager player, String keyword) {
-        if (player == null || !player.isExo()) return "当前播放器不是 Exo，无法读取 Media3 轨道支持信息";
+        if (player == null) return "当前播放器不可用";
         Tracks tracks = player.getCurrentTracks();
         if (tracks == null || tracks.isEmpty()) return "当前还没有读取到媒体轨道，请开始播放后再查询";
         String query = normalize(keyword);
         StringBuilder builder = new StringBuilder();
+        String runtime = player.isMpv() ? player.getRuntimeDiagnostics() : "";
+        boolean runtimeMatched = !TextUtils.isEmpty(runtime) && (TextUtils.isEmpty(query) || normalize(runtime).contains(query));
+        if (runtimeMatched) {
+            builder.append("MPV 运行态\n").append(runtime);
+        }
         int total = 0;
         int matched = 0;
         int videoIndex = 0;
@@ -80,11 +85,12 @@ public final class CodecCapabilityInspector {
                 String text = formatTrack(context, type, type == C.TRACK_TYPE_VIDEO ? ++videoIndex : ++audioIndex, format, group.getTrackSupport(i), group.isTrackSelected(i));
                 total++;
                 if (!TextUtils.isEmpty(query) && !normalize(text).contains(query)) continue;
-                if (matched++ > 0) builder.append("\n\n");
+                if (builder.length() > 0) builder.append("\n\n");
+                matched++;
                 builder.append(text);
             }
         }
-        if (matched == 0) {
+        if (matched == 0 && !runtimeMatched) {
             if (total == 0) return "当前媒体没有视频/音频轨道";
             return "当前媒体轨道没有匹配关键词";
         }

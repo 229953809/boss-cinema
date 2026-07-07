@@ -313,6 +313,7 @@ public class PlayerOsdController {
         String preload = "预载" + switchText(PreloadSetting.isPreload());
         String frameRateMatch = player.isExo() ? "帧率匹配 开" : "";
         String softTune = getSoftDecodeTuneText(player);
+        String mpv = player.isMpv() ? player.getRuntimeDiagnostics() : "";
         String playerText = join(" / ", player.getPlayerText(), player.getDecodeText(), render, "隧道" + tunnel, "性能" + performance, frameRateMatch, preload, "直通" + passThrough, softTune, player.isExo() ? "兜底开" : "");
         String playback = join(" / ", state, buffer, "重缓冲 " + rebuffer, "掉帧 " + snapshot.droppedFrames());
         String error = getErrorText(player, snapshot);
@@ -325,6 +326,7 @@ public class PlayerOsdController {
                 row("网络", network),
                 row("状态", playback),
                 row("播放", playerText),
+                TextUtils.isEmpty(mpv) ? "" : row("MPV", mpv),
                 row("来源", summarizeSource(player.getUrl())));
         String extra = join("\n",
                 row("设备", getDeviceText()),
@@ -418,7 +420,7 @@ public class PlayerOsdController {
     }
 
     private AudioTrackState getAudioTrackState(PlayerManager player) {
-        if (player == null || !player.isExo()) return AudioTrackState.empty();
+        if (player == null) return AudioTrackState.empty();
         Tracks tracks = player.getCurrentTracks();
         if (tracks == null) return AudioTrackState.empty();
         AudioTrackCandidate selected = null;
@@ -446,7 +448,7 @@ public class PlayerOsdController {
     }
 
     private VideoTrackState getVideoTrackState(PlayerManager player) {
-        if (player == null || !player.isExo()) return VideoTrackState.empty();
+        if (player == null) return VideoTrackState.empty();
         Tracks tracks = player.getCurrentTracks();
         if (tracks == null) return VideoTrackState.empty();
         VideoTrackCandidate selected = null;

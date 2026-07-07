@@ -75,6 +75,13 @@ public interface PlayerEngine {
         return null;
     }
 
+    default boolean supportsSubtitleStyle() {
+        return false;
+    }
+
+    default void setSubtitleStyle(float textSize, float position) {
+    }
+
     default boolean haveTitle() {
         return false;
     }
@@ -92,6 +99,10 @@ public interface PlayerEngine {
 
     default boolean selectEdition(MediaEdition edition) {
         return false;
+    }
+
+    default String getRuntimeDiagnostics() {
+        return "";
     }
 
     String getErrorMessage(PlaybackException e);

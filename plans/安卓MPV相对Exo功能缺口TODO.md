@@ -19,6 +19,35 @@
 - Exo 只能作为成熟实现的参照，不是 MPV 的自动 fallback。
 - 任何 MPV 问题优先补齐 MPV 输入层、生命周期或能力映射。
 
+## 当前接续状态
+
+下一次重新打开 Codex 时，优先阅读这份文档即可知道 MPV 继续工作方向。更细的踩坑和实现原因再读：
+
+- `plans/安卓MPV播放器集成实现与踩坑记录.md`
+- `plans/安卓libmpv二次开发指南.md`
+- `plans/安卓MPV播放器最佳实践与专项优化路线.md`
+
+截至 2026-07-07 当前批次已补齐：
+
+- 轨道发现/选择：MPV `track-list` -> Media3 `Tracks`，`vid/aid/sid` 选择，字幕关闭 `sid=no`。
+- 字幕/音频延迟：Media3 毫秒接口 -> MPV `sub-delay` / `audio-delay` 秒属性。
+- 字幕样式：现有字幕面板可控制 MPV `sub-scale` / `sub-pos`。
+- 重复播放：MPV 支持 `REPEAT_MODE_ONE`。
+- 章节/标题：MPV `chapter-list` / `chapter` 映射到现有 MediaEdition/标题 UI。
+- 播放参数面板通用项：缓冲时间、缓冲容量、回退缓冲、音频直通、AAC 优先已映射到 MPV。
+- 诊断：OSD 和当前媒体报告可显示 MPV runtime diagnostics。
+- 视频硬解策略：hard 模式已关闭 `hwdec-software-fallback`，视频硬解失败不自动切软解；软解只能用户手动切。
+- DRM：MPV 遇到 MediaDrm 资源明确报 `MPV_DRM_UNSUPPORTED`。
+- LUT/Media3 VideoEffect：用户已决定暂缓，不在当前批次实现。
+
+最近下一步优先级：
+
+1. 实机验证本批次所有按钮：轨道、字幕、延迟、重复、章节、播放参数面板、OSD 诊断。
+2. 补 native `END_FILE reason/error`，减少靠日志猜错因。
+3. 补 HLS proxy 的 fMP4、`#EXT-X-MAP`、`#EXT-X-BYTERANGE`、AES key、live playlist 专项验证。
+4. 评估 MPV HLS proxy 分片缓存/预取，不要直接照搬 Exo `PreCache`。
+5. 做 MPV 特有能力：双字幕、截图/缩略图、stats、shader/profile。LUT 单独排期。
+
 ## 优先级定义
 
 - P0：影响基础播放、切集、错误定位，或者会造成用户明显黑屏/超时/功能不可见。
@@ -60,7 +89,7 @@ Exo 对应实现：
 - 关闭字幕可生效。
 - 外挂字幕 `sub-add` 后能进入字幕列表。
 
-### [ ] 2. 外挂字幕完整能力（字幕/音频延迟已补）
+### [ ] 2. 外挂字幕完整能力（字幕/音频延迟/基础样式已补）
 
 现状：
 
@@ -68,6 +97,7 @@ Exo 对应实现：
 - MPV 字幕轨已经通过 `track-list` 回填到 Media3 `Tracks`。
 - `COMMAND_GET_TEXT_OFFSET` / `COMMAND_SET_TEXT_OFFSET` 已映射到 MPV `sub-delay`。
 - `COMMAND_GET_AUDIO_OFFSET` / `COMMAND_SET_AUDIO_OFFSET` 已映射到 MPV `audio-delay`。
+- 现有字幕样式面板已支持 MPV：字体大小映射 `sub-scale`，位置映射 `sub-pos`。
 - Exo 的字幕样式由 `ExoUtil.setPlayerView()` 配置 `SubtitleView`，MPV 走 libass/osd，不共享这套 UI 字幕渲染。
 
 Exo 对应实现：
@@ -80,7 +110,8 @@ Exo 对应实现：
 
 - 保留 `sub-add` 和轨道刷新，确保外挂字幕加入后 UI 可选择。
 - 已完成：MPV 字幕延迟映射到 `sub-delay`，音频延迟映射到 `audio-delay`。
-- 梳理 `PlayerSetting` 里的字幕字体大小、位置、系统 caption 设置，确认哪些能通过 mpv option/property 对齐，哪些需要标注“不共享 Exo SubtitleView”。
+- 已完成：`PlayerSetting` 字幕字体大小、位置通过 `PlayerEngine.setSubtitleStyle()` 同步给 MPV。
+- 待评估：系统 caption style、ASS override、边距、描边、字体、第二字幕样式是否需要 MPV 专用 UI。
 - 对 ASS/SSA/SRT/VTT 分别测试。
 
 验收：
@@ -88,6 +119,7 @@ Exo 对应实现：
 - MPV 可加载外部字幕。
 - 字幕列表可见、可切换、可关闭。
 - 字幕延迟调整可用。
+- 字幕大小/位置调整可用。
 - 常见字幕格式不崩溃、不误报连接超时。
 
 ### [x] 3. DRM 支持策略（当前明确为 MPV 不支持 MediaDrm）
@@ -206,12 +238,21 @@ Exo 对应实现：
 
 ## P1 待补齐
 
-### [ ] 7. 缓存和预加载能力
+### [ ] 7. 缓存和预加载能力（MPV demuxer/cache 映射已补，代理缓存待做）
 
 现状：
 
 - Exo 有 `PreCache`，会根据当前位置、seek、预加载设置提前缓存当前媒体后续片段。
-- MPV 只设置了 mpv 自身 demuxer cache：`cache=yes`、`demuxer-max-bytes`、`demuxer-readahead-secs`。
+- MPV 已映射 mpv 自身 demuxer/cache：
+  - `cache=yes`
+  - `cache-secs`
+  - `cache-pause=yes`
+  - `cache-pause-initial=no`
+  - `cache-pause-wait`
+  - `demuxer-max-bytes`
+  - `demuxer-max-back-bytes`
+  - `demuxer-readahead-secs`
+  - `stream-buffer-size`
 - MPV HLS 代理目前没有接入 Exo 的 `SimpleCache`。
 
 Exo 对应实现：
@@ -222,6 +263,7 @@ Exo 对应实现：
 实施方向：
 
 - 先判断 MPV 是否需要共用 Exo Cache，还是在 HLS proxy 层实现轻量分片缓存。
+- 不启用 `demuxer-cache-wait=yes` 作为默认策略，避免开播前长时间黑屏等待。
 - 如果接入代理缓存，要保证 headers、Range、key、session 不串。
 - 对 VOD HLS 优先，直播流不要盲目缓存。
 
@@ -231,13 +273,16 @@ Exo 对应实现：
 - 缓存错误不会影响播放。
 - seek 后缓存从新位置开始。
 
-### [ ] 8. 硬解/软解和解码 fallback
+### [ ] 8. 硬解/软解和解码 fallback（视频自动软解已禁用，手动软解保留）
 
 现状：
 
 - MPV 通过 `hwdec=mediacodec,mediacodec-copy` 或 `no` 控制硬解/软解。
+- hard 模式已显式设置 `hwdec-software-fallback=no`，禁止 libmpv 在视频硬解失败后自动切软解。
+- soft 模式仍由用户手动切换，设置 `hwdec=no`。
 - Exo 有硬解、软解、FFmpeg renderer、decoder fallback、硬解失败重试等机制。
-- MPV 失败时当前基本 fatal，不具备细粒度 decode fallback。
+- MPV 视频失败时当前基本 fatal，不自动切 Exo，也不自动切软解。
+- 音频走 MPV/FFmpeg 解码链路；直通只对 AC3/EAC3/DTS/TrueHD 等编码启用，AAC 优先是选轨偏好。
 
 Exo 对应实现：
 
@@ -247,8 +292,9 @@ Exo 对应实现：
 
 实施方向：
 
-- 增加 MPV 当前 decoder/hwdec 诊断属性采集。
-- 明确 MPV 硬解失败时是否尝试软解，尝试条件必须受控，不能自动切播放器。
+- 已增加 MPV 当前 decoder/hwdec 诊断属性采集：`hwdec-current`、codec、VO、cache、丢帧等。
+- 维持策略：视频硬解失败不自动软解，只允许用户手动切软解。
+- 如未来要做受控软解重试，必须先做 UI/配置确认，不得默认开启。
 - 4K/高帧率资源要记录帧率、解码器、drop frame、cache 状态。
 
 验收：
@@ -257,12 +303,14 @@ Exo 对应实现：
 - 可手动切软解并继续用 MPV。
 - 不出现 MPV 失败自动切 Exo。
 
-### [ ] 9. MediaEdition/多版本/标题选择
+### [x] 9. 章节/标题选择（MPV chapter-list 已映射）
 
 现状：
 
 - ExoPlayerEngine 暴露 `getCurrentMediaEditions()` 和 `selectEdition()`。
-- MPV 返回 empty，不支持 `haveTitle()`。
+- MPV 已读取 `chapter-list` / `chapter-list/count`，映射为 Media3 `MediaEdition`。
+- MPV `selectEdition()` 写入 `chapter` 属性跳转章节。
+- 现有“标题”按钮可以在 MPV 有章节时显示和选择。
 
 Exo 对应实现：
 
@@ -270,13 +318,13 @@ Exo 对应实现：
 
 实施方向：
 
-- 调研 Media3 当前 MediaEdition 来源和 FongMi 上游扩展实现。
-- 看 MPV 是否能用 chapters/editions/ordered chapters 映射。
-- 如果 MPV 无法等价支持，明确在 UI 上隐藏对应功能。
+- 已实施：用 MPV chapters 兼容现有 MediaEdition UI。
+- 最佳实践判断：章节和多版本 Edition 语义不同。当前实现优先复用现有 UI，长期如果资源同时存在多版本和章节，应新增 Chapter 模型或 UI 分组。
+- 待实机验证：MKV/MP4 内嵌章节、无标题章节、播放中章节自动更新选中态。
 
 验收：
 
-- 支持的资源可以切换 edition。
+- 支持的资源可以切换章节。
 - 不支持时 UI 不误导。
 
 ### [ ] 10. 拼接源支持
@@ -323,12 +371,13 @@ Exo 对应实现：
 - 直播长时间播放或网络抖动后能恢复。
 - VOD 404 仍明确报错。
 
-### [ ] 12. 诊断面板数据
+### [x] 12. 诊断面板数据（基础运行态已补）
 
 现状：
 
 - Exo 有 `PlaybackAnalyticsListener`，OSD 可以显示格式、decoder、错误、buffer 等信息。
-- MPV 当前只有部分日志和 video size，`getVideoFormat()` 返回 null。
+- MPV 已补 `getVideoFormat()`，从当前视频轨道提取 Format，兜底取第一条视频轨。
+- MPV 已补 `getRuntimeDiagnostics()`，OSD 和当前媒体报告能显示格式、codec、硬解、VO、cache、丢帧、章节。
 
 Exo 对应实现：
 
@@ -338,9 +387,9 @@ Exo 对应实现：
 
 实施方向：
 
-- MPV 增加诊断快照：url、是否 HLS proxy、proxy session、demuxer、video/audio codec、hwdec、width/height/fps、cache duration、drop frame、last error。
-- `MpvPlayerEngine.getVideoFormat()` 至少返回 width/height/codecs/sampleMimeType 的可用部分。
-- OSD 对 MPV 显示“MPV native”而不是套用 Exo decoder 名称。
+- 已完成：MPV 增加基础运行态诊断：demuxer/file format、video/audio codec、hwdec、VO、cache duration、drop frame、chapter count。
+- 已完成：`MpvPlayerEngine.getVideoFormat()` 返回可用视频 Format。
+- 待增强：proxy session、HLS playlist/key/segment 状态、native END_FILE reason/error、current-tracks 更细属性。
 
 验收：
 
@@ -536,11 +585,11 @@ mpv-fix-功能名-YYYYMMDD-HHMMSS
 优先顺序：
 
 1. P0-5：补 native END_FILE reason/error，上报真实失败原因。
-2. P0-1：补 track-list/aid/sid/vid，解决音轨字幕轨不可见。
-3. P0-4：补 HLS proxy Range/byte-range/fMP4/key 诊断。
-4. P1-12：补 MPV 诊断快照和 OSD 显示。
-5. P1-8：补 MPV 硬解失败诊断和受控软解重试。
+2. P0-4：补 HLS proxy fMP4、`#EXT-X-MAP`、`#EXT-X-BYTERANGE`、AES key、live playlist 的专项验证和缺口修复。
+3. 本批次实机回归：轨道、字幕样式、字幕/音频延迟、重复播放、章节、播放参数面板、OSD 诊断。
+4. P1-7：评估 MPV HLS proxy 分片缓存/预取，不直接照搬 Exo `PreCache`。
+5. P2：做 MPV 特有能力，优先双字幕、截图/缩略图、stats；LUT/shader 用户已决定单独排期。
 
 理由：
 
-先补错误原因和诊断，后续遇到黑屏才能少走弯路；轨道和 HLS proxy 是用户最容易感知的功能差距；性能和增强能力应在基础兼容稳定后推进。
+先补真实错误原因，后续遇到黑屏才能少走弯路；HLS proxy 是 Exo 能播而 MPV 不能播的主要工程差距；本批次新增的通用按钮必须先实机确认，再推进缓存和 MPV 专项能力。

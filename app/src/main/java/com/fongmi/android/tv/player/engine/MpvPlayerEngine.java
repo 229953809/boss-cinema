@@ -1,5 +1,8 @@
 package com.fongmi.android.tv.player.engine;
 
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MediaEdition;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -15,6 +18,8 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.bean.Track;
 import com.fongmi.android.tv.player.exo.ExoUtil;
 import com.fongmi.android.tv.player.exo.TrackUtil;
+import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
+import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.crawler.SpiderDebug;
 
@@ -23,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 
 @UnstableApi
 public class MpvPlayerEngine implements PlayerEngine {
+
+    private static final long MB = 1024L * 1024L;
 
     private MpvPlayer player;
     private PlaySpec spec;
@@ -43,6 +50,16 @@ public class MpvPlayerEngine implements PlayerEngine {
     @Override
     public void release() {
         player.release();
+    }
+
+    @Override
+    public boolean isRepeatOne() {
+        return player.getRepeatMode() == Player.REPEAT_MODE_ONE;
+    }
+
+    @Override
+    public void setRepeatOne(boolean repeat) {
+        player.setRepeatMode(repeat ? Player.REPEAT_MODE_ONE : Player.REPEAT_MODE_OFF);
     }
 
     @Override
@@ -144,6 +161,50 @@ public class MpvPlayerEngine implements PlayerEngine {
     }
 
     @Override
+    public Format getVideoFormat() {
+        Format fallback = null;
+        for (Tracks.Group group : getCurrentTracks().getGroups()) {
+            if (group.getType() != C.TRACK_TYPE_VIDEO) continue;
+            for (int i = 0; i < group.length; i++) {
+                Format format = group.getTrackFormat(i);
+                if (group.isTrackSelected(i)) return format;
+                if (fallback == null) fallback = format;
+            }
+        }
+        return fallback;
+    }
+
+    @Override
+    public boolean supportsSubtitleStyle() {
+        return true;
+    }
+
+    @Override
+    public void setSubtitleStyle(float textSize, float position) {
+        player.setSubtitleStyle(textSize, position);
+    }
+
+    @Override
+    public boolean haveTitle() {
+        return !getCurrentMediaEditions().isEmpty();
+    }
+
+    @Override
+    public List<MediaEdition> getCurrentMediaEditions() {
+        return player.getCurrentMediaEditions();
+    }
+
+    @Override
+    public boolean selectEdition(MediaEdition edition) {
+        return player.selectEdition(edition);
+    }
+
+    @Override
+    public String getRuntimeDiagnostics() {
+        return player.getRuntimeDiagnostics();
+    }
+
+    @Override
     public String getErrorMessage(PlaybackException e) {
         String message = e.getMessage();
         if (startsWith(message, MpvPlayer.ERROR_HLS_PLAYBACK_FAILED)) return ResUtil.getString(R.string.error_play_mpv_hls_unsupported);
@@ -211,8 +272,45 @@ public class MpvPlayerEngine implements PlayerEngine {
     }
 
     private MpvPlayerConfig buildConfig() {
+        int readaheadSecs = getReadaheadSecs();
         return MpvPlayerConfig.builder(App.get())
                 .hwdec(decode == HARD ? "mediacodec,mediacodec-copy" : "no")
+                .hwdecSoftwareFallback(decode == HARD ? "no" : "3")
+                .audioSpdif(PlayerSetting.isAudioPassThrough() ? "ac3,eac3,dts,dts-hd,truehd" : "no")
+                .preferAac(PlayerSetting.isPreferAAC())
+                .demuxerMaxBytes(getDemuxerMaxBytes())
+                .demuxerMaxBackBytes(getDemuxerMaxBackBytes())
+                .demuxerReadaheadSecs(readaheadSecs)
+                .cacheSecs(readaheadSecs)
+                .cachePauseWaitSecs(getCachePauseWaitSecs())
+                .streamBufferSize(getStreamBufferSize())
                 .build();
+    }
+
+    private long getDemuxerMaxBytes() {
+        int configured = PlayerSetting.getBufferBytes();
+        if (configured > 0) return configured;
+        return PlaybackPerformanceSetting.isHighBufferEnabled() ? 128 * MB : 64 * MB;
+    }
+
+    private long getDemuxerMaxBackBytes() {
+        return switch (PlayerSetting.getBackBufferOption()) {
+            case 1 -> 16 * MB;
+            case 2 -> 32 * MB;
+            case 3 -> 64 * MB;
+            default -> 0;
+        };
+    }
+
+    private int getReadaheadSecs() {
+        return Math.max(5, Math.min(60, PlayerSetting.getBuffer() * 6));
+    }
+
+    private int getCachePauseWaitSecs() {
+        return Math.max(1, Math.min(10, PlayerSetting.getBuffer()));
+    }
+
+    private long getStreamBufferSize() {
+        return PlaybackPerformanceSetting.isHighBufferEnabled() ? 4 * MB : MB;
     }
 }

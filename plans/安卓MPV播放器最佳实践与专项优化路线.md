@@ -141,8 +141,8 @@ MPV 的核心能力强于 Exo，尤其在容器、字幕、滤镜、shader、Lua
 
 本项目现状：
 
-- 已有 `MpvHlsProxy`、headers 补齐和 PNG 前缀 TS 清洗。
-- 缺失 Range/fMP4/key/live 刷新系统验证，是下一步 P0。
+- 已有 `MpvHlsProxy`、headers 补齐、PNG 前缀 TS 清洗、HTTP `Range` 转发、上游 `206` / `Content-Range` / `Accept-Ranges` 透传、二进制请求 `Accept-Encoding: identity`。
+- 缺失 fMP4、`#EXT-X-MAP`、`#EXT-X-BYTERANGE`、AES key、live playlist 刷新系统验证，是下一步 P0。
 
 ### 4. 轨道发现与选择
 
@@ -173,8 +173,10 @@ MPV 的核心能力强于 Exo，尤其在容器、字幕、滤镜、shader、Lua
 
 本项目现状：
 
-- `MpvPlayerEngine.setTrack()`、`resetTrack()`、`haveTrack()`、`getCurrentTracks()` 仍为空。
-- 轨道能力是最适合优先补齐的 P0，且不依赖 JNI node/list。
+- `MpvPlayerEngine.setTrack()`、`resetTrack()`、`haveTrack()`、`getCurrentTracks()` 已复用 Exo 同款 `TrackUtil`。
+- `MpvPlayer` 已将 MPV `track-list` / `track-list/count` 映射为 Media3 `Tracks`，选择时写入 `vid`、`aid`、`sid`。
+- AAC 优先已做成“无手动 override 时优先选择 AAC 音轨”，不会覆盖用户手动选轨。
+- 后续重点是实机验证轨道弹窗、历史轨道恢复、外挂字幕加入后的 track-list 刷新，以及第二字幕 `secondary-sid`。
 
 ### 5. 字幕与音频延迟
 
@@ -196,8 +198,10 @@ MPV 的核心能力强于 Exo，尤其在容器、字幕、滤镜、shader、Lua
 
 本项目现状：
 
-- `sub-add` 已有，但没有回填轨道和 offset command。
-- 后续应先把 Media3 text/audio offset 映射到 MPV 属性，再做完整字幕样式 UI。
+- `sub-add` 已有，外挂字幕加入后会刷新轨道。
+- Media3 text/audio offset 已映射到 MPV `sub-delay` / `audio-delay`。
+- 现有字幕面板已可控制 MPV 原生字幕大小/位置，映射到 `sub-scale` / `sub-pos`。
+- 后续重点是系统 caption style、ASS override、字体/描边/边距、第二字幕样式，以及 SRT/VTT/ASS/SSA/PGS/VOBSUB 分格式验收。
 
 ### 6. 错误事件与诊断
 
@@ -238,7 +242,10 @@ MPV 的核心能力强于 Exo，尤其在容器、字幕、滤镜、shader、Lua
 本项目现状：
 
 - 已通过 engine decode 控制 `hwdec`。
-- 缺少失败时软解重试策略和明确诊断。建议先做“手动切软解后仍留在 MPV”，再评估受控自动软解重试。
+- hard 模式已显式设置 `hwdec-software-fallback=no`，视频硬解失败不允许 MPV 内部自动软解。
+- soft 模式保留用户手动切换，设置 `hwdec=no`。
+- OSD/当前媒体报告已显示基础 MPV 运行态诊断：codec、`hwdec-current`、VO、cache、丢帧、章节。
+- 后续如果要做受控软解重试，必须先做 UI/配置确认，不能默认开启。
 
 ## MPV 特有能力专项
 

@@ -61,7 +61,10 @@ curl -L -x http://127.0.0.1:7897 https://raw.githubusercontent.com/mpv-player/mp
 - `track-list` 提供 `count`、`N/id`、`N/type`、`N/title`、`N/lang`、`N/codec`、`N/selected`、`N/demux-w`、`N/demux-h`、`N/demux-fps` 等子属性，足够作为 Media3 `Tracks` 映射来源。
 - `vid`、`aid`、`sid` 是轨道选择属性，运行期返回实际选中的轨道；不存在时可能返回 `no`。
 - `audio-delay`、`sub-delay` 是音频/字幕延迟对应属性。
+- `sub-scale`、`sub-pos` 可用于 MPV 原生字幕大小/位置；`sub-pos=100` 是默认位置，数值更小更靠上，数值大于 100 更靠下。
 - `user-agent`、`http-header-fields`、`referrer`、`hls-bitrate` 是官方网络选项；`http-header-fields` 是 string list。
+- `hwdec-software-fallback` 控制硬解失败后是否回退软解；本项目 hard 模式必须设置为 `no`，因为视频软解只能用户手动切。
+- `cache-secs`、`cache-pause`、`cache-pause-wait`、`demuxer-max-bytes`、`demuxer-max-back-bytes`、`demuxer-readahead-secs`、`stream-buffer-size` 是当前 MPV 缓冲映射的主要选项。
 - 原生 `mpv_event_end_file` 有 `reason` 和 `error`，当前项目 JNI 只转发 event id，因此需要扩展 JNI 才能避免继续靠日志猜失败原因。
 
 ## 当前架构
@@ -205,17 +208,28 @@ observeProperty(String property, int format)
 - `opengl-es=yes`
 - `hwdec=mediacodec,mediacodec-copy` 或 `no`
 - `hwdec-codecs=h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1`
+- `hwdec-software-fallback=no`（hard 模式）或 `3`（soft 模式保留默认语义）
 - `ao=audiotrack,opensles`
+- `audio-spdif=no` 或 `ac3,eac3,dts,dts-hd,truehd`
 - `audio-set-media-role=yes`
 - `tls-verify=yes/no`
 - `tls-ca-file=<cacert.pem>`
 - `input-default-bindings=yes`
 - `cache=yes`
+- `cache-secs=<5..60>`
+- `cache-pause=yes`
+- `cache-pause-initial=no`
+- `cache-pause-wait=<1..10>`
 - `http-allow-redirect=yes`
 - `hls-bitrate=max`
 - `demuxer-max-bytes=<config>`
 - `demuxer-max-back-bytes=<config>`
-- `demuxer-readahead-secs=20`
+- `demuxer-readahead-secs=<5..60>`
+- `stream-buffer-size=1MiB/4MiB`
+- `sub-ass=yes`
+- `embeddedfonts=yes`
+- `sub-fix-timing=yes`
+- `sub-use-margins=yes`
 - `volume-max=100`
 - `msg-level=<config>`
 

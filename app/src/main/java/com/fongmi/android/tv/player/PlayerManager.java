@@ -298,6 +298,18 @@ public class PlayerManager implements ParseCallback {
         return engine.getVideoFormat();
     }
 
+    public boolean supportsSubtitleStyle() {
+        return engine != null && engine.supportsSubtitleStyle();
+    }
+
+    public void setSubtitleStyle(float textSize, float position) {
+        if (engine != null) engine.setSubtitleStyle(textSize, position);
+    }
+
+    public String getRuntimeDiagnostics() {
+        return engine == null ? "" : engine.getRuntimeDiagnostics();
+    }
+
     public String getSpeedText() {
         return SPEED_FORMAT.format(getSpeed());
     }
@@ -670,6 +682,7 @@ public class PlayerManager implements ParseCallback {
         prepareLutPipeline();
         initTrack = false;
         waitingLutBeforePlay = false;
+        engine.setSubtitleStyle(PlayerSetting.getSubtitleTextSize(), PlayerSetting.getSubtitlePosition());
         engine.start(spec.checkUa(), playWhenReady);
         App.post(runnable, timeout);
         if (notifyPrepare) callback.onPrepare();
@@ -1280,6 +1293,7 @@ public class PlayerManager implements ParseCallback {
             setDanmakus(target.getDanmakus());
             initTrack = false;
             waitingLutBeforePlay = false;
+            engine.setSubtitleStyle(PlayerSetting.getSubtitleTextSize(), PlayerSetting.getSubtitlePosition());
             engine.start(target.checkUa(), position, wasPlayWhenReady);
             if (speed != 1f) setSpeed(speed);
             setRepeatOne(repeat);
