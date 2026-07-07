@@ -65,6 +65,13 @@ MPV 必须显式设置 `user-agent`、`referrer`、`http-header-fields`，否则
 
 这个代理不接管 Exo/IJK，不改全局 server 行为。
 
+2026-07-07 追加：
+
+- `/mpv/item` 已透传 MPV 发来的 HTTP `Range`，上游返回 `206` 时同步透传 `Content-Range`、`Accept-Ranges`、`ETag`、`Last-Modified`。
+- 普通二进制分片在上游有 `Content-Length` 时使用 fixed-length response，便于 MPV/FFmpeg 正确处理 seek 和 byte-range。
+- 可能触发 PNG 前缀 TS 清洗的响应继续使用 chunked response，避免清洗后实际输出长度和上游 `Content-Length` 不一致。
+- nested playlist 不转发 Range，仍按完整 playlist 拉取并重写 URL。
+
 ## 踩坑记录
 
 ### 1. 不能用自动切换播放器掩盖 MPV 错误
@@ -195,6 +202,25 @@ MPV 的 `loadfile` 和 `stop` 是异步命令；如果在同一个 libmpv contex
 对应 Exo：
 
 Exo 的 Surface 生命周期由 `PlayerView` 和 ExoPlayer 渲染器管理。MPV 必须自己维护 `SurfaceHolder.Callback`、`attachSurface`、`detachSurface`，但这次问题不能简单归咎于渲染层。
+
+### 7. HLS Range/byte-range 不能忽略
+
+问题：
+
+HLS 不一定都是“一个 URL 一个完整 TS 分片”。fMP4 HLS、`#EXT-X-BYTERANGE`、部分大文件切片和 seek 场景都会依赖 HTTP Range。如果本地代理忽略 MPV 发来的 `Range`，可能导致：
+
+- MPV 请求某个 byte range，但代理返回完整文件。
+- 上游返回 `206`，代理没有透传 `Content-Range`。
+- seek 或 byte-range 分片被 FFmpeg 判断为输入不一致。
+- 最终表现仍可能是黑屏、卡住或连接超时。
+
+处理：
+
+`MpvHlsProxy.serveItem()` 现在读取本地请求的 `Range`，转发给真实上游，并把上游 `206`、`Content-Range`、`Accept-Ranges` 等响应头透传给 MPV。普通二进制在长度可靠时使用 fixed-length response；PNG 伪装 TS 清洗路径继续 chunked，避免长度错误。
+
+对应 Exo：
+
+Exo 的 HLS/Extractor/DataSource 链路天然支持 byte range、init segment 和 seek 读。MPV 走本地代理时，代理必须承担这层 DataSource 责任，不能只重写 playlist URL。
 
 ## 参考过的开源项目
 
