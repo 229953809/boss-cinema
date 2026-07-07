@@ -909,6 +909,7 @@
     <string name="error_play_mpv_invalid_data">MPV 识别到异常媒体数据，请更换线路或手动切换播放器</string>
     <string name="error_play_mpv_decode_failed">MPV 解码失败，请尝试切换软硬解或更换线路</string>
     <string name="error_play_mpv_video_output">MPV 视频输出初始化失败，请尝试切换解码或重新进入播放</string>
+    <string name="error_play_mpv_drm_unsupported">MPV 不支持此 DRM 资源，请手动切换播放器</string>
     <string name="error_play_flag">暂无线路数据</string>
     <string name="error_play_timeout">连接超时</string>
     <string name="error_play_tvbus">错误代码：<xliff:g name="name">%s</xliff:g></string>

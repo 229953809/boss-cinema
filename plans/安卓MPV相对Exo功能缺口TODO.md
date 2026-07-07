@@ -90,12 +90,13 @@ Exo 对应实现：
 - 字幕延迟调整可用。
 - 常见字幕格式不崩溃、不误报连接超时。
 
-### [ ] 3. DRM 支持策略
+### [x] 3. DRM 支持策略（当前明确为 MPV 不支持 MediaDrm）
 
 现状：
 
 - `ExoUtil.getMediaItem()` 会设置 `MediaItem.DrmConfiguration`。
-- MPV 当前没有处理 `PlaySpec.getDrm()`。
+- MPV 当前会检查 `MediaItem.localConfiguration.drmConfiguration`。
+- 发现 DRM 后不进入 libmpv `loadfile`，直接上报 `MPV_DRM_UNSUPPORTED`。
 - libmpv/FFmpeg 不等价于 Android MediaDrm，不能默认认为 Widevine/ClearKey 可以直接播放。
 
 Exo 对应实现：
@@ -108,13 +109,13 @@ Exo 对应实现：
 - 先确认项目真实 DRM 使用范围：ClearKey、Widevine、或者资源站自定义 key。
 - 对 ClearKey/HLS AES-128，优先看 Exo 的 m3u8/key 处理链路，判断能否在 MPV HLS 代理层完成 key/header 处理。
 - 对 Widevine，优先明确为 MPV 暂不支持，避免误导用户。
-- UI 层必要时对 DRM 资源给出明确错误，不显示成普通连接超时。
+- 已完成：UI 层对 MPV DRM 资源给出明确错误，不显示成普通连接超时。
 
 验收：
 
 - DRM 资源在 MPV 下不会黑屏超时。
 - 不支持时错误信息明确。
-- 支持的 key/header 场景必须有实机验证。
+- 后续如支持 ClearKey/HLS AES-128，key/header 场景必须有实机验证。
 
 ### [ ] 4. HLS 代理协议覆盖（Range/非 2xx/identity encoding 已补）
 

@@ -153,6 +153,7 @@ public class MpvPlayerEngine implements PlayerEngine {
         if (startsWith(message, MpvPlayer.ERROR_INVALID_MEDIA_DATA)) return ResUtil.getString(R.string.error_play_mpv_invalid_data);
         if (startsWith(message, MpvPlayer.ERROR_DECODE_FAILED)) return ResUtil.getString(R.string.error_play_mpv_decode_failed);
         if (startsWith(message, MpvPlayer.ERROR_VIDEO_OUTPUT_FAILED)) return ResUtil.getString(R.string.error_play_mpv_video_output);
+        if (startsWith(message, MpvPlayer.ERROR_DRM_UNSUPPORTED)) return ResUtil.getString(R.string.error_play_mpv_drm_unsupported);
         return e.getMessage();
     }
 
@@ -195,7 +196,8 @@ public class MpvPlayerEngine implements PlayerEngine {
                 || startsWith(message, MpvPlayer.ERROR_NO_AV_DATA)
                 || startsWith(message, MpvPlayer.ERROR_INVALID_MEDIA_DATA)
                 || startsWith(message, MpvPlayer.ERROR_DECODE_FAILED)
-                || startsWith(message, MpvPlayer.ERROR_VIDEO_OUTPUT_FAILED);
+                || startsWith(message, MpvPlayer.ERROR_VIDEO_OUTPUT_FAILED)
+                || startsWith(message, MpvPlayer.ERROR_DRM_UNSUPPORTED);
     }
 
     private boolean startsWith(String message, String prefix) {

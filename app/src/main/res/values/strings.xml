@@ -912,6 +912,7 @@
     <string name="error_play_mpv_invalid_data">MPV found invalid media data. Choose another line or switch player manually.</string>
     <string name="error_play_mpv_decode_failed">MPV failed to decode this media. Try switching soft/hard decode or choose another line.</string>
     <string name="error_play_mpv_video_output">MPV failed to initialize video output. Try switching decode mode or reopen playback.</string>
+    <string name="error_play_mpv_drm_unsupported">MPV does not support this DRM stream. Switch player manually.</string>
     <string name="error_play_flag">No flag data</string>
     <string name="error_play_timeout">Timed out</string>
     <string name="error_play_tvbus">Error code: <xliff:g name="name">%s</xliff:g></string>

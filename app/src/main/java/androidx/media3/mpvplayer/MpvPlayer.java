@@ -72,6 +72,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     public static final String ERROR_INVALID_MEDIA_DATA = "MPV_INVALID_MEDIA_DATA";
     public static final String ERROR_DECODE_FAILED = "MPV_DECODE_FAILED";
     public static final String ERROR_VIDEO_OUTPUT_FAILED = "MPV_VIDEO_OUTPUT_FAILED";
+    public static final String ERROR_DRM_UNSUPPORTED = "MPV_DRM_UNSUPPORTED";
 
     private static final Commands COMMANDS = new Commands.Builder()
             .add(COMMAND_PLAY_PAUSE)
@@ -423,6 +424,10 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     private void openCurrent() {
         if (mediaItem == null || mediaItem.localConfiguration == null) return;
+        if (mediaItem.localConfiguration.drmConfiguration != null) {
+            fail(mpvError(ERROR_DRM_UNSUPPORTED, "scheme=" + mediaItem.localConfiguration.drmConfiguration.scheme), PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED);
+            return;
+        }
         try {
             ensureInitialized();
             playbackState = Player.STATE_BUFFERING;
