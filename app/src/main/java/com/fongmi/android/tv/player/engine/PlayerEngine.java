@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.player.engine;
 
+import android.graphics.Bitmap;
+
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaEdition;
@@ -80,6 +82,25 @@ public interface PlayerEngine {
     }
 
     default void setSubtitleStyle(float textSize, float position) {
+    }
+
+    default boolean supportsSecondarySubtitle() {
+        return false;
+    }
+
+    default void setSecondarySubtitle(Track track) {
+    }
+
+    default boolean isSecondarySubtitleSelected(Track track) {
+        return false;
+    }
+
+    default boolean supportsScreenshot() {
+        return false;
+    }
+
+    default Bitmap grabThumbnail(int dimension) {
+        return null;
     }
 
     default boolean haveTitle() {

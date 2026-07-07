@@ -1,6 +1,12 @@
 package com.fongmi.android.tv.player;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.os.SystemClock;
 import android.text.TextUtils;
 
@@ -49,11 +55,17 @@ import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.net.OkHttp;
 import com.google.common.net.HttpHeaders;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class PlayerManager implements ParseCallback {
@@ -457,6 +469,43 @@ public class PlayerManager implements ParseCallback {
 
     public void setTrack(List<Track> tracks) {
         if (!tracks.isEmpty()) engine.setTrack(tracks);
+    }
+
+    public boolean supportsSecondarySubtitle() {
+        return engine != null && engine.supportsSecondarySubtitle();
+    }
+
+    public void setSecondarySubtitle(Track track) {
+        if (engine != null) engine.setSecondarySubtitle(track);
+    }
+
+    public boolean isSecondarySubtitleSelected(Track track) {
+        return engine != null && engine.isSecondarySubtitleSelected(track);
+    }
+
+    public boolean supportsScreenshot() {
+        return engine != null && engine.supportsScreenshot();
+    }
+
+    public void saveScreenshot() {
+        if (!supportsScreenshot()) {
+            Notify.show(R.string.play_screenshot_unsupported);
+            return;
+        }
+        Bitmap bitmap = engine.grabThumbnail(Math.max(720, Math.min(1920, ResUtil.getScreenWidth(App.get()))));
+        if (bitmap == null || bitmap.isRecycled()) {
+            Notify.show(R.string.play_screenshot_failed);
+            return;
+        }
+        Task.execute(() -> {
+            try {
+                String name = screenshotFileName();
+                saveScreenshotBitmap(bitmap, name);
+                App.post(() -> Notify.show(ResUtil.getString(R.string.play_screenshot_saved, name)));
+            } catch (Throwable e) {
+                App.post(() -> Notify.show(R.string.play_screenshot_failed));
+            }
+        });
     }
 
     public void play() {
@@ -1127,6 +1176,36 @@ public class PlayerManager implements ParseCallback {
     public void addDanmaku(Danmaku item) {
         if (danmakuController == null || item.isEmpty()) return;
         if (spec != null) spec.addDanmaku(item);
+    }
+
+    private String screenshotFileName() {
+        return "WebHTV_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".png";
+    }
+
+    private void saveScreenshotBitmap(Bitmap bitmap, String name) throws IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+            values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/WebHTV");
+            values.put(MediaStore.Images.Media.IS_PENDING, 1);
+            ContentResolver resolver = App.get().getContentResolver();
+            Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            if (uri == null) throw new IOException("Unable to create screenshot media item");
+            try (OutputStream out = resolver.openOutputStream(uri)) {
+                if (out == null || !bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) throw new IOException("Unable to write screenshot");
+            }
+            values.clear();
+            values.put(MediaStore.Images.Media.IS_PENDING, 0);
+            resolver.update(uri, values, null, null);
+            return;
+        }
+        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "WebHTV");
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Unable to create screenshot directory");
+        File file = new File(dir, name);
+        try (OutputStream out = new FileOutputStream(file)) {
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) throw new IOException("Unable to write screenshot");
+        }
     }
 
     @Override

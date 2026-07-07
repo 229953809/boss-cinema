@@ -45,6 +45,10 @@
     <string name="play_decode">硬解</string>
     <string name="play_params">播放參數</string>
     <string name="codec_capability_short">硬解能力</string>
+    <string name="play_screenshot">截圖</string>
+    <string name="play_screenshot_saved">截圖已儲存：%1$s</string>
+    <string name="play_screenshot_failed">截圖失敗</string>
+    <string name="play_screenshot_unsupported">截圖僅支援 MPV</string>
     <string name="codec_capability_title">硬解能力</string>
     <string name="codec_capability_search">搜尋 codec、mime、decoder、解析度、音訊...</string>
     <string name="codec_capability_current">目前媒體</string>
@@ -69,7 +73,9 @@
     <string name="play_track_text">字幕</string>
     <string name="play_track_audio">音軌</string>
     <string name="play_track_video">視軌</string>
+    <string name="play_track_secondary_subtitle">第二字幕</string>
     <string name="play_track_disable_subtitle">關閉字幕</string>
+    <string name="play_track_disable_secondary_subtitle">關閉第二字幕</string>
     <string name="offset_text">字幕偏移</string>
     <string name="offset_audio">音軌偏移</string>
     <string name="offset_setting">偏移設定</string>

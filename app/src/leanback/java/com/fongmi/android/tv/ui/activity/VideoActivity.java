@@ -473,6 +473,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.decode.setOnClickListener(view -> onDecode());
         mBinding.control.action.playParams.setOnClickListener(view -> onPlayParams());
         mBinding.control.action.codecCapability.setOnClickListener(view -> onCodecCapability());
+        mBinding.control.action.screenshot.setOnClickListener(view -> onScreenshot());
         mBinding.control.action.ending.setOnClickListener(view -> onEnding());
         mBinding.control.action.repeat.setOnClickListener(view -> onRepeat());
         mBinding.control.action.change2.setOnClickListener(view -> onChange());
@@ -572,6 +573,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         addActionButton(PlayerButtonSetting.DECODE, mBinding.control.action.decode);
         addActionButton(PlayerButtonSetting.PLAY_PARAMS, mBinding.control.action.playParams);
         addActionButton(PlayerButtonSetting.CODEC_CAPABILITY, mBinding.control.action.codecCapability);
+        addActionButton(PlayerButtonSetting.SCREENSHOT, mBinding.control.action.screenshot);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
@@ -604,6 +606,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void setPlayerKernel() {
         mBinding.control.action.player.setText(player().getPlayerText());
+        setScreenshotVisible();
+        applyActionButtonVisibility();
     }
 
     private void setScale(int scale) {
@@ -1127,6 +1131,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void onCodecCapability() {
         CodecCapabilityDialog.show(this, player());
+        hideControl();
+    }
+
+    private void onScreenshot() {
+        player().saveScreenshot();
         hideControl();
     }
 
@@ -1937,7 +1946,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.text.setVisibility(player().haveTrack(C.TRACK_TYPE_TEXT) || player().isVod() ? View.VISIBLE : View.GONE);
         mBinding.control.action.audio.setVisibility(player().haveTrack(C.TRACK_TYPE_AUDIO) ? View.VISIBLE : View.GONE);
         mBinding.control.action.video.setVisibility(player().haveTrack(C.TRACK_TYPE_VIDEO) ? View.VISIBLE : View.GONE);
+        setScreenshotVisible();
         applyActionButtonVisibility();
+    }
+
+    private void setScreenshotVisible() {
+        mBinding.control.action.screenshot.setVisibility(player().supportsScreenshot() ? View.VISIBLE : View.GONE);
     }
 
     private void setTitleVisible() {

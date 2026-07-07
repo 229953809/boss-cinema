@@ -248,6 +248,11 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
             PlaybackPerformanceSetting.markCustom();
             refresh();
         });
+
+        addHeader("MPV");
+        addRow("MPV profile", PlayerSetting.getMpvProfileName(), this::cycleMpvProfile);
+        addRow("MPV HLS 码率", PlayerSetting.getMpvHlsBitrateName(), this::cycleMpvHlsBitrate);
+        addRow("MPV 日志", PlayerSetting.getMpvLogLevelName(), this::cycleMpvLogLevel);
     }
 
     private void addHeader(String text) {
@@ -322,6 +327,24 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
 
     private void cyclePlayCache() {
         PlayerSetting.putPlayCacheOption((PlayerSetting.getPlayCacheOption() + 1) % 5);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleMpvProfile() {
+        PlayerSetting.putMpvProfileOption((PlayerSetting.getMpvProfileOption() + 1) % 3);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleMpvHlsBitrate() {
+        PlayerSetting.putMpvHlsBitrateOption((PlayerSetting.getMpvHlsBitrateOption() + 1) % 4);
+        PlaybackPerformanceSetting.markCustom();
+        refresh();
+    }
+
+    private void cycleMpvLogLevel() {
+        PlayerSetting.putMpvLogLevelOption((PlayerSetting.getMpvLogLevelOption() + 1) % 3);
         PlaybackPerformanceSetting.markCustom();
         refresh();
     }

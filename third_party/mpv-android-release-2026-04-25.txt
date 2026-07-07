@@ -16,6 +16,15 @@ Bundled files:
 - app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/*.so
 - app/src/main/assets/cacert.pem
 
+Local JNI rebuild:
+- Source directory: app/src/main/cpp/mpvplayer
+- Build script: scripts/build_mpv_player_jni.sh
+- Rebuilt files:
+  - app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so
+  - app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so
+- Current local delta from reference JNI: MPV_EVENT_END_FILE forwards
+  mpv_event_end_file.reason/error to Java via MPVLib.eventEndFile(int, int).
+
 Packaging note:
 The project already depends on nextlib-media3ext, whose AAR contains libavcodec.so,
 libavutil.so, libswresample.so and libswscale.so. MPV libraries are therefore

@@ -25,6 +25,11 @@
             android:text="@string/play_decode" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/screenshot"
+            style="@style/Control"
+            android:text="@string/play_screenshot" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/speed"
             style="@style/Control"
             android:fontFeatureSettings="tnum"

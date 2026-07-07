@@ -74,6 +74,12 @@
             android:layout_marginEnd="8dp"
             android:text="@string/codec_capability_short" />
 
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/screenshot"
+            style="@style/Control"
+            android:layout_marginEnd="8dp"
+            android:text="@string/play_screenshot" />
+
         <com.fongmi.android.tv.ui.custom.CustomUpDownView
             android:id="@+id/speed"
             style="@style/Control"

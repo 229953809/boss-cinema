@@ -1,9 +1,15 @@
 package androidx.media3.mpvplayer;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
@@ -120,6 +126,9 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private final MpvHlsProxy hlsProxy;
     private final List<String> recentLogs;
     private final List<ParcelFileDescriptor> contentFds;
+    private final AudioManager audioManager;
+    private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
+    private final BroadcastReceiver noisyReceiver;
     private MediaItem mediaItem;
     private SurfaceHolder surfaceHolder;
     private Surface surface;
@@ -155,9 +164,13 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     private boolean sawNoAvData;
     private boolean sawInvalidData;
     private boolean sawPngVideo;
+    private boolean audioFocusRequested;
+    private boolean audioDucked;
+    private boolean noisyReceiverRegistered;
     private int loadStartRetryCount;
     private int currentChapter;
     private String lastFailureLog;
+    private String secondarySubtitleId;
     private float subtitleTextSize;
     private float subtitlePosition;
     private float volume;
@@ -174,6 +187,14 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         hlsProxy = new MpvHlsProxy();
         recentLogs = new ArrayList<>();
         contentFds = new ArrayList<>();
+        audioManager = (AudioManager) this.context.getSystemService(Context.AUDIO_SERVICE);
+        audioFocusChangeListener = this::handleAudioFocusChange;
+        noisyReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) pauseFromSystemEvent("audio_becoming_noisy");
+            }
+        };
         playbackParameters = PlaybackParameters.DEFAULT;
         trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         currentTracks = Tracks.EMPTY;
@@ -251,6 +272,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         idleActive = false;
         currentPlayableUri = null;
         currentLikelyHls = false;
+        secondarySubtitleId = null;
         resetFailureSignals();
         recentLogs.clear();
         playerError = null;
@@ -290,6 +312,13 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     @Override
     protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
         this.playWhenReady = playWhenReady;
+        if (playWhenReady) {
+            requestAudioFocus();
+            registerNoisyReceiver();
+        } else {
+            unregisterNoisyReceiver();
+            abandonAudioFocus();
+        }
         if (initialized && playbackState != Player.STATE_IDLE && playbackState != Player.STATE_ENDED) {
             safeSetPropertyBoolean("pause", !playWhenReady);
         }
@@ -306,6 +335,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     @Override
     protected ListenableFuture<?> handleRelease() {
         released = true;
+        unregisterNoisyReceiver();
+        abandonAudioFocus();
         stopInternal(false);
         hlsProxy.release();
         clearVideoOutput();
@@ -356,7 +387,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     @Override
     protected ListenableFuture<?> handleSetVolume(float volume, int volumeOperationType) {
         this.volume = Math.max(0f, Math.min(1f, volume));
-        if (initialized) safeSetPropertyDouble("volume", this.volume * 100.0);
+        if (initialized) safeSetPropertyDouble("volume", audioDucked ? this.volume * 25.0 : this.volume * 100.0);
         invalidateState();
         return Futures.immediateVoidFuture();
     }
@@ -398,6 +429,38 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         subtitlePosition = position;
         applySubtitleStyle();
         invalidateState();
+    }
+
+    public void setSecondarySubtitle(com.fongmi.android.tv.bean.Track track) {
+        if (track == null || track.isDisabled()) {
+            secondarySubtitleId = null;
+            if (initialized) safeSetPropertyString("secondary-sid", "no");
+            invalidateState();
+            return;
+        }
+        Format format = findTrackFormat(track);
+        if (format == null || TextUtils.isEmpty(format.id)) return;
+        secondarySubtitleId = format.id;
+        if (initialized) safeSetPropertyString("secondary-sid", format.id);
+        invalidateState();
+    }
+
+    public boolean isSecondarySubtitleSelected(com.fongmi.android.tv.bean.Track track) {
+        if (track == null) return false;
+        if (TextUtils.isEmpty(secondarySubtitleId)) return track.isDisabled();
+        Format format = findTrackFormat(track);
+        return format != null && secondarySubtitleId.equals(format.id);
+    }
+
+    @Nullable
+    public Bitmap grabThumbnail(int dimension) {
+        if (!initialized) return null;
+        try {
+            return MPVLib.grabThumbnail(Math.max(1, dimension));
+        } catch (Throwable e) {
+            SpiderDebug.log("mpv", "thumbnail failed error=%s", e.getMessage());
+            return null;
+        }
     }
 
     public boolean selectEdition(MediaEdition edition) {
@@ -473,6 +536,15 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
     }
 
     @Override
+    public void eventEndFile(int reason, int error) {
+        postToMain(() -> {
+            if (released) return;
+            handleEndFile(reason, error);
+            invalidateState();
+        });
+    }
+
+    @Override
     public void logMessage(String prefix, int level, String text) {
         postToMain(() -> {
             if (released) return;
@@ -508,6 +580,10 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             closeContentFds();
             Map<String, String> headers = applyMediaOptions(mediaItem);
             bindVideoOutput();
+            if (playWhenReady) {
+                requestAudioFocus();
+                registerNoisyReceiver();
+            }
             safeSetPropertyBoolean("pause", !playWhenReady);
             safeSetPropertyString("loop-file", repeatOne ? "inf" : "no");
             safeSetPropertyDouble("speed", playbackParameters.speed);
@@ -611,6 +687,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         observe("width", MPVLib.MpvFormat.MPV_FORMAT_INT64);
         observe("height", MPVLib.MpvFormat.MPV_FORMAT_INT64);
         observe("track-list", MPVLib.MpvFormat.MPV_FORMAT_STRING);
+        observe("secondary-sid", MPVLib.MpvFormat.MPV_FORMAT_STRING);
         observe("chapter", MPVLib.MpvFormat.MPV_FORMAT_INT64);
         observe("chapter-list", MPVLib.MpvFormat.MPV_FORMAT_STRING);
     }
@@ -640,6 +717,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             case "idle-active" -> idleActive = Boolean.TRUE.equals(value);
             case "width", "height" -> updateVideoSize();
             case "track-list" -> handleTrackListProperty(value);
+            case "secondary-sid" -> secondarySubtitleId = normalizeSecondarySubtitleId(value);
             case "chapter" -> {
                 if (value instanceof Number number) currentChapter = number.intValue();
                 refreshChapters();
@@ -709,24 +787,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
                 refreshTracks();
             }
             case MPVLib.MpvEvent.MPV_EVENT_AUDIO_RECONFIG -> refreshTracks();
-            case MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
-                stopStateRefresh();
-                loading = false;
-                if (stopping) {
-                    stopping = false;
-                } else if (isFailedLoadedMedia()) {
-                    fail(new IOException(failedLoadedMediaMessage()), PlaybackException.ERROR_CODE_DECODING_FAILED);
-                    return;
-                } else if (fileLoaded || eofReached) {
-                    playbackState = Player.STATE_ENDED;
-                } else {
-                    loading = true;
-                    playbackState = Player.STATE_BUFFERING;
-                    mainHandler.removeCallbacks(endFileValidationRunnable);
-                    mainHandler.postDelayed(endFileValidationRunnable, END_FILE_VALIDATION_DELAY_MS);
-                    startStateRefresh();
-                }
-            }
+            case MPVLib.MpvEvent.MPV_EVENT_END_FILE -> handleEndFile(-1, 0);
             case MPVLib.MpvEvent.MPV_EVENT_IDLE -> {
                 if (loading && !fileLoaded && !stopping) {
                     playbackState = Player.STATE_BUFFERING;
@@ -744,6 +805,33 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             }
         }
         invalidateState();
+    }
+
+    private void handleEndFile(int reason, int error) {
+        stopStateRefresh();
+        loading = false;
+        SpiderDebug.log("mpv", "event=end-file reason=%d error=%d loaded=%s restart=%s stopping=%s", reason, error, fileLoaded, playbackRestarted, stopping);
+        if (stopping
+                || reason == MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_STOP
+                || reason == MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_QUIT) {
+            stopping = false;
+        } else if (reason == MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_REDIRECT) {
+            loading = true;
+            playbackState = Player.STATE_BUFFERING;
+            startStateRefresh();
+        } else if (reason == MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_ERROR) {
+            fail(mpvError(nativeErrorCode(error), nativeErrorDetail(reason, error)), nativePlaybackErrorCode(error));
+        } else if (isFailedLoadedMedia()) {
+            fail(new IOException(failedLoadedMediaMessage()), PlaybackException.ERROR_CODE_DECODING_FAILED);
+        } else if (fileLoaded || eofReached) {
+            playbackState = Player.STATE_ENDED;
+        } else {
+            loading = true;
+            playbackState = Player.STATE_BUFFERING;
+            mainHandler.removeCallbacks(endFileValidationRunnable);
+            mainHandler.postDelayed(endFileValidationRunnable, END_FILE_VALIDATION_DELAY_MS);
+            startStateRefresh();
+        }
     }
 
     private boolean isLikelyHls(MediaItem item, String uri) {
@@ -1053,7 +1141,83 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         }
     };
 
+    private void requestAudioFocus() {
+        if (audioManager == null || audioFocusRequested) return;
+        int result = audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        audioFocusRequested = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+    }
+
+    private void abandonAudioFocus() {
+        if (audioManager == null || !audioFocusRequested) {
+            restoreDuckedVolume();
+            return;
+        }
+        try {
+            audioManager.abandonAudioFocus(audioFocusChangeListener);
+        } catch (Throwable ignored) {
+        }
+        audioFocusRequested = false;
+        restoreDuckedVolume();
+    }
+
+    private void registerNoisyReceiver() {
+        if (noisyReceiverRegistered) return;
+        IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) context.registerReceiver(noisyReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            else context.registerReceiver(noisyReceiver, filter);
+            noisyReceiverRegistered = true;
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void unregisterNoisyReceiver() {
+        if (!noisyReceiverRegistered) return;
+        try {
+            context.unregisterReceiver(noisyReceiver);
+        } catch (Throwable ignored) {
+        }
+        noisyReceiverRegistered = false;
+    }
+
+    private void handleAudioFocusChange(int focusChange) {
+        postToMain(() -> {
+            if (released) return;
+            switch (focusChange) {
+                case AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> pauseFromSystemEvent("audio_focus_loss");
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> duckVolume();
+                case AudioManager.AUDIOFOCUS_GAIN -> restoreDuckedVolume();
+                default -> {
+                }
+            }
+        });
+    }
+
+    private void pauseFromSystemEvent(String reason) {
+        if (!playWhenReady) return;
+        SpiderDebug.log("mpv", "pause from system event reason=%s", reason);
+        playWhenReady = false;
+        unregisterNoisyReceiver();
+        if (initialized && playbackState != Player.STATE_IDLE && playbackState != Player.STATE_ENDED) safeSetPropertyBoolean("pause", true);
+        abandonAudioFocus();
+        invalidateState();
+    }
+
+    private void duckVolume() {
+        if (audioDucked || !initialized) return;
+        audioDucked = true;
+        safeSetPropertyDouble("volume", Math.max(0.0, Math.min(100.0, volume * 25.0)));
+    }
+
+    private void restoreDuckedVolume() {
+        if (!audioDucked) return;
+        audioDucked = false;
+        if (initialized) safeSetPropertyDouble("volume", volume * 100.0);
+    }
+
     private void stopInternal(boolean resetState) {
+        unregisterNoisyReceiver();
+        abandonAudioFocus();
         stopMpv(true);
         closeContentFds();
         loading = false;
@@ -1074,6 +1238,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         idleActive = false;
         currentPlayableUri = null;
         currentLikelyHls = false;
+        secondarySubtitleId = null;
         resetFailureSignals();
         hlsProxy.clear();
         mainHandler.removeCallbacks(endFileValidationRunnable);
@@ -1119,6 +1284,7 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         currentTracks = Tracks.EMPTY;
         currentChapters = List.of();
         currentChapter = C.INDEX_UNSET;
+        secondarySubtitleId = null;
         SpiderDebug.log("mpv", "context reset for new media");
     }
 
@@ -1142,11 +1308,45 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
 
     private void updateCurrentTracks(Tracks tracks) {
         if (tracks == null) tracks = Tracks.EMPTY;
+        clearMissingSecondarySubtitle(tracks);
         if (tracks.equals(currentTracks)) return;
         currentTracks = tracks;
         applyTrackSelectionParameters();
         SpiderDebug.log("mpv", "tracks updated groups=%d", tracks.getGroups().size());
         invalidateState();
+    }
+
+    private void clearMissingSecondarySubtitle(Tracks tracks) {
+        if (TextUtils.isEmpty(secondarySubtitleId)) return;
+        for (Tracks.Group group : tracks.getGroups()) {
+            if (group.getType() != C.TRACK_TYPE_TEXT) continue;
+            for (int i = 0; i < group.length; i++) {
+                if (secondarySubtitleId.equals(group.getTrackFormat(i).id)) return;
+            }
+        }
+        secondarySubtitleId = null;
+    }
+
+    @Nullable
+    private Format findTrackFormat(com.fongmi.android.tv.bean.Track track) {
+        if (track == null || track.getFormat() == null || track.getType() != C.TRACK_TYPE_TEXT) return null;
+        for (Tracks.Group group : currentTracks.getGroups()) {
+            if (group.getType() != C.TRACK_TYPE_TEXT) continue;
+            for (int i = 0; i < group.length; i++) {
+                if (!group.isTrackSupported(i)) continue;
+                Format format = group.getTrackFormat(i);
+                if (track.getFormat().equals(com.fongmi.android.tv.player.PlayerHelper.describeFormat(format))) return format;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private String normalizeSecondarySubtitleId(@Nullable Object value) {
+        if (value instanceof Number number) return number.intValue() <= 0 ? null : String.valueOf(number.intValue());
+        String text = value == null ? null : value.toString();
+        if (TextUtils.isEmpty(text) || "no".equalsIgnoreCase(text) || "auto".equalsIgnoreCase(text)) return null;
+        return text;
     }
 
     private Tracks parseTracks(String json) {
@@ -1578,6 +1778,47 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         if (sawNoAvData || recentLogsContain("no audio or video data played")) return ERROR_NO_AV_DATA + detailSuffix("no audio or video data played");
         if (sawInvalidData || sawPngVideo || recentLogsContain("invalid data found when processing input", "video: png")) return ERROR_INVALID_MEDIA_DATA + detailSuffix("invalid media data");
         return ERROR_DECODE_FAILED + detailSuffix("no playable audio/video output");
+    }
+
+    private String nativeErrorCode(int error) {
+        return switch (error) {
+            case MPVLib.MpvError.MPV_ERROR_LOADING_FAILED -> currentLikelyHls ? ERROR_HLS_PLAYBACK_FAILED : ERROR_LOAD_FAILED;
+            case MPVLib.MpvError.MPV_ERROR_NOTHING_TO_PLAY -> ERROR_NO_AV_DATA;
+            case MPVLib.MpvError.MPV_ERROR_UNKNOWN_FORMAT -> ERROR_INVALID_MEDIA_DATA;
+            case MPVLib.MpvError.MPV_ERROR_VO_INIT_FAILED -> ERROR_VIDEO_OUTPUT_FAILED;
+            case MPVLib.MpvError.MPV_ERROR_UNSUPPORTED -> ERROR_DECODE_FAILED;
+            default -> ERROR_DECODE_FAILED;
+        };
+    }
+
+    private int nativePlaybackErrorCode(int error) {
+        return switch (error) {
+            case MPVLib.MpvError.MPV_ERROR_LOADING_FAILED -> PlaybackException.ERROR_CODE_IO_UNSPECIFIED;
+            case MPVLib.MpvError.MPV_ERROR_NOTHING_TO_PLAY -> PlaybackException.ERROR_CODE_DECODING_FAILED;
+            case MPVLib.MpvError.MPV_ERROR_UNKNOWN_FORMAT -> PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED;
+            case MPVLib.MpvError.MPV_ERROR_AO_INIT_FAILED -> PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED;
+            case MPVLib.MpvError.MPV_ERROR_VO_INIT_FAILED -> PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED;
+            case MPVLib.MpvError.MPV_ERROR_UNSUPPORTED -> PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED;
+            default -> PlaybackException.ERROR_CODE_DECODING_FAILED;
+        };
+    }
+
+    private String nativeErrorDetail(int reason, int error) {
+        return "reason=" + reason + ", error=" + error + ", name=" + nativeErrorName(error);
+    }
+
+    private String nativeErrorName(int error) {
+        return switch (error) {
+            case MPVLib.MpvError.MPV_ERROR_SUCCESS -> "success";
+            case MPVLib.MpvError.MPV_ERROR_LOADING_FAILED -> "loading failed";
+            case MPVLib.MpvError.MPV_ERROR_AO_INIT_FAILED -> "audio output init failed";
+            case MPVLib.MpvError.MPV_ERROR_VO_INIT_FAILED -> "video output init failed";
+            case MPVLib.MpvError.MPV_ERROR_NOTHING_TO_PLAY -> "nothing to play";
+            case MPVLib.MpvError.MPV_ERROR_UNKNOWN_FORMAT -> "unknown format";
+            case MPVLib.MpvError.MPV_ERROR_UNSUPPORTED -> "unsupported";
+            case MPVLib.MpvError.MPV_ERROR_GENERIC -> "generic";
+            default -> "unknown";
+        };
     }
 
     private IOException mpvError(String code, String detail) {

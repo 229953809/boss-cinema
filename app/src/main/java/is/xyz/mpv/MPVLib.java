@@ -184,6 +184,12 @@ public final class MPVLib {
         }
     }
 
+    public static void eventEndFile(int reason, int error) {
+        synchronized (OBSERVERS) {
+            for (EventObserver observer : OBSERVERS) observer.eventEndFile(reason, error);
+        }
+    }
+
     public static void addLogObserver(LogObserver observer) {
         synchronized (LOG_OBSERVERS) {
             LOG_OBSERVERS.add(observer);
@@ -214,6 +220,10 @@ public final class MPVLib {
         void eventProperty(String property, double value);
 
         void event(int eventId);
+
+        default void eventEndFile(int reason, int error) {
+            event(MpvEvent.MPV_EVENT_END_FILE);
+        }
     }
 
     public interface LogObserver {
@@ -258,6 +268,31 @@ public final class MPVLib {
         public static final int MPV_EVENT_HOOK = 25;
 
         private MpvEvent() {
+        }
+    }
+
+    public static final class MpvEndFileReason {
+        public static final int MPV_END_FILE_REASON_EOF = 0;
+        public static final int MPV_END_FILE_REASON_STOP = 2;
+        public static final int MPV_END_FILE_REASON_QUIT = 3;
+        public static final int MPV_END_FILE_REASON_ERROR = 4;
+        public static final int MPV_END_FILE_REASON_REDIRECT = 5;
+
+        private MpvEndFileReason() {
+        }
+    }
+
+    public static final class MpvError {
+        public static final int MPV_ERROR_SUCCESS = 0;
+        public static final int MPV_ERROR_LOADING_FAILED = -13;
+        public static final int MPV_ERROR_AO_INIT_FAILED = -14;
+        public static final int MPV_ERROR_VO_INIT_FAILED = -15;
+        public static final int MPV_ERROR_NOTHING_TO_PLAY = -16;
+        public static final int MPV_ERROR_UNKNOWN_FORMAT = -17;
+        public static final int MPV_ERROR_UNSUPPORTED = -18;
+        public static final int MPV_ERROR_GENERIC = -20;
+
+        private MpvError() {
         }
     }
 }

@@ -500,6 +500,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.prev.setOnClickListener(view -> checkPrev());
         mBinding.control.action.next.setOnClickListener(view -> checkNext());
         mBinding.control.action.decode.setOnClickListener(view -> onDecode());
+        mBinding.control.action.screenshot.setOnClickListener(view -> onScreenshot());
         mBinding.control.action.ending.setOnClickListener(view -> onEnding());
         mBinding.control.action.repeat.setOnClickListener(view -> onRepeat());
         mBinding.control.action.opening.setOnClickListener(view -> onOpening());
@@ -593,6 +594,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mActionButtons = new HashMap<>();
         addActionButton(PlayerButtonSetting.PLAYER, mBinding.control.action.player);
         addActionButton(PlayerButtonSetting.DECODE, mBinding.control.action.decode);
+        addActionButton(PlayerButtonSetting.SCREENSHOT, mBinding.control.action.screenshot);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
         addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
@@ -634,6 +636,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void setPlayerKernel() {
         mBinding.control.action.player.setText(player().getPlayerText());
+        setScreenshotVisible();
+        applyActionButtonVisibility();
     }
 
     private void setScale(int scale) {
@@ -1337,6 +1341,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         player().toggleDecode();
         setR1Callback();
         setDecode();
+    }
+
+    private void onScreenshot() {
+        player().saveScreenshot();
+        hideControl();
     }
 
     private void onEnding() {
@@ -2051,7 +2060,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.text.setVisibility(player().haveTrack(C.TRACK_TYPE_TEXT) || player().isVod() ? View.VISIBLE : View.GONE);
         mBinding.control.action.audio.setVisibility(player().haveTrack(C.TRACK_TYPE_AUDIO) ? View.VISIBLE : View.GONE);
         mBinding.control.action.video.setVisibility(player().haveTrack(C.TRACK_TYPE_VIDEO) ? View.VISIBLE : View.GONE);
+        setScreenshotVisible();
         applyActionButtonVisibility();
+    }
+
+    private void setScreenshotVisible() {
+        mBinding.control.action.screenshot.setVisibility(player().supportsScreenshot() ? View.VISIBLE : View.GONE);
     }
 
     private void setTitleVisible() {

@@ -16,6 +16,7 @@ public class PlayerSetting {
     public static final int PAD_LIVE_FULLSCREEN = 0;
     public static final int PAD_LIVE_STANDARD = 1;
     private static final int DEFAULT_PLAY_CACHE_OPTION = 0;
+    private static final int DEFAULT_MPV_LOG_LEVEL_OPTION = 2;
 
     public static int getPlayer() {
         int player = Prefers.getInt("player", EXO);
@@ -148,6 +149,80 @@ public class PlayerSetting {
             case 3 -> 1024L * 1024 * 1024;
             case 4 -> 2L * 1024 * 1024 * 1024;
             default -> 128L * 1024 * 1024;
+        };
+    }
+
+    public static int getMpvProfileOption() {
+        return Math.min(Math.max(Prefers.getInt("mpv_profile", 0), 0), 2);
+    }
+
+    public static void putMpvProfileOption(int option) {
+        Prefers.put("mpv_profile", Math.min(Math.max(option, 0), 2));
+    }
+
+    public static String getMpvProfile() {
+        return switch (getMpvProfileOption()) {
+            case 1 -> "gpu-hq";
+            case 2 -> "low-latency";
+            default -> "fast";
+        };
+    }
+
+    public static String getMpvProfileName() {
+        return switch (getMpvProfileOption()) {
+            case 1 -> "gpu-hq";
+            case 2 -> "low-latency";
+            default -> "fast";
+        };
+    }
+
+    public static int getMpvHlsBitrateOption() {
+        return Math.min(Math.max(Prefers.getInt("mpv_hls_bitrate", 0), 0), 3);
+    }
+
+    public static void putMpvHlsBitrateOption(int option) {
+        Prefers.put("mpv_hls_bitrate", Math.min(Math.max(option, 0), 3));
+    }
+
+    public static String getMpvHlsBitrate() {
+        return switch (getMpvHlsBitrateOption()) {
+            case 1 -> "min";
+            case 2 -> "2500000";
+            case 3 -> "5000000";
+            default -> "max";
+        };
+    }
+
+    public static String getMpvHlsBitrateName() {
+        return switch (getMpvHlsBitrateOption()) {
+            case 1 -> "min";
+            case 2 -> "2.5Mbps";
+            case 3 -> "5Mbps";
+            default -> "max";
+        };
+    }
+
+    public static int getMpvLogLevelOption() {
+        return Math.min(Math.max(Prefers.getInt("mpv_log_level", DEFAULT_MPV_LOG_LEVEL_OPTION), 0), 2);
+    }
+
+    public static void putMpvLogLevelOption(int option) {
+        Prefers.put("mpv_log_level", Math.min(Math.max(option, 0), 2));
+    }
+
+    public static String getMpvLogLevel() {
+        return switch (getMpvLogLevelOption()) {
+            case 0 -> "all=warn";
+            case 1 -> "all=info";
+            default -> "all=v";
+        };
+    }
+
+    public static String getMpvLogLevelName() {
+        return switch (getMpvLogLevelOption()) {
+            case 0 -> "warn";
+            case 1 -> "info";
+            default -> "verbose";
         };
     }
 

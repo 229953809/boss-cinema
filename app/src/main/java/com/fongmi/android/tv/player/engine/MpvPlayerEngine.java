@@ -1,5 +1,7 @@
 package com.fongmi.android.tv.player.engine;
 
+import android.graphics.Bitmap;
+
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaEdition;
@@ -189,6 +191,31 @@ public class MpvPlayerEngine implements PlayerEngine {
     }
 
     @Override
+    public boolean supportsSecondarySubtitle() {
+        return true;
+    }
+
+    @Override
+    public void setSecondarySubtitle(Track track) {
+        player.setSecondarySubtitle(track);
+    }
+
+    @Override
+    public boolean isSecondarySubtitleSelected(Track track) {
+        return player.isSecondarySubtitleSelected(track);
+    }
+
+    @Override
+    public boolean supportsScreenshot() {
+        return true;
+    }
+
+    @Override
+    public Bitmap grabThumbnail(int dimension) {
+        return player.grabThumbnail(dimension);
+    }
+
+    @Override
     public boolean haveTitle() {
         return !getCurrentMediaEditions().isEmpty();
     }
@@ -306,12 +333,15 @@ public class MpvPlayerEngine implements PlayerEngine {
                 .hwdecSoftwareFallback(decode == HARD ? "no" : "3")
                 .audioSpdif(PlayerSetting.isAudioPassThrough() ? "ac3,eac3,dts,dts-hd,truehd" : "no")
                 .preferAac(PlayerSetting.isPreferAAC())
+                .logLevel(PlayerSetting.getMpvLogLevel())
                 .demuxerMaxBytes(getDemuxerMaxBytes())
                 .demuxerMaxBackBytes(getDemuxerMaxBackBytes())
                 .demuxerReadaheadSecs(readaheadSecs)
                 .cacheSecs(readaheadSecs)
                 .cachePauseWaitSecs(getCachePauseWaitSecs())
                 .streamBufferSize(getStreamBufferSize())
+                .option("profile", PlayerSetting.getMpvProfile())
+                .option("hls-bitrate", PlayerSetting.getMpvHlsBitrate())
                 .build();
     }
 
