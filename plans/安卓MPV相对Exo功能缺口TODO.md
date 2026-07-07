@@ -116,12 +116,14 @@ Exo 对应实现：
 - 不支持时错误信息明确。
 - 支持的 key/header 场景必须有实机验证。
 
-### [ ] 4. HLS 代理协议覆盖
+### [ ] 4. HLS 代理协议覆盖（Range/非 2xx/identity encoding 已补）
 
 现状：
 
 - `MpvHlsProxy` 已支持 playlist 重写、nested playlist、`URI="..."` 重写、PNG 前缀 TS 清洗。
-- 代理当前没有完整转发客户端 `Range`。
+- 代理已转发客户端 `Range`，并透传上游 `206` / `Content-Range` / `Accept-Ranges`。
+- playlist 和 nested playlist 上游非 2xx 不再伪装成 200 的 m3u8，会按上游状态返回并记录日志。
+- 二进制 segment/key 请求已强制 `Accept-Encoding: identity`，避免透明 gzip 破坏 Range 和 Content-Length 语义。
 - 还没有专门验证 `#EXT-X-BYTERANGE`、`#EXT-X-MAP`、fMP4、AES key、多级 master playlist、live playlist 刷新、gzip、cookie、302 后域名 header 策略。
 
 Exo 对应实现：
@@ -133,6 +135,8 @@ Exo 对应实现：
 
 - 逐项对照 Media3 HLS 能力，给 `MpvHlsProxy` 增加协议用例。
 - 从 `IHTTPSession` 读取 `Range`，转发给真实分片请求，并把上游 206/Content-Range/Accept-Ranges 透传给 MPV。
+- playlist/nested playlist 非 2xx 必须保留错误状态，不能把错误 HTML 改写成成功 m3u8。
+- segment/key 请求尽量使用 identity encoding，避免本地代理返回长度和 Range 不一致。
 - 专门处理 `#EXT-X-BYTERANGE` 下同一 URI 多 range 场景。
 - 验证 `#EXT-X-MAP URI="..."` 重写，保证 fMP4 init segment 走代理。
 - key 请求必须继承 header，且错误时日志能区分 playlist/key/segment。

@@ -96,6 +96,8 @@ MPV 必须显式设置 `user-agent`、`referrer`、`http-header-fields`，否则
 - 普通二进制分片在上游有 `Content-Length` 时使用 fixed-length response，便于 MPV/FFmpeg 正确处理 seek 和 byte-range。
 - 可能触发 PNG 前缀 TS 清洗的响应继续使用 chunked response，避免清洗后实际输出长度和上游 `Content-Length` 不一致。
 - nested playlist 不转发 Range，仍按完整 playlist 拉取并重写 URL。
+- playlist 和 nested playlist 上游返回非 2xx 时，不再把错误页当作 m3u8 成功返回；代理会保留上游 HTTP 状态并记录 `playlist error` / `nested playlist error`。
+- segment/key 这类二进制请求会强制 `Accept-Encoding: identity`，避免 OkHttp 透明 gzip 解压导致 Range、`Content-Length`、`Content-Range` 与实际输出不一致。
 
 ## 踩坑记录
 
@@ -246,6 +248,11 @@ HLS 不一定都是“一个 URL 一个完整 TS 分片”。fMP4 HLS、`#EXT-X-
 对应 Exo：
 
 Exo 的 HLS/Extractor/DataSource 链路天然支持 byte range、init segment 和 seek 读。MPV 走本地代理时，代理必须承担这层 DataSource 责任，不能只重写 playlist URL。
+
+追加处理：
+
+- playlist/nested playlist 非 2xx 必须作为错误返回，不能包装成 200。否则 MPV/FFmpeg 会继续按 m3u8 解析错误 HTML，最终表现成误导性的黑屏或超时。
+- 二进制分片和 key 请求使用 `Accept-Encoding: identity`。原因是 byte-range 依赖字节位置，透明 gzip 会让上游长度、范围和本地输出流语义不一致。
 
 ### 8. MPV 轨道列表不能只依赖一种 JNI 返回格式
 
