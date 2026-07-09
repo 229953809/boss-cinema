@@ -44,7 +44,7 @@ public class ResUtil {
             return getDisplayMetrics(context).widthPixels;
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Rect rect = windowManager.getCurrentWindowMetrics().getBounds();
-            return isLand(context) ? Math.max(rect.width(), rect.height()) : Math.min(rect.width(), rect.height());
+            return rect.width();
         } else {
             DisplayMetrics displayMetrics = new DisplayMetrics();
             windowManager.getDefaultDisplay().getMetrics(displayMetrics);
@@ -62,7 +62,7 @@ public class ResUtil {
             return getDisplayMetrics(context).heightPixels;
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Rect rect = windowManager.getCurrentWindowMetrics().getBounds();
-            return isLand(context) ? Math.min(rect.width(), rect.height()) : Math.max(rect.width(), rect.height());
+            return rect.height();
         } else {
             DisplayMetrics displayMetrics = new DisplayMetrics();
             windowManager.getDefaultDisplay().getMetrics(displayMetrics);
@@ -75,6 +75,13 @@ public class ResUtil {
     }
 
     public static boolean isLand(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+            if (windowManager != null) {
+                Rect rect = windowManager.getCurrentWindowMetrics().getBounds();
+                return rect.width() >= rect.height();
+            }
+        }
         return context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
     }
 

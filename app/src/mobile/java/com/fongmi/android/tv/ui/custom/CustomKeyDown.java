@@ -98,12 +98,13 @@ public class CustomKeyDown extends GestureDetector.SimpleOnGestureListener imple
     }
 
     private boolean isEdge(MotionEvent e) {
-        return ResUtil.isEdge(activity, e, ResUtil.dp2px(24));
+        return ResUtil.isEdge(App.get(), e, ResUtil.dp2px(24));
     }
 
     private boolean isSide(MotionEvent e) {
-        int four = ResUtil.getScreenWidth(activity) / 4;
-        return !(e.getX() > four) || !(e.getX() < four * 3);
+        int four = ResUtil.getScreenWidth(App.get()) / 4;
+        float x = e.getRawX();
+        return !(x > four) || !(x < four * 3);
     }
 
     private void reset() {
@@ -184,8 +185,8 @@ public class CustomKeyDown extends GestureDetector.SimpleOnGestureListener imple
     }
 
     private void checkSide(MotionEvent e2) {
-        int half = ResUtil.getScreenWidth(activity) / 2;
-        if (e2.getX() > half) changeVolume = true;
+        int half = ResUtil.getScreenWidth(App.get()) / 2;
+        if (e2.getRawX() > half) changeVolume = true;
         else changeBright = true;
     }
 
