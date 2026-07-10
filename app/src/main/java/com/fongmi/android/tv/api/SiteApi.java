@@ -13,6 +13,7 @@ import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Site;
 import com.fongmi.android.tv.bean.Vod;
 import com.fongmi.android.tv.player.Source;
+import com.fongmi.android.tv.player.extractor.Youtube;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Sniffer;
 import com.fongmi.android.tv.web.WebHomeInlineVodStore;
@@ -114,7 +115,7 @@ public class SiteApi {
         SpiderDebug.log("detail", "key=%s,id=%s", key, id);
         if (WebHomeInlineVodStore.KEY.equals(key)) return WebHomeInlineVodStore.detail(id);
         Site site = VodConfig.get().getSite(key);
-        if (site.isEmpty() && PUSH.equals(key)) return pushDetail(id);
+        if (usePushHandler(key, site, id)) return pushDetail(id);
         if (isSpider(site)) {
             String detailContent = site.recent().spider().detailContent(Arrays.asList(id));
             SpiderDebug.log("detail", detailContent);
@@ -138,8 +139,8 @@ public class SiteApi {
         SpiderDebug.log("player", "key=%s,flag=%s,id=%s", key, flag, id);
         Source.get().stop();
         if (WebHomeInlineVodStore.KEY.equals(key)) return WebHomeInlineVodStore.player(flag, id);
-        if (PUSH.equals(key)) return pushPlayer(flag, id);
         Site site = VodConfig.get().getSite(key);
+        if (usePushHandler(key, site, id)) return pushPlayer(flag, id);
         if (site.getType() == 3) {
             String playerContent = site.recent().spider().playerContent(flag, id, VodConfig.get().getFlags());
             SpiderDebug.log("player", playerContent);
@@ -192,6 +193,14 @@ public class SiteApi {
         result.setUrl(Source.get().fetch(result));
         SpiderDebug.log("player", result.toString());
         return result;
+    }
+
+    private static boolean usePushHandler(String key, Site site, String url) {
+        if (!PUSH.equals(key)) return false;
+        boolean youtube = Youtube.isUrl(url);
+        boolean direct = site.isEmpty() || youtube;
+        SpiderDebug.log("player", "push route direct=%s siteEmpty=%s youtube=%s", direct, site.isEmpty(), youtube);
+        return direct;
     }
 
     @NonNull

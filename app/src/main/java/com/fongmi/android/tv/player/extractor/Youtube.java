@@ -67,8 +67,16 @@ public class Youtube implements Source.Extractor {
 
     @Override
     public boolean match(Uri uri) {
+        return isUrl(uri);
+    }
+
+    public static boolean isUrl(String url) {
+        return !TextUtils.isEmpty(url) && isUrl(Uri.parse(url));
+    }
+
+    private static boolean isUrl(Uri uri) {
         String host = UrlUtil.host(uri);
-        return host.contains("youtube.com") || host.contains("youtu.be");
+        return host.equals("youtube.com") || host.endsWith(".youtube.com") || host.equals("youtu.be") || host.endsWith(".youtu.be");
     }
 
     @Override
