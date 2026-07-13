@@ -176,6 +176,12 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     protected void onPlayerRebuilt() {
     }
 
+    protected void onControllerReady(Player controller) {
+    }
+
+    protected void onPlayerPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+    }
+
     protected void onError(String msg) {
     }
 
@@ -288,6 +294,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         try {
             mController = mControllerFuture.get();
             getSeekView().setPlayer(mController);
+            onControllerReady(mController);
             mController.addListener(this);
         } catch (Exception ignored) {
         }
@@ -540,6 +547,11 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         else if (!isBuffering()) getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-lifecycle", "playing changed isPlaying=%s state=%d %s", isPlaying, mController == null ? -1 : mController.getPlaybackState(), lifecycleState());
         onPlayingChanged(isPlaying);
+    }
+
+    @Override
+    public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+        if (isOwner()) onPlayerPositionDiscontinuity(oldPosition, newPosition, reason);
     }
 
     @Override
