@@ -149,6 +149,18 @@
             tools:visibility="visible" />
 
         <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/cast"
+            style="@style/Control"
+            android:layout_marginEnd="8dp"
+            android:text="@string/play_cast" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/timer"
+            style="@style/Control"
+            android:layout_marginEnd="8dp"
+            android:text="@string/play_timer" />
+
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/repeat"
             style="@style/Control"
             android:nextFocusRight="@id/next"

@@ -66,6 +66,7 @@ import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.api.DanmakuApi;
 import com.fongmi.android.tv.api.SiteApi;
 import com.fongmi.android.tv.api.config.VodConfig;
+import com.fongmi.android.tv.bean.CastVideo;
 import com.fongmi.android.tv.bean.Danmaku;
 import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.Flag;
@@ -121,12 +122,14 @@ import com.fongmi.android.tv.ui.custom.AudioPlayerBackgroundDrawable;
 import com.fongmi.android.tv.ui.custom.KaraokeResultView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
+import com.fongmi.android.tv.ui.dialog.CastDialog;
 import com.fongmi.android.tv.ui.dialog.ContentDialog;
 import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.QuickSearchDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TitleDialog;
+import com.fongmi.android.tv.ui.dialog.TimerDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
 import com.fongmi.android.tv.utils.Clock;
 import com.fongmi.android.tv.utils.FileChooser;
@@ -158,7 +161,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, Clock.Callback {
+public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.Listener, TrackDialog.Listener, ArrayAdapter.OnClickListener, FlagAdapter.OnClickListener, EpisodeAdapter.OnClickListener, QualityAdapter.OnClickListener, QuickAdapter.OnClickListener, ParseAdapter.OnClickListener, CastDialog.Listener, Clock.Callback {
 
     private static final long LYRICS_OFFSET_MIN_MS = -5000L;
     private static final long LYRICS_OFFSET_MAX_MS = 5000L;
@@ -678,6 +681,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.control.action.change2.setOnClickListener(view -> onChange());
         mBinding.control.action.fullscreen.setOnClickListener(view -> onFullscreen());
         mBinding.control.action.danmaku.setOnClickListener(view -> onDanmaku());
+        mBinding.control.action.cast.setOnClickListener(view -> onCast());
+        mBinding.control.action.timer.setOnClickListener(view -> onTimer());
         mBinding.control.action.opening.setOnClickListener(view -> onOpening());
         mBinding.audioPlay.setOnClickListener(view -> checkPlay());
         mBinding.audioNext.setOnClickListener(view -> checkNext());
@@ -686,6 +691,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioQueueAction.setOnClickListener(view -> onAudioQueue());
         mBinding.audioLyricsAction.setOnClickListener(view -> onLyricsSearch());
         mBinding.audioKeepAction.setOnClickListener(view -> onKeep());
+        mBinding.audioCastAction.setOnClickListener(view -> onCast());
         mBinding.audioSettingAction.setOnClickListener(view -> onSetting());
         mBinding.audioKaraokeAction.setOnClickListener(view -> onKaraokeMode());
         mBinding.audioBackgroundAction.setOnClickListener(view -> randomizeAudioBackgroundMix(false));
@@ -1586,6 +1592,16 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         SettingPlayerActivity.start(this);
     }
 
+    private void onCast() {
+        if (service() == null || player().isEmpty()) return;
+        CastVideo video = new CastVideo(Objects.toString(mBinding.widget.title.getText(), ""), player().getUrl(), player().getPosition(), player().getHeaders());
+        CastDialog.create().history(mHistory).video(video).fm(true).show(this);
+    }
+
+    private void onTimer() {
+        TimerDialog.create().show(this);
+    }
+
     private void onKeep() {
         Keep keep = Keep.find(getHistoryKey());
         Notify.show(keep != null ? R.string.keep_del : R.string.keep_add);
@@ -2177,6 +2193,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         ArrayList<Runnable> actions = new ArrayList<>();
         addAudioMoreItem(items, actions, getString(R.string.keep), this::onKeep);
         addAudioMoreItem(items, actions, getString(R.string.setting_player), this::onSetting);
+        addAudioMoreItem(items, actions, getString(R.string.play_cast), this::onCast);
+        addAudioMoreItem(items, actions, getString(R.string.play_timer), this::onTimer);
         addAudioMoreItem(items, actions, getString(R.string.player_audio_background), this::showAudioBackgroundPanel);
         if (service() != null && !player().isEmpty()) addAudioMoreItem(items, actions, getString(R.string.player_osd), this::onPlayParams);
         if (service() != null && player().haveTrack(C.TRACK_TYPE_AUDIO)) addAudioMoreItem(items, actions, getString(R.string.play_track_audio), () -> onTrack(C.TRACK_TYPE_AUDIO));
