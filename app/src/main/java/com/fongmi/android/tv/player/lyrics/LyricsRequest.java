@@ -278,9 +278,43 @@ public class LyricsRequest {
         for (String artist : splitArtists(rawArtist)) addSuggestion(suggestions, artist);
     }
 
+    private static List<String> prioritizeSearchSuggestions(List<String> suggestions) {
+        List<String> values = new ArrayList<>();
+        if (suggestions != null) {
+            for (String suggestion : suggestions) {
+                String value = clean(suggestion);
+                if (TextUtils.isEmpty(value) || containsKeyword(values, value)) continue;
+                values.add(value);
+            }
+        }
+        values.sort((left, right) -> Integer.compare(suggestionPriority(left), suggestionPriority(right)));
+        int count = Math.min(8, values.size());
+        return new ArrayList<>(values.subList(0, count));
+    }
+
     private static List<String> limitSuggestions(List<String> suggestions) {
-        int count = Math.min(8, suggestions.size());
-        return new ArrayList<>(suggestions.subList(0, count));
+        return prioritizeSearchSuggestions(suggestions);
+    }
+
+    private static int suggestionPriority(String text) {
+        String value = Normalizer.normalize(clean(text), Normalizer.Form.NFKC).trim();
+        if (TextUtils.isEmpty(value)) return Integer.MAX_VALUE;
+        int length = value.codePointCount(0, value.length());
+        if (value.matches("(?i)^(?:p\\s*)?\\d{1,4}$")) return 600 + length;
+        int score = Math.min(length, 80);
+        if (hasSequencePrefix(value) || value.matches("(?i)^p\\s*\\d{1,4}.*")) score += 260;
+        if (isContainerTitle(value) || isLikelyNonTitleToken(value)) score += 320;
+        if (length > 28) score += 280 + (length - 28) * 3;
+        else if (length > 20) score += 120 + (length - 20) * 2;
+        int digits = 0;
+        for (int offset = 0; offset < value.length();) {
+            int codePoint = value.codePointAt(offset);
+            if (Character.isDigit(codePoint)) digits++;
+            offset += Character.charCount(codePoint);
+        }
+        if (digits >= 2 && digits * 3 >= Math.max(1, length)) score += 180;
+        if (length <= 1) score += 100;
+        return score;
     }
 
     private static boolean isLowPrioritySuggestion(String text) {
