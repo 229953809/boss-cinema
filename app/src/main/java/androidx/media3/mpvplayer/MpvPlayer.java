@@ -926,6 +926,21 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         invalidateState();
     }
 
+    public void restoreVideoTrackSelection() {
+        if (!initialized) return;
+        int count = Math.max(0, intProperty("track-list/count", 0));
+        for (int index = 0; index < count; index++) {
+            TrackInfo info = readTrackInfo(index);
+            if (info == null || info.type != C.TRACK_TYPE_VIDEO) continue;
+            setMpvTrack(C.TRACK_TYPE_VIDEO, info.id);
+            SpiderDebug.log("mpv", "restore video track id=%s codec=%s", info.id, info.codec);
+            refreshTracks();
+            invalidateState();
+            return;
+        }
+        SpiderDebug.log("mpv", "restore video track skipped no video track");
+    }
+
     public void setSecondarySubtitleTrackSelection(String mpvId) {
         if (TextUtils.isEmpty(mpvId) || !initialized) return;
         safeSetPropertyString("secondary-sid", mpvId);

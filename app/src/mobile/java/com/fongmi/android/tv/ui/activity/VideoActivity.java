@@ -2518,14 +2518,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onImmersiveAudioModeChanged() {
         boolean enabled = PlayerSetting.isImmersiveAudioMode();
+        boolean wasAudioStageVisible = mAudioStageVisible;
         updateAudioOnlyState();
         if (enabled) {
             ensureImmersiveAudioControllers();
             applyPlaybackArtwork(getPlaybackEpisode());
             refreshLyrics();
             reloadKaraokeTrack();
+        } else if (wasAudioStageVisible) {
+            restoreVideoTrackAfterAudioStage();
         }
         SpiderDebug.log("audio-mode", "toggle enabled=%s stage=%s artwork=%s owner=%s", enabled, mAudioStageVisible, !TextUtils.isEmpty(mArtworkRequestUrl), mPlaybackEpisodeKey);
+    }
+
+    private void restoreVideoTrackAfterAudioStage() {
+        mBinding.video.postDelayed(() -> {
+            if (service() == null || mAudioStageVisible || PlayerSetting.isImmersiveAudioMode() || !player().haveTrack(C.TRACK_TYPE_VIDEO)) return;
+            player().restoreVideoTrack();
+            SpiderDebug.log("audio-mode", "restore video track player=%s position=%d", player().getPlayerText(), player().getPosition());
+        }, 200);
     }
 
     @Override
