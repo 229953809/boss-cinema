@@ -1103,6 +1103,8 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
         } else if (reason == MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_ERROR) {
             fail(nativeEndFileError(reason, error, errorText), nativeEndFilePlaybackExceptionCode(error));
             return;
+        } else if (isSuccessfulNaturalEof(reason, error)) {
+            playbackState = Player.STATE_ENDED;
         } else if (isFailedLoadedMedia()) {
             fail(new IOException(failedLoadedMediaMessage()), PlaybackException.ERROR_CODE_DECODING_FAILED);
             return;
@@ -1116,6 +1118,16 @@ public final class MpvPlayer extends SimpleBasePlayer implements MPVLib.EventObs
             startStateRefresh();
         }
         invalidateState();
+    }
+
+    private boolean isSuccessfulNaturalEof(int reason, int error) {
+        if (reason != MPVLib.MpvEndFileReason.MPV_END_FILE_REASON_EOF || error != MPVLib.MpvError.MPV_ERROR_SUCCESS || !fileLoaded) return false;
+        if (eofReached) return true;
+        long duration = cachedDurationMs;
+        long position = cachedPositionMs;
+        if (duration == C.TIME_UNSET || duration <= 0) return playbackRestarted && position > 0 && !sawNetworkError && !sawDecodeError && !sawDrmError;
+        long tolerance = Math.max(3000L, Math.min(15000L, duration / 100L));
+        return position >= Math.max(0, duration - tolerance);
     }
 
     private boolean isLikelyHls(MediaItem item, String uri) {

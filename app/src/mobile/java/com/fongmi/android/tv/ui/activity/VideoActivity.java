@@ -3,6 +3,7 @@ package com.fongmi.android.tv.ui.activity;
 import android.annotation.SuppressLint;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -192,6 +193,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private static final int LYRICS_TAB_TRACK = 2;
     private static final int AUDIO_QUEUE_TAB_CURRENT = 0;
     private static final int AUDIO_QUEUE_TAB_SEARCH = 1;
+    private static final String STATE_KARAOKE_RESULT = "karaoke_result";
+    private static final String STATE_KARAOKE_RESULT_ACTION = "karaoke_result_action";
+    private static final int KARAOKE_RESULT_ACTION_NONE = 0;
+    private static final int KARAOKE_RESULT_ACTION_NEXT = 1;
+    private static final int KARAOKE_RESULT_ACTION_NEXT_SILENT = 2;
+    private static final int KARAOKE_RESULT_ACTION_FINISH = 3;
+    private static final int KARAOKE_RESULT_ACTION_SYSTEM_BACK = 4;
     private static final int SHEET_BUTTON_RADIUS_DP = 6;
     private static final int SHEET_SEGMENT_RADIUS_DP = 5;
     private static final int SHEET_TEXT_PRIMARY = 0xFFFFFFFF;
@@ -222,6 +230,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mAudioStageVisible;
     private boolean mAudioLightEffectAnimated;
     private boolean mKaraokeResultShown;
+    private int mKaraokeResultAction;
+    private KaraokeResult mPendingKaraokeResult;
+    private AlertDialog mKaraokeResultDialog;
+    private boolean mSuppressKaraokeResultAction;
     private boolean mSkipKaraokeTrackAutoLoad;
     private BottomSheetDialog mLyricsResultDialog;
     private BottomSheetDialog mAudioQueueDialog;
@@ -279,6 +291,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private int mNavigationRightInset;
     private int mLyricsSearchSeq;
     private int mAudioQueueSearchSeq;
+    private int mAudioPlaylistCurrentIndex = -1;
     private int mEpisodeMaxHeight;
     private int mAudioBackgroundRandomNonce;
     private Runnable mR1;
@@ -587,6 +600,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mFrameHeight = mFrameParams.height;
         mBinding.swipeLayout.setEnabled(false);
         setupAudioStageOverlay();
+        configureAudioLandscapeActions();
         mObserveDetail = this::setDetail;
         mObservePlayer = this::setPlayer;
         mObserveSearch = this::setSearch;
@@ -626,6 +640,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             mBinding.progressLayout.showProgress();
         }
         showProgress();
+        restoreKaraokeResultDialog(savedInstanceState);
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mPendingKaraokeResult == null || mKaraokeResultDialog == null || !mKaraokeResultDialog.isShowing()) return;
+        outState.putSerializable(STATE_KARAOKE_RESULT, mPendingKaraokeResult);
+        outState.putInt(STATE_KARAOKE_RESULT_ACTION, mKaraokeResultAction);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void restoreKaraokeResultDialog(Bundle state) {
+        if (state == null) return;
+        Object saved = state.getSerializable(STATE_KARAOKE_RESULT);
+        if (!(saved instanceof KaraokeResult result)) return;
+        mPendingKaraokeResult = result;
+        mKaraokeResultAction = state.getInt(STATE_KARAOKE_RESULT_ACTION, KARAOKE_RESULT_ACTION_NONE);
+        mKaraokeResultShown = true;
+        mBinding.getRoot().post(() -> showKaraokeResultDialog(result, mKaraokeResultAction));
     }
 
     private void ensureImmersiveAudioControllers() {
@@ -655,6 +689,37 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
         ((ViewGroup) mBinding.getRoot()).addView(mBinding.audioStage, params);
         mBinding.audioStage.bringToFront();
+    }
+
+    private void configureAudioLandscapeActions() {
+        if (mBinding == null || !ResUtil.isLand(this)) return;
+        if (mBinding.audioTransport instanceof ViewGroup transport) {
+            for (int i = 0; i < transport.getChildCount(); i++) {
+                View child = transport.getChildAt(i);
+                if (!(child instanceof ViewGroup group)) continue;
+                for (int j = 0; j < group.getChildCount(); j++) {
+                    View item = group.getChildAt(j);
+                    if (item instanceof TextView) item.setVisibility(View.GONE);
+                    else if (item instanceof ImageView) {
+                        ViewGroup.LayoutParams params = item.getLayoutParams();
+                        params.width = ResUtil.dp2px(40);
+                        params.height = ResUtil.dp2px(40);
+                        item.setLayoutParams(params);
+                    }
+                }
+            }
+        }
+        normalizeLandscapeAudioAction(mBinding.audioLyricsAction);
+        normalizeLandscapeAudioAction(mBinding.audioKaraokeAction);
+        normalizeLandscapeAudioAction(mBinding.audioMoreAction);
+    }
+
+    private void normalizeLandscapeAudioAction(TextView view) {
+        if (view == null) return;
+        view.setText("");
+        view.setGravity(Gravity.CENTER);
+        view.setCompoundDrawablePadding(0);
+        view.setPadding(ResUtil.dp2px(8), ResUtil.dp2px(8), ResUtil.dp2px(8), ResUtil.dp2px(8));
     }
 
     @Override
@@ -1557,7 +1622,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void finishVideoPlayback() {
-        if (showKaraokeResultIfNeeded(this::finishVideoPlaybackNow)) return;
+        if (showKaraokeResultIfNeeded(KARAOKE_RESULT_ACTION_FINISH)) return;
         finishVideoPlaybackNow();
     }
 
@@ -1597,6 +1662,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void checkNext(boolean notify) {
         setR1Callback();
         Episode item = getAdjacentEpisode(1);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "fallback next notify=%s selected=%s name=%s adapter=%d", notify, item.isSelected(), item.getName(), mEpisodeAdapter.getItemCount());
         if (!item.isSelected()) onItemClick(item);
         else if (notify) Notify.show(R.string.error_play_next);
     }
@@ -1610,7 +1676,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private Episode getAdjacentEpisode(int offset) {
         Flag flag = getFlag();
-        List<Episode> items = flag == null ? mEpisodeAdapter.getItems() : flag.getEpisodes();
+        List<Episode> items = mAudioStageVisible ? mEpisodeAdapter.getItems() : flag == null ? mEpisodeAdapter.getItems() : flag.getEpisodes();
         if (items.isEmpty()) return new Episode();
         int position = getSelectedEpisodePosition(items) + offset;
         position = Math.max(0, Math.min(position, items.size() - 1));
@@ -1619,7 +1685,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private boolean hasAdjacentEpisode(int offset) {
         Flag flag = getFlag();
-        List<Episode> items = flag == null ? mEpisodeAdapter.getItems() : flag.getEpisodes();
+        List<Episode> items = mAudioStageVisible ? mEpisodeAdapter.getItems() : flag == null ? mEpisodeAdapter.getItems() : flag.getEpisodes();
         if (items.isEmpty()) return false;
         int position = getSelectedEpisodePosition(items) + offset;
         return position >= 0 && position < items.size();
@@ -2064,8 +2130,19 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void playAudioQueueEpisode(Episode item) {
         if (item == null) return;
+        mAudioPlaylistCurrentIndex = findAudioPlaylistIndex(item.getUrl());
         if (mAudioQueueDialog != null) mAudioQueueDialog.dismiss();
         onItemClick(item);
+    }
+
+    private int findAudioPlaylistIndex(String url) {
+        AudioPlaylistStore.Playlist playlist = AudioPlaylistStore.active();
+        if (playlist == null || playlist.items == null) return -1;
+        for (int i = 0; i < playlist.items.size(); i++) {
+            AudioPlaylistStore.Entry entry = playlist.items.get(i);
+            if (entry != null && TextUtils.equals(entry.url, url)) return i;
+        }
+        return -1;
     }
 
     private void removeAudioQueueEpisode(Episode target) {
@@ -2102,20 +2179,31 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void putAudioQueueMetadata(Episode episode, Vod vod, Episode sourceEpisode, Flag source) {
         String key = audioQueueEpisodeKey(episode);
         mAudioQueueFlags.put(key, source.getFlag());
-        mAudioQueueTitles.put(key, vod.getName());
+        String songTitle = getAudioQueueSongTitle(vod.getName(), sourceEpisode.getName());
+        mAudioQueueTitles.put(key, songTitle);
         mAudioQueuePics.put(key, vod.getPic());
         mAudioQueueLyrics.put(key, getTimedLyrics(vod.getContent()));
-        String artist = getArtistFromEpisode(vod.getName(), sourceEpisode.getName());
+        String artist = TextUtils.isEmpty(vod.getActor()) ? getArtistFromEpisode(songTitle, sourceEpisode.getName()) : vod.getActor();
         if (!TextUtils.isEmpty(artist)) mAudioQueueArtists.put(key, artist);
         AudioPlaylistStore.Entry entry = new AudioPlaylistStore.Entry();
         entry.name = episode.getName();
         entry.url = episode.getUrl();
         entry.playFlag = source.getFlag();
-        entry.title = vod.getName();
+        entry.title = songTitle;
         entry.artist = artist;
         entry.pic = vod.getPic();
         entry.lyrics = getTimedLyrics(vod.getContent());
         AudioPlaylistStore.upsertItem(entry);
+    }
+
+    private String getAudioQueueSongTitle(String collection, String episode) {
+        String title = Objects.toString(episode, "").trim();
+        String parent = Objects.toString(collection, "").trim();
+        if (title.isEmpty() || title.matches("\\d+")) return parent;
+        for (String separator : new String[]{" - ", " – ", " — "}) {
+            if (!parent.isEmpty() && title.startsWith(parent + separator)) return title.substring(parent.length() + separator.length()).trim();
+        }
+        return title;
     }
 
     private void putAudioQueueMetadata(Episode episode, AudioPlaylistStore.Entry entry) {
@@ -2123,7 +2211,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Flag flag = getFlag();
         String playFlag = TextUtils.isEmpty(entry.playFlag) && flag != null ? flag.getFlag() : entry.playFlag;
         mAudioQueueFlags.put(key, playFlag);
-        mAudioQueueTitles.put(key, entry.title);
+        String title = entry.title;
+        if (TextUtils.isEmpty(title) || mHistory != null && TextUtils.equals(title, mHistory.getVodName())) title = getAudioQueueSongTitle(title, entry.name);
+        mAudioQueueTitles.put(key, title);
         mAudioQueuePics.put(key, entry.pic);
         mAudioQueueLyrics.put(key, entry.lyrics);
         if (!TextUtils.isEmpty(entry.artist)) mAudioQueueArtists.put(key, entry.artist);
@@ -3000,11 +3090,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void generateKaraokeTrack() {
-        if (service() == null || mLyrics == null || !KaraokeTrackRepository.canGenerate(mLyrics.getLines())) {
+        List<LyricsLine> lines = getKaraokeGenerationLines();
+        android.util.Log.i("karaoke-generate", "rhythm requested lines=" + lines.size() + " inline=" + (!TextUtils.isEmpty(mInlineLyrics)) + " service=" + (service() != null));
+        if (service() == null || !KaraokeTrackRepository.canGenerate(lines)) {
             Notify.show(R.string.player_karaoke_track_generate_no_lyrics);
             return;
         }
-        onKaraokeTrackGenerated(KaraokeTrackRepository.importGenerated(player(), mLyrics.getLines()));
+        onKaraokeTrackGenerated(KaraokeTrackRepository.importGenerated(player(), lines));
     }
 
     private void onKaraokeTrackGenerated(KaraokeTrackRepository.ImportResult result) {
@@ -3019,8 +3111,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void generateKaraokePitchTrack() {
-        List<LyricsLine> lines = mLyrics == null ? null : mLyrics.getLines();
+        List<LyricsLine> lines = getKaraokeGenerationLines();
         KaraokeTrackRepository.MediaInput input = service() == null ? null : KaraokeTrackRepository.snapshot(player());
+        android.util.Log.i("karaoke-generate", "pitch requested basicPitch=" + PlayerSetting.isKaraokeBasicPitchTflite() + " lines=" + lines.size() + " input=" + (input == null ? "null" : input.getUrl()));
         if (!KaraokeTrackRepository.canGeneratePitch(input, lines)) {
             Notify.show(R.string.player_karaoke_track_generate_no_lyrics);
             return;
@@ -3036,6 +3129,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             });
             App.post(() -> onKaraokePitchTrackGenerated(result, cancel));
         });
+    }
+
+    private List<LyricsLine> getKaraokeGenerationLines() {
+        List<LyricsLine> lines = mLyrics == null ? null : mLyrics.getLines();
+        if (lines != null && !lines.isEmpty()) return lines;
+        String raw = !TextUtils.isEmpty(mInlineLyrics) ? mInlineLyrics : mDetailLyrics;
+        if (!LyricsController.hasTimedLyrics(raw)) return new ArrayList<>();
+        LyricsResult result = new LyricsResult("Inline", getAudioStageTitle(), getAudioStageArtist(getAudioStageTitle()), "", raw, player().getDuration(), true, 100);
+        return new ArrayList<>(result.getLines(player().getDuration()));
     }
 
     private void onKaraokePitchTrackGenerated(KaraokeTrackRepository.ImportResult result, AtomicBoolean cancel) {
@@ -3249,25 +3351,35 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKaraoke.reload(this, player(), isAudioOnly() || isMusicLike());
     }
 
-    private boolean showKaraokeResultIfNeeded() {
-        return showKaraokeResultIfNeeded(null);
-    }
-
-    private boolean showKaraokeResultIfNeeded(@Nullable Runnable after) {
+    private boolean showKaraokeResultIfNeeded(int action) {
         if (mKaraoke == null || !mKaraoke.isActive() || mKaraokeResultShown || isFinishing() || isDestroyed()) return false;
         KaraokeResult result = mKaraoke.getResult();
         if (result == null) return false;
         mKaraokeResultShown = true;
+        mPendingKaraokeResult = result;
+        mKaraokeResultAction = action;
+        showKaraokeResultDialog(result, action);
+        return true;
+    }
+
+    private void showKaraokeResultDialog(KaraokeResult result, int action) {
+        if (result == null || isFinishing() || isDestroyed()) return;
+        if (mKaraokeResultDialog != null && mKaraokeResultDialog.isShowing()) return;
         KaraokeResultView view = new KaraokeResultView(this).setResult(result);
         AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog).setView(view).create();
         view.setAction(() -> {
             dialog.dismiss();
-            runAfterKaraokeResult(after);
+            completeKaraokeResult(action);
         });
-        dialog.setOnCancelListener(d -> runAfterKaraokeResult(after));
+        dialog.setOnCancelListener(d -> {
+            if (!isChangingConfigurations() && !mSuppressKaraokeResultAction) completeKaraokeResult(action);
+        });
+        dialog.setOnDismissListener(d -> {
+            if (mKaraokeResultDialog == dialog) mKaraokeResultDialog = null;
+        });
+        mKaraokeResultDialog = dialog;
         configureKaraokeResultDialog(dialog, view);
         dialog.show();
-        return true;
     }
 
     private void configureKaraokeResultDialog(AlertDialog dialog, KaraokeResultView view) {
@@ -3297,8 +3409,21 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         });
     }
 
-    private void runAfterKaraokeResult(@Nullable Runnable after) {
-        if (after != null) after.run();
+    private void completeKaraokeResult(int action) {
+        mPendingKaraokeResult = null;
+        mKaraokeResultAction = KARAOKE_RESULT_ACTION_NONE;
+        switch (action) {
+            case KARAOKE_RESULT_ACTION_NEXT -> {
+                if (!playNextAudioPlaylistEntry()) checkNext(true);
+            }
+            case KARAOKE_RESULT_ACTION_NEXT_SILENT -> {
+                if (!playNextAudioPlaylistEntry()) checkNext(false);
+            }
+            case KARAOKE_RESULT_ACTION_FINISH -> finishVideoPlaybackNow();
+            case KARAOKE_RESULT_ACTION_SYSTEM_BACK -> finishVideoPlaybackFromSystemBack();
+            default -> {
+            }
+        }
     }
 
     @Override
@@ -3572,7 +3697,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Episode currentEpisode = getEpisode();
         if (currentFlag == null || currentEpisode == null || TextUtils.isEmpty(currentFlag.getFlag()) || TextUtils.isEmpty(currentEpisode.getUrl())) return false;
         int nextType = PlayerSetting.nextPlayer(player().getPlayerType());
-        long position = player().getPosition();
+        long position = getPlayerSwitchPosition();
         float speed = player().getSpeed();
         boolean repeat = player().isRepeatOne();
         String key = getKey();
@@ -3597,6 +3722,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             }
         });
         return true;
+    }
+
+    private long getPlayerSwitchPosition() {
+        long position = Math.max(0, player().getPosition());
+        long history = mHistory == null ? 0 : Math.max(0, mHistory.getPosition());
+        if (mAudioStageVisible && position < 2000 && history > 5000) {
+            SpiderDebug.log("video-flow", "switch player recover transient position current=%d history=%d", position, history);
+            return history;
+        }
+        return position;
     }
 
     private void switchPlayerKernelWithResult(int type, Result result, long position, float speed, boolean repeat, MediaMetadata metadata) {
@@ -4100,7 +4235,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private final PlaybackService.NavigationCallback mNavigationCallback = new PlaybackService.NavigationCallback() {
         @Override
         public void onNext() {
-            checkNext();
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "activity onNext audioStage=%s episode=%s", mAudioStageVisible, getEpisode() == null ? "null" : getEpisode().getName());
+            if (!mAudioStageVisible || !playNextAudioPlaylistEntry()) checkNext();
         }
 
         @Override
@@ -4157,6 +4293,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void setAudioStageVisible(boolean visible) {
         visible = visible && PlayerSetting.isImmersiveAudioMode();
         if (visible) ensureImmersiveAudioControllers();
+        if (visible && isAutoRotate() && !isLock() && !isRotate()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
         if (mAudioStageVisible == visible) {
             updateAudioStageText();
             updateAudioStageControls();
@@ -4254,20 +4391,25 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         AudioPlayerBackgroundDrawable drawable = new AudioPlayerBackgroundDrawable(PlayerSetting.getAudioBackground(), mAudioArtworkColor, PlayerSetting.isAudioBackgroundDecorated(), PlayerSetting.isAudioBackgroundLightEffect(), mAudioLightEffectAnimated, PlayerSetting.getAudioBackgroundSeed(), PlayerSetting.getAudioBackgroundDecorationSeed());
         syncAudioBackgroundHalo(drawable);
         mBinding.audioStage.setBackground(drawable);
-        mBinding.audioStage.post(() -> syncAudioBackgroundHalo(drawable));
+        scheduleAudioBackgroundHaloSync(drawable);
         mBinding.audioStage.invalidate();
+    }
+
+    private void scheduleAudioBackgroundHaloSync(AudioPlayerBackgroundDrawable drawable) {
+        mBinding.audioStage.post(() -> syncAudioBackgroundHalo(drawable));
+        mBinding.audioStage.postDelayed(() -> syncAudioBackgroundHalo(drawable), 120);
+        mBinding.audioStage.postDelayed(() -> syncAudioBackgroundHalo(drawable), 360);
     }
 
     private void syncAudioBackgroundHalo(AudioPlayerBackgroundDrawable drawable) {
         if (mBinding == null || drawable == null) return;
         View anchor = mBinding.audioCover != null ? mBinding.audioCover : mBinding.audioDisc;
         if (mBinding.audioStage.getWidth() <= 0 || anchor.getWidth() <= 0 || anchor.getHeight() <= 0) return;
-        int[] stage = new int[2];
-        int[] view = new int[2];
-        mBinding.audioStage.getLocationOnScreen(stage);
-        anchor.getLocationOnScreen(view);
-        float cx = view[0] - stage[0] + anchor.getWidth() / 2f;
-        float cy = view[1] - stage[1] + anchor.getHeight() / 2f - (isLand() ? ResUtil.dp2px(5) : 0);
+        if (mBinding.audioStage.getBackground() != drawable) return;
+        Rect bounds = new Rect(0, 0, anchor.getWidth(), anchor.getHeight());
+        mBinding.audioStage.offsetDescendantRectToMyCoords(anchor, bounds);
+        float cx = bounds.exactCenterX();
+        float cy = bounds.exactCenterY();
         float radius = Math.max(anchor.getWidth(), anchor.getHeight()) * 0.56f;
         drawable.setRecordHaloAnchor(cx, cy, radius);
     }
@@ -4332,9 +4474,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private String getAudioStageTitle() {
+        String currentTrack = getCurrentTrackMetadata();
+        if (!TextUtils.isEmpty(currentTrack)) return splitCurrentTrack(currentTrack)[0];
         Episode episode = getEpisode();
         String queuedTitle = mAudioQueueTitles.get(audioQueueEpisodeKey(episode));
         if (!TextUtils.isEmpty(queuedTitle)) return queuedTitle;
+        AudioPlaylistStore.Entry entry = findCurrentAudioPlaylistEntry(episode);
+        if (entry != null) return getAudioQueueSongTitle(entry.title, entry.name);
         if (isAudioQueueEpisode(episode) && !TextUtils.isEmpty(episode.getDisplayName())) return episode.getDisplayName();
         if (mHistory != null && !TextUtils.isEmpty(mHistory.getVodName())) return mHistory.getVodName();
         if (!TextUtils.isEmpty(getName())) return getName();
@@ -4343,12 +4489,46 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private String getAudioStageArtist(String title) {
+        String currentTrack = getCurrentTrackMetadata();
+        if (!TextUtils.isEmpty(currentTrack)) return splitCurrentTrack(currentTrack)[1];
         Episode item = getEpisode();
         String queuedArtist = mAudioQueueArtists.get(audioQueueEpisodeKey(item));
         if (!TextUtils.isEmpty(queuedArtist)) return queuedArtist;
+        AudioPlaylistStore.Entry entry = findCurrentAudioPlaylistEntry(item);
+        if (entry != null && !TextUtils.isEmpty(entry.artist)) return entry.artist;
         String episode = item == null ? "" : item.getName();
         String artist = getArtistFromEpisode(title, cleanAudioEpisodeForArtist(episode));
         return TextUtils.equals(artist, title) ? "" : artist;
+    }
+
+    private String getCurrentTrackMetadata() {
+        if (service() == null || player().getMetadata() == null) return "";
+        MediaMetadata metadata = player().getMetadata();
+        if (metadata.subtitle != null && !TextUtils.isEmpty(metadata.subtitle.toString().trim())) return metadata.subtitle.toString().trim();
+        if (metadata.artist != null && !TextUtils.isEmpty(metadata.artist.toString().trim())) return metadata.artist.toString().trim();
+        return "";
+    }
+
+    private String[] splitCurrentTrack(String value) {
+        String text = Objects.toString(value, "").replaceFirst("^\\s*\\d+[.、\\s]+", "").trim();
+        for (String separator : new String[]{" - ", " – ", " — "}) {
+            int index = text.lastIndexOf(separator);
+            if (index > 0 && index + separator.length() < text.length()) {
+                return new String[]{text.substring(0, index).trim(), text.substring(index + separator.length()).trim()};
+            }
+        }
+        return new String[]{text, ""};
+    }
+
+    private AudioPlaylistStore.Entry findCurrentAudioPlaylistEntry(Episode episode) {
+        String url = episode == null ? "" : Objects.toString(episode.getUrl(), "");
+        if (TextUtils.isEmpty(url)) return null;
+        AudioPlaylistStore.Playlist playlist = AudioPlaylistStore.active();
+        if (playlist == null || playlist.items == null) return null;
+        for (AudioPlaylistStore.Entry entry : playlist.items) {
+            if (entry != null && TextUtils.equals(entry.url, url)) return entry;
+        }
+        return null;
     }
 
     private String getEpisodeArtwork(Episode episode) {
@@ -5043,6 +5223,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void clearKaraokeState() {
         mKaraokeResultShown = false;
+        mPendingKaraokeResult = null;
+        mKaraokeResultAction = KARAOKE_RESULT_ACTION_NONE;
+        if (mKaraokeResultDialog != null) {
+            mSuppressKaraokeResultAction = true;
+            mKaraokeResultDialog.dismiss();
+            mSuppressKaraokeResultAction = false;
+            mKaraokeResultDialog = null;
+        }
         if (mKaraoke != null) mKaraoke.clear();
     }
 
@@ -5155,7 +5343,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 player().reset();
                 break;
             case Player.STATE_ENDED:
-                checkEnded(true);
                 break;
         }
     }
@@ -5345,8 +5532,48 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void checkEnded(boolean notify) {
-        if (showKaraokeResultIfNeeded(() -> checkNext(notify))) return;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "checkEnded notify=%s audioStage=%s adapter=%d", notify, mAudioStageVisible, mEpisodeAdapter.getItemCount());
+        if (showKaraokeResultIfNeeded(notify ? KARAOKE_RESULT_ACTION_NEXT : KARAOKE_RESULT_ACTION_NEXT_SILENT)) return;
+        if (mAudioStageVisible && playNextAudioPlaylistEntry()) return;
         checkNext(notify);
+    }
+
+    private boolean playNextAudioPlaylistEntry() {
+        AudioPlaylistStore.Playlist playlist = AudioPlaylistStore.active();
+        if (playlist == null || playlist.items == null || playlist.items.size() < 2) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "playlist unavailable");
+            return false;
+        }
+        int current = mAudioPlaylistCurrentIndex;
+        if (current < 0) current = findAudioPlaylistIndex(getEpisode() == null ? "" : getEpisode().getUrl());
+        if (current < 0) current = findAudioPlaylistIndexByMetadata();
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "playlist=%s size=%d current=%d", playlist.name, playlist.items.size(), current);
+        if (current < 0 || current + 1 >= playlist.items.size()) return false;
+        int nextIndex = current + 1;
+        AudioPlaylistStore.Entry next = playlist.items.get(nextIndex);
+        if (next == null || TextUtils.isEmpty(next.url)) return false;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-auto-next", "play next index=%d name=%s", nextIndex, next.name);
+        Episode episode = Episode.create(TextUtils.isEmpty(next.name) ? next.title : next.name, next.url);
+        putAudioQueueMetadata(episode, next);
+        mAudioPlaylistCurrentIndex = nextIndex;
+        playAudioQueueEpisode(episode);
+        return true;
+    }
+
+    private int findAudioPlaylistIndexByMetadata() {
+        String track = getCurrentTrackMetadata();
+        String title = splitCurrentTrack(track)[0];
+        if (TextUtils.isEmpty(track) && TextUtils.isEmpty(title)) return -1;
+        AudioPlaylistStore.Playlist playlist = AudioPlaylistStore.active();
+        if (playlist == null || playlist.items == null) return -1;
+        for (int i = 0; i < playlist.items.size(); i++) {
+            AudioPlaylistStore.Entry entry = playlist.items.get(i);
+            if (entry == null) continue;
+            String name = Objects.toString(entry.name, "");
+            String savedTitle = Objects.toString(entry.title, "");
+            if (TextUtils.equals(name, track) || TextUtils.equals(savedTitle, title) || name.contains(title)) return i;
+        }
+        return -1;
     }
 
     private boolean hasNextEpisode() {
@@ -5767,6 +5994,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         if (shouldRecreateAudioStageForOrientation(newConfig)) {
+            setAudioOnly(true);
             recreate();
             return;
         }
@@ -5818,7 +6046,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         } else if (isFullscreen() && !isLock()) {
             exitFullscreen();
         } else if (!isLock()) {
-            if (showKaraokeResultIfNeeded(this::finishVideoPlaybackFromSystemBack)) return;
+            if (showKaraokeResultIfNeeded(KARAOKE_RESULT_ACTION_SYSTEM_BACK)) return;
             finishVideoPlaybackFromSystemBack();
         }
     }

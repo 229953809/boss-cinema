@@ -130,6 +130,7 @@ public class KaraokeTrackRepository {
             deleteGeneratedBoundIfAny(signature, fallbackKeySignature(player, signature), legacySignatureOf(player));
             return importText(generatedFile(signature), "Generated rhythm scoring track", text);
         } catch (Exception e) {
+            android.util.Log.e("karaoke-generate", "rhythm generation failed url=" + player.getUrl() + " duration=" + player.getDuration() + " lines=" + (lines == null ? 0 : lines.size()), e);
             return ImportResult.fail(e.getMessage());
         }
     }
@@ -154,6 +155,7 @@ public class KaraokeTrackRepository {
             delete(generatedFile(input.getLegacySignature()));
             return importText(generatedPitchFile(signature), "Generated pitch scoring track", text);
         } catch (Exception e) {
+            android.util.Log.e("karaoke-generate", "pitch generation failed basicPitch=" + PlayerSetting.isKaraokeBasicPitchTflite() + " url=" + input.getUrl() + " duration=" + input.getDuration() + " headers=" + input.getHeaders().size() + " lines=" + (lines == null ? 0 : lines.size()), e);
             return ImportResult.fail(e.getMessage());
         }
     }

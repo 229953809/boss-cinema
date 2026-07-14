@@ -1,6 +1,10 @@
 package com.fongmi.android.tv.player.karaoke;
 
-public class KaraokeResult {
+import java.io.Serializable;
+
+public class KaraokeResult implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final boolean scoring;
     private final boolean pitchScoring;
