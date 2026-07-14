@@ -4408,7 +4408,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (mBinding == null) return;
         if (mAudioStageVisible) {
             if (mBinding.karaoke != null) mBinding.karaoke.setVisibility(View.GONE);
-            if (PlayerSetting.isKaraokeMode() && mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
+            if (mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
         } else {
             mBinding.audioKaraoke.setVisibility(View.GONE);
         }
