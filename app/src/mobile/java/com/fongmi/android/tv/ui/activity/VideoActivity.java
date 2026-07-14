@@ -2139,7 +2139,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             }
             Episode item = items.get(position);
             boolean active = position == selected;
-            holder.title.setText((position + 1) + ". " + item.getDisplayName());
+            holder.title.setText((position + 1) + ". " + getAudioQueueDisplayName(item, active));
             holder.title.setTextColor(active ? SHEET_TEXT_PRIMARY : SHEET_TEXT_SECONDARY);
             holder.remove.setVisibility(View.VISIBLE);
             holder.remove.setOnClickListener(v -> removeAudioQueueEpisode(item));
@@ -4604,6 +4604,32 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return "";
     }
 
+    private void syncCurrentAudioPlaylistMetadata() {
+        if (!mAudioStageVisible || service() == null) return;
+        Episode episode = getPlaybackEpisode();
+        if (episode == null || !isAudioQueueEpisode(episode)) return;
+        String track = getCurrentTrackMetadata();
+        if (TextUtils.isEmpty(track)) return;
+        String[] parts = splitCurrentTrack(track);
+        String title = parts[0];
+        String artist = parts[1];
+        if (!isUsefulAudioQueueTitle(title, episode)) return;
+        String key = audioQueueEpisodeKey(episode);
+        boolean changed = !TextUtils.equals(title, mAudioQueueTitles.get(key));
+        if (!TextUtils.isEmpty(artist) && !TextUtils.equals(artist, mAudioQueueArtists.get(key))) changed = true;
+        if (!changed) return;
+        mAudioQueueTitles.put(key, title);
+        if (!TextUtils.isEmpty(artist)) mAudioQueueArtists.put(key, artist);
+        AudioPlaylistStore.Entry entry = findCurrentAudioPlaylistEntry(episode);
+        if (entry != null) {
+            entry.title = title;
+            if (!TextUtils.isEmpty(artist)) entry.artist = artist;
+            AudioPlaylistStore.upsertItem(entry);
+        }
+        if (mAudioQueueAdapter != null) mAudioQueueAdapter.notifyDataSetChanged();
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("audio-playlist", "metadata learned name=%s title=%s artist=%s", episode.getName(), title, artist);
+    }
+
     private String[] splitCurrentTrack(String value) {
         String text = Objects.toString(value, "").replaceFirst("^\\s*\\d+[.、\\s]+", "").trim();
         for (String separator : new String[]{" - ", " – ", " — "}) {
@@ -4613,6 +4639,52 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             }
         }
         return new String[]{text, ""};
+    }
+
+    private String getAudioQueueDisplayName(Episode episode, boolean active) {
+        String fallback = episode == null ? "" : episode.getDisplayName();
+        if (!isAudioQueuePlaceholderName(fallback)) return fallback;
+        String title = mAudioQueueTitles.get(audioQueueEpisodeKey(episode));
+        String artist = mAudioQueueArtists.get(audioQueueEpisodeKey(episode));
+        if (active) {
+            String track = getCurrentTrackMetadata();
+            if (!TextUtils.isEmpty(track)) {
+                String[] parts = splitCurrentTrack(track);
+                if (isUsefulAudioQueueTitle(parts[0], episode)) {
+                    title = parts[0];
+                    artist = parts[1];
+                }
+            }
+        }
+        if (!isUsefulAudioQueueTitle(title, episode)) return fallback;
+        if (TextUtils.isEmpty(artist) || title.contains(artist)) return title;
+        return title + " - " + artist;
+    }
+
+    private boolean isUsefulAudioQueueTitle(String title, Episode episode) {
+        String value = Objects.toString(title, "").trim();
+        if (TextUtils.isEmpty(value) || isAudioQueuePlaceholderName(value)) return false;
+        if (episode == null || !isAudioQueuePlaceholderName(episode.getDisplayName())) return true;
+        String collection = mHistory == null ? "" : Objects.toString(mHistory.getVodName(), "").trim();
+        if (!TextUtils.isEmpty(collection) && TextUtils.equals(value, collection)) return false;
+        if (!TextUtils.isEmpty(getName()) && TextUtils.equals(value, getName())) return false;
+        return !isAudioQueueCollectionTitle(value);
+    }
+
+    private boolean isAudioQueuePlaceholderName(String name) {
+        String value = Objects.toString(name, "").trim();
+        return value.matches("(?i)^(?:\\[?p\\s*0*\\d{1,4}\\]?|0*\\d{1,4})[.．、_\\-\\s]*$");
+    }
+
+    private boolean isAudioQueueCollectionTitle(String title) {
+        String value = Objects.toString(title, "").trim().toLowerCase(Locale.ROOT);
+        return value.contains("合集")
+                || value.contains("歌单")
+                || value.contains("排行榜")
+                || value.contains("热门歌曲")
+                || value.contains("最好听")
+                || value.contains("精选")
+                || value.matches(".*\\d+\\s*(首|曲).*");
     }
 
     private AudioPlaylistStore.Entry findCurrentAudioPlaylistEntry(Episode episode) {
@@ -5535,6 +5607,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         long position, duration;
         mHistory.setCreateTime(time);
         updatePlaybackHistoryPosition();
+        syncCurrentAudioPlaylistMetadata();
         debugLyricsLoop("clock", false);
         syncKaraokePosition();
         if (mLyrics != null) mLyrics.update(player());
