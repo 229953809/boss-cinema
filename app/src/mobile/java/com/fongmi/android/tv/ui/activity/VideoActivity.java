@@ -646,20 +646,33 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (mPendingKaraokeResult == null || mKaraokeResultDialog == null || !mKaraokeResultDialog.isShowing()) return;
+        if (mPendingKaraokeResult == null) return;
         outState.putSerializable(STATE_KARAOKE_RESULT, mPendingKaraokeResult);
         outState.putInt(STATE_KARAOKE_RESULT_ACTION, mKaraokeResultAction);
+        SpiderDebug.log("karaoke-result", "save action=%d dialog=%s changing=%s", mKaraokeResultAction, mKaraokeResultDialog != null && mKaraokeResultDialog.isShowing(), isChangingConfigurations());
     }
 
     @SuppressWarnings("deprecation")
     private void restoreKaraokeResultDialog(Bundle state) {
-        if (state == null) return;
-        Object saved = state.getSerializable(STATE_KARAOKE_RESULT);
-        if (!(saved instanceof KaraokeResult result)) return;
+        KaraokeResult result = null;
+        int action = KARAOKE_RESULT_ACTION_NONE;
+        if (state != null) {
+            Object saved = state.getSerializable(STATE_KARAOKE_RESULT);
+            if (saved instanceof KaraokeResult value) result = value;
+            action = state.getInt(STATE_KARAOKE_RESULT_ACTION, KARAOKE_RESULT_ACTION_NONE);
+        }
+        if (result == null && mViewModel != null) {
+            result = mViewModel.getKaraokeResult();
+            action = mViewModel.getKaraokeResultAction();
+        }
+        if (result == null) return;
         mPendingKaraokeResult = result;
-        mKaraokeResultAction = state.getInt(STATE_KARAOKE_RESULT_ACTION, KARAOKE_RESULT_ACTION_NONE);
+        mKaraokeResultAction = action;
         mKaraokeResultShown = true;
-        mBinding.getRoot().post(() -> showKaraokeResultDialog(result, mKaraokeResultAction));
+        KaraokeResult restored = result;
+        int restoredAction = action;
+        SpiderDebug.log("karaoke-result", "restore action=%d bundle=%s", action, state != null);
+        mBinding.getRoot().post(() -> showKaraokeResultDialog(restored, restoredAction));
     }
 
     private void ensureImmersiveAudioControllers() {
@@ -3358,6 +3371,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKaraokeResultShown = true;
         mPendingKaraokeResult = result;
         mKaraokeResultAction = action;
+        if (mViewModel != null) mViewModel.setKaraokeResult(result, action);
+        SpiderDebug.log("karaoke-result", "show action=%d", action);
         showKaraokeResultDialog(result, action);
         return true;
     }
@@ -3412,6 +3427,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void completeKaraokeResult(int action) {
         mPendingKaraokeResult = null;
         mKaraokeResultAction = KARAOKE_RESULT_ACTION_NONE;
+        if (mViewModel != null) mViewModel.clearKaraokeResult();
         switch (action) {
             case KARAOKE_RESULT_ACTION_NEXT -> {
                 if (!playNextAudioPlaylistEntry()) checkNext(true);
@@ -5245,6 +5261,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mKaraokeResultShown = false;
         mPendingKaraokeResult = null;
         mKaraokeResultAction = KARAOKE_RESULT_ACTION_NONE;
+        if (mViewModel != null) mViewModel.clearKaraokeResult();
         if (mKaraokeResultDialog != null) {
             mSuppressKaraokeResultAction = true;
             mKaraokeResultDialog.dismiss();
