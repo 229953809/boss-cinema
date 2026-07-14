@@ -552,6 +552,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
         player().setDanmakuEnabled(DanmakuSetting.isShow());
+        syncDesktopLyricsAudioContent();
         setPlayerKernel();
         setDecode();
         setLut();
@@ -4390,8 +4391,13 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void updateAudioOnlyState() {
         if (service() == null) return;
         setAudioOnly(LyricsController.isAudioOnly(player()));
+        syncDesktopLyricsAudioContent();
         setAudioStageVisible(shouldUseImmersiveAudio());
         setKaraokeActionState();
+    }
+
+    private void syncDesktopLyricsAudioContent() {
+        if (service() != null) service().setDesktopLyricsAudioContent(isAudioOnly() || isMusicLike());
     }
 
     private void setAudioStageVisible(boolean visible) {

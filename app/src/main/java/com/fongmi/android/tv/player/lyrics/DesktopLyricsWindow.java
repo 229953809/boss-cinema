@@ -15,6 +15,9 @@ import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.ui.custom.LyricsOverlayView;
+import com.github.catvod.crawler.SpiderDebug;
+
+import java.util.Objects;
 
 public class DesktopLyricsWindow {
 
@@ -34,8 +37,10 @@ public class DesktopLyricsWindow {
     private int downY;
     private int touchSlop;
     private boolean attached;
+    private boolean audioContent;
     private boolean dragging;
     private boolean foreground = true;
+    private String displayState;
 
     public DesktopLyricsWindow(Context context) {
         this.context = context.getApplicationContext();
@@ -44,6 +49,13 @@ public class DesktopLyricsWindow {
 
     public void setForeground(boolean foreground) {
         this.foreground = foreground;
+        update(player, true);
+    }
+
+    public void setAudioContent(boolean audioContent) {
+        if (this.audioContent == audioContent) return;
+        this.audioContent = audioContent;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "content eligible=%s", audioContent);
         update(player, true);
     }
 
@@ -61,6 +73,8 @@ public class DesktopLyricsWindow {
         controller = null;
         view = null;
         player = null;
+        audioContent = false;
+        displayState = null;
     }
 
     private void update(PlayerManager player, boolean refresh) {
@@ -79,11 +93,27 @@ public class DesktopLyricsWindow {
     }
 
     private boolean canShow(PlayerManager player) {
-        if (foreground || App.activity() != null) return false;
-        if (!PlayerSetting.isDesktopLyrics()) return false;
-        if (!canDrawOverlays()) return false;
-        if (player == null || player.isEmpty() || !player.isPlaying()) return false;
-        return LyricsController.isAudioContent(player);
+        boolean activityForeground = App.activity() != null;
+        boolean enabled = PlayerSetting.isDesktopLyrics();
+        boolean overlay = canDrawOverlays();
+        boolean ready = player != null && !player.isEmpty();
+        boolean playing = ready && player.isPlaying();
+        boolean inferredAudio = ready && LyricsController.isAudioContent(player);
+        boolean canShow = !foreground && !activityForeground && enabled && overlay && playing && (audioContent || inferredAudio);
+        String state = "show=" + canShow
+                + " foreground=" + foreground
+                + " activity=" + activityForeground
+                + " enabled=" + enabled
+                + " overlay=" + overlay
+                + " ready=" + ready
+                + " playing=" + playing
+                + " explicitAudio=" + audioContent
+                + " inferredAudio=" + inferredAudio;
+        if (!Objects.equals(displayState, state)) {
+            displayState = state;
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", state);
+        }
+        return canShow;
     }
 
     private boolean canDrawOverlays() {
@@ -103,8 +133,10 @@ public class DesktopLyricsWindow {
             params = buildParams();
             windowManager.addView(view, params);
             attached = true;
-        } catch (Throwable ignored) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "window attached x=%d y=%d width=%d", params.x, params.y, params.width);
+        } catch (Throwable error) {
             attached = false;
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", error);
         }
     }
 
@@ -213,7 +245,9 @@ public class DesktopLyricsWindow {
         if (!attached || windowManager == null || view == null) return;
         try {
             windowManager.removeView(view);
-        } catch (Throwable ignored) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "window detached");
+        } catch (Throwable error) {
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", error);
         }
         attached = false;
     }

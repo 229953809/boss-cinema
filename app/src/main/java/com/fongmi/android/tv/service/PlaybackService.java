@@ -309,6 +309,10 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
         if (desktopLyrics != null) desktopLyrics.setForeground(foreground);
     }
 
+    public void setDesktopLyricsAudioContent(boolean audioContent) {
+        if (desktopLyrics != null) desktopLyrics.setAudioContent(audioContent);
+    }
+
     public void resetSessionActivity() {
         setSessionActivity(buildDefaultIntent());
     }
