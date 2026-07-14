@@ -682,6 +682,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (!PlayerSetting.isImmersiveAudioMode() || mLyrics != null || mBinding == null) return;
         mLyrics = new LyricsController(mBinding.lyrics);
         mLyrics.setSecondaryView(mBinding.audioLyrics);
+        mLyrics.setListener((result, lines) -> {
+            if (service() != null) service().setDesktopLyricsSnapshot(result, lines);
+        });
         mKaraoke = new KaraokeController();
         mKaraoke.setListener((status, track, sample, snapshot) -> {
             boolean playing = service() != null && player().isPlaying();
@@ -6289,7 +6292,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         cancelKaraokePitchGeneration(false);
         dismissLyricsResultDialog();
         stopAudioCoverRotation();
-        if (mLyrics != null) mLyrics.release();
+        if (mLyrics != null) {
+            mLyrics.setListener(null);
+            mLyrics.release();
+        }
         if (mKaraoke != null) mKaraoke.release();
         mClock.release();
         saveHistory(true);

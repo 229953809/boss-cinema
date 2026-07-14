@@ -17,6 +17,9 @@ import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.ui.custom.LyricsOverlayView;
 import com.github.catvod.crawler.SpiderDebug;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public class DesktopLyricsWindow {
@@ -28,6 +31,8 @@ public class DesktopLyricsWindow {
     private final Runnable tick = this::onTick;
 
     private LyricsController controller;
+    private LyricsResult lyricsResult;
+    private List<LyricsLine> lyricsLines = Collections.emptyList();
     private LyricsOverlayView view;
     private WindowManager.LayoutParams params;
     private PlayerManager player;
@@ -41,6 +46,8 @@ public class DesktopLyricsWindow {
     private boolean dragging;
     private boolean foreground = true;
     private String displayState;
+    private int lyricsVersion;
+    private int appliedLyricsVersion = -1;
 
     public DesktopLyricsWindow(Context context) {
         this.context = context.getApplicationContext();
@@ -56,6 +63,14 @@ public class DesktopLyricsWindow {
         if (this.audioContent == audioContent) return;
         this.audioContent = audioContent;
         if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "content eligible=%s", audioContent);
+        update(player, true);
+    }
+
+    public void setLyricsSnapshot(LyricsResult result, List<LyricsLine> lines) {
+        lyricsResult = result;
+        lyricsLines = result == null || lines == null || lines.isEmpty() ? Collections.emptyList() : new ArrayList<>(lines);
+        lyricsVersion++;
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "snapshot source=%s lines=%d version=%d", result == null ? "none" : result.getSource(), lyricsLines.size(), lyricsVersion);
         update(player, true);
     }
 
@@ -75,6 +90,10 @@ public class DesktopLyricsWindow {
         player = null;
         audioContent = false;
         displayState = null;
+        lyricsResult = null;
+        lyricsLines = Collections.emptyList();
+        lyricsVersion = 0;
+        appliedLyricsVersion = -1;
     }
 
     private void update(PlayerManager player, boolean refresh) {
@@ -87,7 +106,15 @@ public class DesktopLyricsWindow {
         if (!attached || view == null) return;
         boolean firstAttach = controller == null;
         if (firstAttach) controller = new LyricsController(view);
-        if (refresh || firstAttach) controller.refresh(player, true);
+        if (lyricsResult != null && !lyricsLines.isEmpty()) {
+            if (firstAttach || appliedLyricsVersion != lyricsVersion) {
+                controller.applySnapshot(lyricsResult, lyricsLines, player);
+                appliedLyricsVersion = lyricsVersion;
+                if (SpiderDebug.isEnabled()) SpiderDebug.log("desktop-lyrics", "snapshot applied source=%s lines=%d version=%d", lyricsResult.getSource(), lyricsLines.size(), lyricsVersion);
+            }
+        } else if (refresh || firstAttach) {
+            controller.refresh(player, true);
+        }
         controller.update(player);
         schedule();
     }
@@ -242,6 +269,7 @@ public class DesktopLyricsWindow {
             controller.release();
             controller = null;
         }
+        appliedLyricsVersion = -1;
         if (!attached || windowManager == null || view == null) return;
         try {
             windowManager.removeView(view);

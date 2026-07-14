@@ -28,7 +28,9 @@ public class LyricsController {
     private final LyricsRepository repository = new LyricsRepository();
     private final LyricsOverlayView view;
     private LyricsOverlayView secondaryView;
+    private Listener listener;
     private List<LyricsLine> lines = Collections.emptyList();
+    private LyricsResult result;
     private String loadingSignature;
     private String activeSignature;
     private String emptySignature;
@@ -45,12 +47,21 @@ public class LyricsController {
         void onResult(List<LyricsResult> results, boolean complete);
     }
 
+    public interface Listener {
+        void onLyricsChanged(LyricsResult result, List<LyricsLine> lines);
+    }
+
     public LyricsController(LyricsOverlayView view) {
         this.view = view;
     }
 
     public void setSecondaryView(LyricsOverlayView view) {
         this.secondaryView = view;
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+        if (result != null && !lines.isEmpty()) notifyListener();
     }
 
     public void refresh(PlayerManager player) {
@@ -139,6 +150,7 @@ public class LyricsController {
         emptySignature = null;
         lines = Collections.emptyList();
         clearViews();
+        notifyListener();
         int current = ++sequence;
         repository.loadPreferWord(request, true, result -> {
             if (current != sequence) return;
@@ -281,6 +293,21 @@ public class LyricsController {
         return lines;
     }
 
+    public void applySnapshot(LyricsResult result, List<LyricsLine> lines, PlayerManager player) {
+        if (result == null || lines == null || lines.isEmpty()) {
+            clear();
+            return;
+        }
+        cancelDurationWait();
+        sequence++;
+        loadingSignature = null;
+        emptySignature = null;
+        activeSignature = "snapshot";
+        this.lines = new ArrayList<>(lines);
+        setLyrics(result, this.lines);
+        update(player);
+    }
+
     public void clear() {
         cancelDurationWait();
         sequence++;
@@ -317,14 +344,21 @@ public class LyricsController {
     }
 
     private void setLyrics(LyricsResult result, List<LyricsLine> lines) {
+        this.result = result;
         view.setLyrics(result, lines);
         if (secondaryView != null) secondaryView.setLyrics(result, lines);
+        notifyListener();
     }
 
     private void clearViews() {
         if (SpiderDebug.isEnabled()) SpiderDebug.log(TAG, "views clear");
+        result = null;
         view.clear();
         if (secondaryView != null) secondaryView.clear();
+    }
+
+    private void notifyListener() {
+        if (listener != null) listener.onLyricsChanged(result, new ArrayList<>(lines));
     }
 
     public void release() {

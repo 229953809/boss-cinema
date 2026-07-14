@@ -442,6 +442,8 @@ public class LyricsRequest {
         boolean artistEpisode = isLikelyEpisode(artist);
         boolean titleDelimited = splitDelimited(stripKnownPrefixes(title).text) != null;
         int metadataConfidence = titleContainer ? 32 : titleVideo ? 46 : artistEpisode ? 52 : TextUtils.isEmpty(artist) && titleDelimited ? 50 : 82;
+        addMediaWorkTitleCandidate(candidates, title, artist);
+        addBookPrefixTitleCandidate(candidates, artist);
         addBookTitleCandidate(candidates, title, "metadataTitle", TextUtils.isEmpty(artist) ? 118 : 92);
         addBookTitleCandidate(candidates, artist, "metadataArtist", 118);
         addCandidate(candidates, new Candidate(title, normalizeArtistFromEpisode(title, artist), metadataConfidence, "metadata", "pair", title));
@@ -514,6 +516,34 @@ public class LyricsRequest {
         addCandidate(candidates, new Candidate(book.text, artist, confidence, source, "book-title", raw));
     }
 
+    private static void addMediaWorkTitleCandidate(List<Candidate> candidates, String metadataTitle, String rawEpisode) {
+        SplitText split = splitDelimited(stripKnownPrefixes(rawEpisode).text);
+        if (split == null || !isMediaWorkDescription(split.right)) return;
+        String title = cleanNamePart(split.left);
+        if (TextUtils.isEmpty(title) || isNoiseToken(title) || isContainerTitle(title) || isVideoContext(title) || title.length() > 48) return;
+        addCandidate(candidates, new Candidate(title, "", 128, "metadataArtist", "media-work-title", rawEpisode));
+    }
+
+    private static void addBookPrefixTitleCandidate(List<Candidate> candidates, String rawEpisode) {
+        String value = stripKnownPrefixes(clean(rawEpisode)).text;
+        BookText book = firstBookText(value);
+        if (book == null || book.start <= 0 || book.end >= value.length() - 1) return;
+        String title = cleanNamePart(value.substring(0, book.start)).replaceFirst("\\s*[-–—－]+\\s*$", "").trim();
+        String suffix = Normalizer.normalize(clean(value.substring(book.end + 1)), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        if (TextUtils.isEmpty(title) || title.length() > 48 || isNoiseToken(title) || isContainerTitle(title) || isVideoContext(title)) return;
+        if (!containsAny(suffix, "主题", "片尾", "片头", "插曲", "原声", "电影", "电视", "剧集", "动画", "动漫", "中文", "英文")) return;
+        addCandidate(candidates, new Candidate(title, "", 130, "metadataArtist", "book-prefix-title", rawEpisode));
+    }
+
+    private static boolean isMediaWorkDescription(String text) {
+        String value = Normalizer.normalize(clean(text), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        if (TextUtils.isEmpty(value)) return false;
+        BookText book = firstBookText(value);
+        if (book != null && book.start == 0 && book.end < value.length() - 1) return true;
+        return hasBookBracket(value) && isLikelyNonTitleToken(value)
+                || containsAny(value, "主题曲", "片尾曲", "片头曲", "插曲", "影视原声", "电影原声", "电视剧原声", "动画原声", "ost");
+    }
+
     private static String artistFromBookSuffix(String suffix) {
         String value = clean(suffix);
         int index = firstDashIndex(value);
@@ -541,6 +571,7 @@ public class LyricsRequest {
         if (TextUtils.isEmpty(episode) || confidence <= 0) return;
         SequenceText sequence = stripSequence(episode);
         SplitText split = splitDelimited(sequence.text);
+        if (split != null && isMediaWorkDescription(split.right)) return;
         if (split == null || !preferArtistTitle(key, metadataTitle, split)) return;
         addCandidate(candidates, new Candidate(split.right, split.left, confidence, "metadataArtist", sequence.hadPrefix ? "sequence-artist-title-context" : "artist-title-context", rawEpisode));
     }

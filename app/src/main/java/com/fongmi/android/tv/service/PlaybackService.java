@@ -33,6 +33,8 @@ import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.lyrics.DesktopLyricsWindow;
+import com.fongmi.android.tv.player.lyrics.LyricsLine;
+import com.fongmi.android.tv.player.lyrics.LyricsResult;
 import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.utils.Task;
 import com.github.catvod.crawler.SpiderDebug;
@@ -311,6 +313,10 @@ public class PlaybackService extends MediaLibraryService implements MediaLibrary
 
     public void setDesktopLyricsAudioContent(boolean audioContent) {
         if (desktopLyrics != null) desktopLyrics.setAudioContent(audioContent);
+    }
+
+    public void setDesktopLyricsSnapshot(LyricsResult result, List<LyricsLine> lines) {
+        if (desktopLyrics != null) desktopLyrics.setLyricsSnapshot(result, lines);
     }
 
     public void resetSessionActivity() {
