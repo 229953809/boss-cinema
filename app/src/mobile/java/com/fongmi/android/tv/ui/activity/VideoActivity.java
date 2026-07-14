@@ -234,6 +234,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private KaraokeResult mPendingKaraokeResult;
     private AlertDialog mKaraokeResultDialog;
     private boolean mSuppressKaraokeResultAction;
+    private boolean mRestoringConfigurationPlayback;
     private boolean mSkipKaraokeTrackAutoLoad;
     private BottomSheetDialog mLyricsResultDialog;
     private BottomSheetDialog mAudioQueueDialog;
@@ -594,6 +595,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void initView(Bundle savedInstanceState) {
         super.initView(savedInstanceState);
+        mRestoringConfigurationPlayback = savedInstanceState != null;
         ViewCompat.setOnApplyWindowInsetsListener(mBinding.getRoot(), (v, insets) -> setStatusBar(insets));
         mKeyDown = CustomKeyDown.create(this, mBinding.exo);
         mFrameParams = mBinding.video.getLayoutParams();
@@ -4088,12 +4090,28 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void checkFlag(Vod item) {
         boolean empty = item.getFlags().isEmpty();
         mBinding.flag.setVisibility(empty ? View.GONE : View.VISIBLE);
+        boolean preservePlayback = mRestoringConfigurationPlayback && service() != null && !player().isEmpty();
         if (empty) {
-            startFlow();
+            if (!preservePlayback) startFlow();
+        } else if (preservePlayback) {
+            restoreFlagSelectionWithoutPlayback();
         } else {
             onItemClick(mHistory.getFlag());
             if (mHistory.isRevSort()) reverseEpisode(true);
         }
+        if (preservePlayback) SpiderDebug.log("karaoke-result", "configuration restore preserved playback key=%s episode=%s", player().getKey(), mHistory.getVodRemarks());
+        mRestoringConfigurationPlayback = false;
+    }
+
+    private void restoreFlagSelectionWithoutPlayback() {
+        mFlagAdapter.setSelected(mHistory.getFlag());
+        Flag flag = getFlag();
+        if (flag == null) return;
+        syncSelectedEpisode(flag);
+        setEpisodeAdapter(flag.getEpisodes());
+        scrollEpisodeToSelected();
+        setQualityVisible(false);
+        if (mHistory.isRevSort()) reverseEpisode(true);
     }
 
     private void checkHistory(Vod item) {
@@ -5372,7 +5390,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 showProgress();
                 break;
             case Player.STATE_READY:
-                mKaraokeResultShown = false;
+                if (mPendingKaraokeResult == null) mKaraokeResultShown = false;
                 recordPlayHealth(true, "");
                 hideProgress();
                 checkControl();
@@ -6099,6 +6117,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onDestroy() {
+        dismissKaraokeResultDialogForRecreation();
         mLyricsSearchSeq++;
         cancelKaraokePitchGeneration(false);
         dismissLyricsResultDialog();
@@ -6117,5 +6136,14 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mViewModel.getSearch().removeObserver(mObserveSearch);
         SiteHealthStore.flush();
         super.onDestroy();
+    }
+
+    private void dismissKaraokeResultDialogForRecreation() {
+        if (!isChangingConfigurations() || mKaraokeResultDialog == null) return;
+        mSuppressKaraokeResultAction = true;
+        mKaraokeResultDialog.dismiss();
+        mSuppressKaraokeResultAction = false;
+        mKaraokeResultDialog = null;
+        SpiderDebug.log("karaoke-result", "dismiss old window for configuration change");
     }
 }
