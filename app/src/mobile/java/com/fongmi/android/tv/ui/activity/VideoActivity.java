@@ -4778,6 +4778,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         loadArtwork(getEpisodeArtwork(episode), audioQueueEpisodeKey(episode));
     }
 
+    private void restorePlaybackArtwork() {
+        Episode episode = getPlaybackEpisode();
+        String owner = audioQueueEpisodeKey(episode);
+        String url = getEpisodeArtwork(episode);
+        if (TextUtils.isEmpty(url) && TextUtils.equals(owner, mArtworkRequestOwner)) url = mArtworkRequestUrl;
+        SpiderDebug.log("audio-artwork", "restore owner=%s url=%s requestOwner=%s request=%s", owner, !TextUtils.isEmpty(url), mArtworkRequestOwner, !TextUtils.isEmpty(mArtworkRequestUrl));
+        loadArtwork(url, owner);
+    }
+
     private String cleanAudioEpisodeForArtist(String episode) {
         String value = Objects.toString(episode, "").trim();
         if (value.isEmpty()) return "";
@@ -6209,7 +6218,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onResume() {
         super.onResume();
         restoreContextWall();
-        if (mAudioStageVisible) setArtwork();
+        if (mAudioStageVisible) restorePlaybackArtwork();
         if (mAudioStageVisible) applyAudioBackground();
         syncLyricsPlaybackState();
         syncKaraokePosition();
