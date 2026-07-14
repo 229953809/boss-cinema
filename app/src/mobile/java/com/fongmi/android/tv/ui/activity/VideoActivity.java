@@ -1470,6 +1470,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void showLyricsSearchSheet(String keyword, List<String> suggestions) {
+        int searchSeqAtOpen = mLyricsSearchSeq;
         BottomSheetDialog dialog = createAudioSheet();
         LinearLayout root = createAudioSheetRoot();
         root.addView(createAudioSheetTitle(getString(R.string.player_lyrics_reload)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
@@ -1505,7 +1506,29 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             return true;
         });
         showCompactPlaybackSheet(dialog);
-        input.post(() -> Util.showKeyboard(input));
+        String autoKeyword = firstLyricsSearchSuggestion(suggestions);
+        input.post(() -> {
+            if (!dialog.isShowing() || mLyricsSearchSeq != searchSeqAtOpen) return;
+            String current = input.getText() == null ? "" : input.getText().toString();
+            if (!TextUtils.isEmpty(autoKeyword) && (TextUtils.isEmpty(current) || TextUtils.equals(current, keyword))) {
+                input.setText(autoKeyword);
+                if (input.getText() != null) input.setSelection(input.getText().length());
+                Util.hideKeyboard(input);
+                SpiderDebug.log("lyrics-ui", "mobile auto search suggestion=%s", autoKeyword);
+                searchLyrics(autoKeyword);
+            } else {
+                Util.showKeyboard(input);
+            }
+        });
+    }
+
+    private String firstLyricsSearchSuggestion(List<String> suggestions) {
+        if (suggestions == null) return "";
+        for (String suggestion : suggestions) {
+            String value = Objects.toString(suggestion, "").trim();
+            if (!TextUtils.isEmpty(value)) return value;
+        }
+        return "";
     }
 
     private void addLyricsSearchSuggestions(LinearLayout root, TextInputEditText input, List<String> suggestions) {
