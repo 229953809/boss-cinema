@@ -51,6 +51,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     private PlayerManager player;
     private History history;
     private boolean parse;
+    private boolean ready;
     private int scrollBasePaddingBottom;
 
     public ControlDialog() {
@@ -120,6 +121,11 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
 
     @Override
     protected void initView() {
+        ready = resolveHostDependencies();
+        if (!ready) {
+            binding.getRoot().post(this::dismissAllowingStateLoss);
+            return;
+        }
         scrollBasePaddingBottom = binding.controlScroll.getPaddingBottom();
         setControlPadding();
         setSheetBackground();
@@ -147,6 +153,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
 
     @Override
     protected void initEvent() {
+        if (!ready) return;
         binding.timer.setOnClickListener(this::onTimer);
         binding.karaoke.setOnClickListener(v -> setKaraoke());
         binding.speed.addOnChangeListener(this::setSpeed);
@@ -286,7 +293,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     public void setPlayer() {
-        if (binding == null || parent == null) return;
+        if (binding == null || !resolveHostDependencies()) return;
         binding.speed.setValue(Math.max(player.getSpeed(), 0.5f));
         setSpeedPresets();
         binding.player.setText(parent.control.action.player.getText());
@@ -300,8 +307,19 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     public void setLut() {
-        if (binding == null || parent == null) return;
+        if (binding == null || !resolveHostDependencies()) return;
         binding.lut.setText(parent.control.action.lut.getText());
+    }
+
+    private boolean resolveHostDependencies() {
+        FragmentActivity activity = getActivity();
+        if (activity instanceof Listener listener) {
+            if (parent == null) parent = listener.getControlBinding();
+            if (player == null) player = listener.getControlPlayer();
+            if (history == null) history = listener.getControlHistory();
+            parse = listener.isControlParseEnabled();
+        }
+        return parent != null && player != null;
     }
 
     public void setParseVisible(boolean visible) {
@@ -400,6 +418,17 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     }
 
     public interface Listener {
+
+        @Nullable
+        ActivityVideoBinding getControlBinding();
+
+        @Nullable
+        PlayerManager getControlPlayer();
+
+        @Nullable
+        History getControlHistory();
+
+        boolean isControlParseEnabled();
 
         void onScale(int tag);
 

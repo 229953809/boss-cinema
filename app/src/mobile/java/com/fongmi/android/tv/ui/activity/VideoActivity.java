@@ -3432,6 +3432,26 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     @Override
+    public ActivityVideoBinding getControlBinding() {
+        return mBinding;
+    }
+
+    @Override
+    public PlayerManager getControlPlayer() {
+        return service() == null ? null : player();
+    }
+
+    @Override
+    public History getControlHistory() {
+        return mHistory;
+    }
+
+    @Override
+    public boolean isControlParseEnabled() {
+        return isUseParse();
+    }
+
+    @Override
     public boolean isDanmakuFullscreen() {
         return isFullscreen();
     }
