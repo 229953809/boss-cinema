@@ -189,12 +189,7 @@ public class NeteaseClient {
     }
 
     private int score(LyricsRequest request, Entry entry) {
-        int score = 0;
-        if (entry.origin) score += 18;
-        score += textScore(request.getTitle(), entry.name, 58, 32, -50);
-        if (!TextUtils.isEmpty(request.getArtist())) score += textScore(request.getArtist(), entry.artist, 26, 14, -8);
-        score += durationScore(request.getDurationSec(), entry.durationSec);
-        return score;
+        return (entry.origin ? 18 : 0) + LyricsMatcher.matchScore(request, entry.name, entry.artist, entry.durationSec);
     }
 
     private Lyric lyric(long id) {

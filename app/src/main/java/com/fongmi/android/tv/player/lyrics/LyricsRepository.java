@@ -373,7 +373,8 @@ public class LyricsRepository {
     private int weightedScore(LyricsRequest request, LyricsResult result) {
         if (result == null) return 0;
         int quality = result.hasWordTiming() ? 80 + wordPriority(result) : result.isSynced() ? 18 : 0;
-        return result.getScore() + quality + sourceAffinity(request, result);
+        int match = request == null ? 0 : LyricsMatcher.matchScore(request, result.getTrackName(), result.getArtistName(), result.getDurationMs() / 1000.0);
+        return result.getScore() + quality + sourceAffinity(request, result) + match;
     }
 
     private int wordPriority(LyricsResult result) {
@@ -529,6 +530,7 @@ public class LyricsRepository {
         ArrayList<LyricsResult> candidates = new ArrayList<>(items == null ? List.of() : items);
         candidates.sort(Comparator.comparingInt((LyricsResult result) -> weightedScore(request, result)).reversed());
         for (LyricsResult item : candidates) {
+            if (request != null && !LyricsMatcher.isAcceptableMatch(request, item)) continue;
             if (!seen.add(resultKey(item))) continue;
             results.add(item);
             if (results.size() >= limit) break;
@@ -569,7 +571,7 @@ public class LyricsRepository {
     private LyricsResult readCache(LyricsRequest request, int sourceMode) {
         for (File file : cacheFiles(request, sourceMode)) {
             LyricsResult result = readResultFile(file);
-            if (result == null) continue;
+            if (result == null || !LyricsMatcher.isAcceptableMatch(request, result)) continue;
             if (!sameFile(file, cacheFile(request, sourceMode))) writeCache(request, sourceMode, result);
             return result;
         }
@@ -582,7 +584,7 @@ public class LyricsRepository {
             ArrayList<LyricsResult> results = new ArrayList<>();
             try {
                 LyricsResult[] items = App.gson().fromJson(Path.read(file), LyricsResult[].class);
-                if (items != null) for (LyricsResult item : items) if (item != null && item.isValid() && item.isCacheCurrent()) results.add(item);
+                if (items != null) for (LyricsResult item : items) if (item != null && item.isValid() && item.isCacheCurrent() && LyricsMatcher.isAcceptableMatch(request, item)) results.add(item);
             } catch (Exception e) {
                 continue;
             }
@@ -608,9 +610,9 @@ public class LyricsRepository {
 
     private LyricsResult readChoice(LyricsRequest request) {
         LyricsResult result = readResultFile(choiceFile(request));
-        if (result != null) return result;
+        if (LyricsMatcher.isAcceptableMatch(request, result)) return result;
         result = readResultFile(legacyChoiceFile(request));
-        if (result != null) {
+        if (LyricsMatcher.isAcceptableMatch(request, result)) {
             writeChoice(request, result);
             return result;
         }

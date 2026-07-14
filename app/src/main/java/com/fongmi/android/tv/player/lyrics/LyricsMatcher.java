@@ -54,24 +54,49 @@ public class LyricsMatcher {
         boolean hasPlain = !TextUtils.isEmpty(entry.plainLyrics);
         if (!hasSynced && !hasPlain) return Integer.MIN_VALUE;
         int score = hasSynced ? 18 : 4;
-        score += textScore(request.getTitle(), entry.trackName, 55, 30, -45);
-        if (!TextUtils.isEmpty(request.getArtist())) score += textScore(request.getArtist(), entry.artistName, 24, 12, -18);
-        if (!TextUtils.isEmpty(request.getAlbum()) && !TextUtils.isEmpty(entry.albumName)) score += textScore(request.getAlbum(), entry.albumName, 10, 5, 0);
-        score += durationScore(request.getDurationSec(), entry.duration);
+        score += matchScore(request, entry.trackName, entry.artistName, entry.duration);
+        if (!TextUtils.isEmpty(request.getAlbum()) && !TextUtils.isEmpty(entry.albumName)) score += relatedTextScore(request.getAlbum(), entry.albumName, 10, 5, 0);
         return score;
     }
 
-    private int textScore(String wanted, String actual, int exact, int contains, int mismatch) {
+    public static int matchScore(LyricsRequest request, String actualTitle, String actualArtist, double actualSec) {
+        if (request == null) return 0;
+        int titleScore = relatedTextScore(request.getTitle(), actualTitle, 72, 46, -72);
+        int artistScore = TextUtils.isEmpty(request.getArtist()) ? 0 : relatedTextScore(request.getArtist(), actualArtist, 28, 14, -12);
+        int timeScore = durationScore(request.getDurationSec(), actualSec);
+        int score = titleScore + artistScore + timeScore + titleQualityAdjustment(actualTitle);
+        if (titleScore >= 72 && timeScore >= 20) score += 8;
+        return score;
+    }
+
+    public static boolean isAcceptableMatch(LyricsRequest request, LyricsResult result) {
+        if (request == null || result == null || !result.isValid()) return false;
+        String wanted = normalize(request.getTitle());
+        String actual = normalize(result.getTrackName());
+        if (TextUtils.isEmpty(wanted) || TextUtils.isEmpty(actual)) return false;
+        int titleScore = relatedTextScore(request.getTitle(), result.getTrackName(), 72, 46, -72);
+        if (titleScore < 30) return false;
+        int score = matchScore(request, result.getTrackName(), result.getArtistName(), result.getDurationMs() / 1000.0);
+        return titleScore >= 72 ? score >= 0 : score >= 30;
+    }
+
+    private static int relatedTextScore(String wanted, String actual, int exact, int related, int mismatch) {
         String a = normalize(wanted);
         String b = normalize(actual);
         if (TextUtils.isEmpty(a)) return 0;
         if (TextUtils.isEmpty(b)) return mismatch / 2;
         if (a.equals(b)) return exact;
-        if (a.contains(b) || b.contains(a)) return contains;
-        return mismatch;
+        if (!a.contains(b) && !b.contains(a)) return mismatch;
+        int shorter = Math.min(a.codePointCount(0, a.length()), b.codePointCount(0, b.length()));
+        int longer = Math.max(a.codePointCount(0, a.length()), b.codePointCount(0, b.length()));
+        if (shorter <= 1 || isSequenceOnly(a) || isSequenceOnly(b)) return mismatch;
+        float ratio = shorter / (float) Math.max(1, longer);
+        if (ratio >= 0.75f) return related;
+        if (ratio >= 0.55f) return Math.max(18, related - 14);
+        return mismatch / 2;
     }
 
-    private int durationScore(int wantedSec, double actualSec) {
+    private static int durationScore(int wantedSec, double actualSec) {
         if (wantedSec <= 0 || actualSec <= 0) return 0;
         double delta = Math.abs(wantedSec - actualSec);
         if (delta <= 2) return 24;
@@ -82,6 +107,27 @@ public class LyricsMatcher {
         return -40;
     }
 
+    private static int titleQualityAdjustment(String title) {
+        String value = Normalizer.normalize(clean(title), Normalizer.Form.NFKC).trim().toLowerCase(Locale.ROOT);
+        if (TextUtils.isEmpty(value)) return -40;
+        if (isSequenceOnly(value)) return -120;
+        int score = 0;
+        int length = value.codePointCount(0, value.length());
+        if (containsAny(value, "合集", "歌单", "盘点", "排行榜", "热歌榜", "频道", "最好听", "宝藏歌曲", "首歌曲")) score -= 70;
+        if (length > 36) score -= 36;
+        else if (length > 28) score -= 20;
+        return score;
+    }
+
+    private static boolean isSequenceOnly(String text) {
+        return clean(text).matches("(?i)^(?:p\\s*)?\\d{1,4}$");
+    }
+
+    private static boolean containsAny(String text, String... values) {
+        for (String value : values) if (!TextUtils.isEmpty(value) && text.contains(value)) return true;
+        return false;
+    }
+
     public static String normalize(String text) {
         String value = clean(text).toLowerCase(Locale.ROOT);
         if (TextUtils.isEmpty(value)) return "";
@@ -90,6 +136,8 @@ public class LyricsMatcher {
         value = value.replaceAll("\\([^)]*\\)|\\[[^]]*]|（[^）]*）|【[^】]*】", "");
         value = value.replaceAll("(?i)(?<=[\\u4e00-\\u9fff])\\s*dj(?:[a-z0-9\\u4e00-\\u9fff]*版)?\\s*$", "");
         value = value.replaceAll("(?i)official|music video|video|audio|lyrics|lyric|mv|flac|mp3|lossless|tv size|short ver\\.?|full ver\\.?|opening|ending|op|ed|feat\\.?|featuring", "");
+        value = value.replaceAll("(?i)(?:live|cover|remix|instrumental|karaoke|off vocal)(?: version| ver\\.?|版)?$", "");
+        value = value.replaceAll("(?:现场版|翻唱版|伴奏版|纯音乐版|原唱版)$", "");
         value = value.replaceAll("(?i)tvアニメ|テレビアニメ|アニメ|オープニング|エンディング|主題歌|挿入歌", "");
         value = value.replaceAll("[\\s_\\-.,:;!?/\\\\|+~`'\"#@$%^&*=<>，。！？、·：；“”‘’《》〈〉]+", "");
         return value.trim();

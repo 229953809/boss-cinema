@@ -399,8 +399,8 @@ public class KaraokeStatusView extends LinearLayout {
         }
 
         private int spectrumColor(float unit) {
-            if (unit < 0.5f) return blendColor(0xFFB968F0, 0xFFFFD166, unit * 2f);
-            return blendColor(0xFFFFD166, 0xFFFF7A9E, (unit - 0.5f) * 2f);
+            if (unit < 0.5f) return blendColor(0x52FFFFFF, 0xD8CFEFFF, unit * 2f);
+            return blendColor(0xD8CFEFFF, 0x72FFFFFF, (unit - 0.5f) * 2f);
         }
 
         private int blendColor(int start, int end, float ratio) {
