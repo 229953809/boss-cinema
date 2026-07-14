@@ -79,6 +79,7 @@ class KaraokeAudioExtractor {
     private static List<Candidate> candidates(String url, Map<String, String> headers) {
         List<Candidate> candidates = new ArrayList<>();
         Map<String, String> safeHeaders = sanitizeHeaders(headers);
+        if (isEdlUrl(url)) addEdlCandidates(candidates, url, safeHeaders);
         if (isConcatenatingUrl(url)) addConcatCandidates(candidates, url, safeHeaders);
         if (isDashLike(url)) {
             try {
@@ -89,6 +90,73 @@ class KaraokeAudioExtractor {
         }
         addUnique(candidates, new Candidate(url, safeHeaders, "media"));
         return candidates;
+    }
+
+    private static void addEdlCandidates(List<Candidate> candidates, String url, Map<String, String> headers) {
+        List<Candidate> primary = new ArrayList<>();
+        List<Candidate> secondary = new ArrayList<>();
+        String body = url.substring("edl://".length());
+        int cursor = 0;
+        int stream = 0;
+        while (cursor < body.length()) {
+            while (cursor < body.length() && body.charAt(cursor) == ';') cursor++;
+            if (body.regionMatches(cursor, "!new_stream", 0, "!new_stream".length())) {
+                stream++;
+                cursor += "!new_stream".length();
+                continue;
+            }
+            if (!body.regionMatches(cursor, "file=", 0, "file=".length())) {
+                int next = body.indexOf(';', cursor);
+                cursor = next < 0 ? body.length() : next + 1;
+                continue;
+            }
+            EdlValue value = readEdlValue(body, cursor + "file=".length());
+            if (value == null) break;
+            Candidate candidate = new Candidate(value.text, headers, stream > 0 ? "edl-audio" : "edl-stream");
+            if (stream > 0) secondary.add(candidate);
+            else primary.add(candidate);
+            cursor = value.end;
+            int next = body.indexOf(';', cursor);
+            cursor = next < 0 ? body.length() : next + 1;
+        }
+        for (Candidate candidate : secondary) addUnique(candidates, candidate);
+        for (Candidate candidate : primary) addUnique(candidates, candidate);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("karaoke-pitch", "edl candidates audio=%d primary=%d len=%d", secondary.size(), primary.size(), url.length());
+    }
+
+    private static EdlValue readEdlValue(String body, int start) {
+        if (start >= body.length()) return null;
+        if (body.charAt(start) != '%') {
+            int comma = body.indexOf(',', start);
+            int semicolon = body.indexOf(';', start);
+            int end = comma < 0 ? semicolon : semicolon < 0 ? comma : Math.min(comma, semicolon);
+            if (end < 0) end = body.length();
+            return end <= start ? null : new EdlValue(body.substring(start, end), end);
+        }
+        int marker = body.indexOf('%', start + 1);
+        if (marker < 0) return null;
+        int byteLength;
+        try {
+            byteLength = Integer.parseInt(body.substring(start + 1, marker));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (byteLength <= 0) return null;
+        int valueStart = marker + 1;
+        int end = utf8End(body, valueStart, byteLength);
+        if (end < 0) return null;
+        return new EdlValue(body.substring(valueStart, end), end);
+    }
+
+    private static int utf8End(String value, int start, int byteLength) {
+        int bytes = 0;
+        int cursor = start;
+        while (cursor < value.length() && bytes < byteLength) {
+            int codePoint = value.codePointAt(cursor);
+            bytes += new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8).length;
+            cursor += Character.charCount(codePoint);
+        }
+        return bytes == byteLength ? cursor : -1;
     }
 
     private static void addConcatCandidates(List<Candidate> candidates, String url, Map<String, String> headers) {
@@ -229,6 +297,10 @@ class KaraokeAudioExtractor {
         return !TextUtils.isEmpty(url) && url.regionMatches(true, 0, "data:", 0, 5);
     }
 
+    private static boolean isEdlUrl(String url) {
+        return !TextUtils.isEmpty(url) && url.regionMatches(true, 0, "edl://", 0, 6);
+    }
+
     private static boolean isConcatenatingUrl(String url) {
         return url != null && url.contains(CONCAT_SOURCE_SEPARATOR) && url.contains(CONCAT_DURATION_SEPARATOR);
     }
@@ -340,6 +412,17 @@ class KaraokeAudioExtractor {
             this.url = url;
             this.headers = headers == null ? new HashMap<>() : new HashMap<>(headers);
             this.kind = kind;
+        }
+    }
+
+    private static class EdlValue {
+
+        private final String text;
+        private final int end;
+
+        private EdlValue(String text, int end) {
+            this.text = text;
+            this.end = end;
         }
     }
 }
