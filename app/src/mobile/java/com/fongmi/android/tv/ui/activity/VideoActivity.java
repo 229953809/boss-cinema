@@ -2480,12 +2480,15 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     public void onImmersiveAudioModeChanged() {
+        boolean enabled = PlayerSetting.isImmersiveAudioMode();
         updateAudioOnlyState();
-        if (PlayerSetting.isImmersiveAudioMode()) {
+        if (enabled) {
             ensureImmersiveAudioControllers();
+            applyPlaybackArtwork(getPlaybackEpisode());
             refreshLyrics();
             reloadKaraokeTrack();
         }
+        SpiderDebug.log("audio-mode", "toggle enabled=%s stage=%s artwork=%s owner=%s", enabled, mAudioStageVisible, !TextUtils.isEmpty(mArtworkRequestUrl), mPlaybackEpisodeKey);
     }
 
     @Override
@@ -4355,7 +4358,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setAudioStageVisible(boolean visible) {
-        visible = visible && PlayerSetting.isImmersiveAudioMode();
+        boolean immersiveEnabled = PlayerSetting.isImmersiveAudioMode();
+        visible = visible && immersiveEnabled;
         if (visible) ensureImmersiveAudioControllers();
         if (visible && isAutoRotate() && !isLock() && !isRotate()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
         if (mAudioStageVisible == visible) {
@@ -4368,7 +4372,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.audioStage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) mBinding.audioStage.bringToFront();
         if (visible) applyAudioBackground();
-        mBinding.lyrics.setSuppressed(visible);
+        mBinding.lyrics.setSuppressed(!immersiveEnabled || visible);
         mBinding.audioLyrics.setSuppressed(!visible);
         syncKaraokeStageVisibility();
         applyAudioStageLayout(visible);
