@@ -582,10 +582,22 @@ public class LyricsRequest {
         char close = value.startsWith("【") ? '】' : value.startsWith("[") ? ']' : value.startsWith("（") ? '）' : ')';
         int end = value.indexOf(close);
         if (end <= 0 || end >= value.length() - 1) return;
-        String artist = firstUsefulToken(value.substring(1, end));
+        String bracket = cleanNamePart(value.substring(1, end));
+        SequenceText sequence = stripSequence(value.substring(end + 1));
+        if (isTrackSequenceMarker(bracket) && sequence.hadPrefix) {
+            String title = cleanNamePart(sequence.text);
+            if (!TextUtils.isEmpty(title)) addCandidate(candidates, new Candidate(title, "", confidence + 24, source, "bracket-sequence-title", raw));
+            return;
+        }
+        String artist = firstUsefulToken(bracket);
         String title = cleanNamePart(value.substring(end + 1));
         if (TextUtils.isEmpty(title) || TextUtils.isEmpty(artist)) return;
         addCandidate(candidates, new Candidate(title, artist, confidence, source, "bracket-artist-title", raw));
+    }
+
+    private static boolean isTrackSequenceMarker(String text) {
+        String value = Normalizer.normalize(clean(text), Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        return value.matches("^p\\s*0*\\d{1,4}$");
     }
 
     private static Candidate bestCandidate(List<Candidate> candidates) {
