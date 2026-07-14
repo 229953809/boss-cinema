@@ -1157,6 +1157,7 @@
     <string name="player_lyrics_size">歌词字号</string>
     <string name="player_lyrics_source">歌词来源</string>
     <string name="player_karaoke_mode">K歌模式</string>
+    <string name="player_audio_options">播放选项</string>
     <string name="player_karaoke_mode_enabled">当前已开启</string>
     <string name="player_karaoke_mode_disabled">当前已关闭</string>
     <string name="player_karaoke_difficulty">K歌难度</string>

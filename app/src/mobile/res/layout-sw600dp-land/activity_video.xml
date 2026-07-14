@@ -394,7 +394,7 @@
                                     android:id="@+id/audioKaraokeAction"
                                     style="@style/AudioActionButton"
                                     android:layout_marginEnd="4dp"
-                                    android:text="@string/player_karaoke_mode"
+                                    android:text="@string/player_audio_options"
                                     android:textSize="12sp"
                                     app:drawableTopCompat="@drawable/ic_action_ktv" />
 

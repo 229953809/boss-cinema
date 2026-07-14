@@ -35,6 +35,11 @@ public class KaraokeStatusView extends LinearLayout {
     private final MaterialTextView detail;
     private final NoteTimelineView timeline;
     private final VolumeMeterView volume;
+    private KaraokeStatus currentStatus = KaraokeStatus.INACTIVE;
+    private KaraokeTrack currentTrack;
+    private KaraokePitchSample currentSample;
+    private KaraokeScoreSnapshot currentSnapshot;
+    private boolean spectrumMode;
     private boolean playing;
 
     public KaraokeStatusView(Context context) {
@@ -74,7 +79,32 @@ public class KaraokeStatusView extends LinearLayout {
     }
 
     public void setState(KaraokeStatus status, KaraokeTrack track, KaraokePitchSample sample, KaraokeScoreSnapshot snapshot) {
-        if (status == null || status == KaraokeStatus.INACTIVE) {
+        currentStatus = status == null ? KaraokeStatus.INACTIVE : status;
+        currentTrack = track;
+        currentSample = sample;
+        currentSnapshot = snapshot;
+        renderState();
+    }
+
+    public void setSpectrumMode(boolean enabled) {
+        spectrumMode = enabled;
+        timeline.setSpectrumMode(enabled);
+        renderState();
+    }
+
+    private void renderState() {
+        if (spectrumMode) {
+            title.setVisibility(GONE);
+            detail.setVisibility(GONE);
+            timeline.setVisibility(VISIBLE);
+            setVisibility(VISIBLE);
+            return;
+        }
+        KaraokeStatus status = currentStatus;
+        KaraokeTrack track = currentTrack;
+        KaraokePitchSample sample = currentSample;
+        KaraokeScoreSnapshot snapshot = currentSnapshot;
+        if (status == KaraokeStatus.INACTIVE) {
             timeline.setLevel(0);
             timeline.setState(null, null);
             setVisibility(PlayerSetting.isKaraokeMode() ? INVISIBLE : GONE);
@@ -206,6 +236,7 @@ public class KaraokeStatusView extends LinearLayout {
         private KaraokeTrack track;
         private KaraokeScoreSnapshot snapshot;
         private PitchScale pitchScale = defaultPitchScale();
+        private boolean spectrumMode;
         private int historySize;
         private long lastHistoryPosition = -1;
         private float lastHistoryPitch = Float.NaN;
@@ -230,6 +261,13 @@ public class KaraokeStatusView extends LinearLayout {
             this.snapshot = snapshot;
             updateSmoothBase(snapshot);
             if (playing) appendHistory(snapshot);
+            invalidate();
+        }
+
+        private void setSpectrumMode(boolean enabled) {
+            if (spectrumMode == enabled) return;
+            spectrumMode = enabled;
+            if (enabled) clearHistory();
             invalidate();
         }
 
@@ -301,6 +339,10 @@ public class KaraokeStatusView extends LinearLayout {
             float right = getWidth() - dp(2);
             float top = dp(3);
             float bottom = getHeight() - dp(3);
+            if (spectrumMode) {
+                drawSpectrum(canvas, left, right, top, bottom);
+                return;
+            }
             drawBackground(canvas, left, right, top, bottom);
             drawVolumeBackground(canvas, left, right, top, bottom);
             if (track == null || snapshot == null || track.isEmpty()) {
@@ -317,6 +359,57 @@ public class KaraokeStatusView extends LinearLayout {
             if (pitchTrack) drawSungMarker(canvas, left, right, top, bottom);
             if (pitchTrack) drawHitEffects(canvas, left, right, top, bottom);
             if (playing) postInvalidateOnAnimation();
+        }
+
+        private void drawSpectrum(Canvas canvas, float left, float right, float top, float bottom) {
+            long now = SystemClock.elapsedRealtime();
+            float width = right - left;
+            float gap = Math.max(dp(2), width / 118f);
+            float barWidth = Math.max(dp(3), (width - gap * (BAR_COUNT - 1)) / BAR_COUNT);
+            float base = bottom - dp(4);
+            float maxHeight = Math.max(dp(24), bottom - top - dp(8));
+            boolean settling = false;
+            for (int i = 0; i < BAR_COUNT; i++) {
+                float unit = BAR_COUNT <= 1 ? 0f : i / (float) (BAR_COUNT - 1);
+                float center = 1f - Math.abs(unit * 2f - 1f);
+                float wave = 0.48f
+                        + 0.22f * (float) Math.sin(now / 210f + i * 0.73f)
+                        + 0.16f * (float) Math.sin(now / 370f - i * 0.41f)
+                        + 0.10f * (float) Math.cos(now / 125f + i * 1.31f);
+                float target = playing ? clamp((0.18f + wave * 0.58f) * (0.62f + center * 0.38f)) : 0.08f;
+                bars[i] = bars[i] * 0.76f + target * 0.24f;
+                if (!playing && bars[i] > 0.1f) settling = true;
+                float height = Math.max(dp(5), maxHeight * bars[i]);
+                float x = left + i * (barWidth + gap);
+                rect.set(x, base - height, x + barWidth, base);
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(spectrumColor(unit));
+                canvas.drawRoundRect(rect, barWidth / 2f, barWidth / 2f, paint);
+                if (playing && bars[i] > 0.72f && (i + now / 260) % 5 == 0) {
+                    paint.setColor(0xCCFFD166);
+                    canvas.drawCircle(x + barWidth / 2f, base - height - dp(5), dp(1.5f), paint);
+                }
+            }
+            if (playing) postInvalidateDelayed(42);
+            else if (settling) postInvalidateDelayed(48);
+        }
+
+        private float clamp(float value) {
+            return Math.max(0f, Math.min(1f, value));
+        }
+
+        private int spectrumColor(float unit) {
+            if (unit < 0.5f) return blendColor(0xFFB968F0, 0xFFFFD166, unit * 2f);
+            return blendColor(0xFFFFD166, 0xFFFF7A9E, (unit - 0.5f) * 2f);
+        }
+
+        private int blendColor(int start, int end, float ratio) {
+            float value = clamp(ratio);
+            int a = (int) (Color.alpha(start) + (Color.alpha(end) - Color.alpha(start)) * value);
+            int r = (int) (Color.red(start) + (Color.red(end) - Color.red(start)) * value);
+            int g = (int) (Color.green(start) + (Color.green(end) - Color.green(start)) * value);
+            int b = (int) (Color.blue(start) + (Color.blue(end) - Color.blue(start)) * value);
+            return Color.argb(a, r, g, b);
         }
 
         private void drawBackground(Canvas canvas, float left, float right, float top, float bottom) {

@@ -2517,6 +2517,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onKaraokeModeChanged() {
         setKaraokeActionState();
+        syncKaraokeStageVisibility();
         if (PlayerSetting.isKaraokeMode()) {
             mKaraokeResultShown = false;
             refreshLyrics();
@@ -4408,8 +4409,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (mBinding == null) return;
         if (mAudioStageVisible) {
             if (mBinding.karaoke != null) mBinding.karaoke.setVisibility(View.GONE);
-            if (mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
+            boolean karaokeMode = PlayerSetting.isKaraokeMode();
+            mBinding.audioKaraoke.setSpectrumMode(!karaokeMode);
+            if (karaokeMode && mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
         } else {
+            mBinding.audioKaraoke.setSpectrumMode(false);
             mBinding.audioKaraoke.setVisibility(View.GONE);
         }
     }
@@ -5479,6 +5483,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private void checkAudioPlayImg(boolean isPlaying) {
         mBinding.audioPlay.setImageResource(isPlaying ? androidx.media3.ui.R.drawable.exo_icon_pause : androidx.media3.ui.R.drawable.exo_icon_play);
+        mBinding.audioKaraoke.setPlaying(isPlaying);
         updateAudioLightEffectAnimation(isPlaying);
         syncAudioCoverRotation();
     }
