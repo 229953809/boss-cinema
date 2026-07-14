@@ -2479,6 +2479,16 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     @Override
+    public void onImmersiveAudioModeChanged() {
+        updateAudioOnlyState();
+        if (PlayerSetting.isImmersiveAudioMode()) {
+            ensureImmersiveAudioControllers();
+            refreshLyrics();
+            reloadKaraokeTrack();
+        }
+    }
+
+    @Override
     public void onKaraokeModeChanged() {
         setKaraokeActionState();
         if (PlayerSetting.isKaraokeMode()) {
