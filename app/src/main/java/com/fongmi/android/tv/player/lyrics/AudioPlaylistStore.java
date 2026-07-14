@@ -8,15 +8,21 @@ import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class AudioPlaylistStore {
 
     private static final String KEY_PLAYLISTS = "audio_playlists";
     private static final String KEY_ACTIVE = "audio_playlist_active";
+    private static final String KEY_METADATA = "audio_playlist_metadata";
     private static final String DEFAULT_NAME = "默认歌单";
+    private static final int MAX_METADATA = 500;
     private static final Type LIST_TYPE = new TypeToken<List<Playlist>>() {
+    }.getType();
+    private static final Type METADATA_TYPE = new TypeToken<LinkedHashMap<String, Metadata>>() {
     }.getType();
 
     private AudioPlaylistStore() {
@@ -97,6 +103,55 @@ public final class AudioPlaylistStore {
         save(items);
     }
 
+    public static synchronized Metadata getMetadata(String url) {
+        if (TextUtils.isEmpty(url)) return null;
+        return getMetadata().get(url);
+    }
+
+    public static synchronized void putMetadata(String url, String title, String artist) {
+        if (TextUtils.isEmpty(url) || TextUtils.isEmpty(title)) return;
+        LinkedHashMap<String, Metadata> items = getMetadata();
+        Metadata item = items.get(url);
+        if (item == null) item = new Metadata();
+        item.title = title.trim();
+        if (!TextUtils.isEmpty(artist)) item.artist = artist.trim();
+        item.updatedAt = System.currentTimeMillis();
+        items.put(url, item);
+        trimMetadata(items);
+        Prefers.put(KEY_METADATA, App.gson().toJson(items));
+    }
+
+    private static LinkedHashMap<String, Metadata> getMetadata() {
+        try {
+            Map<String, Metadata> source = App.gson().fromJson(Prefers.getString(KEY_METADATA), METADATA_TYPE);
+            LinkedHashMap<String, Metadata> result = new LinkedHashMap<>();
+            if (source != null) {
+                for (Map.Entry<String, Metadata> entry : source.entrySet()) {
+                    if (TextUtils.isEmpty(entry.getKey()) || entry.getValue() == null || TextUtils.isEmpty(entry.getValue().title)) continue;
+                    result.put(entry.getKey(), entry.getValue());
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            return new LinkedHashMap<>();
+        }
+    }
+
+    private static void trimMetadata(LinkedHashMap<String, Metadata> items) {
+        while (items.size() > MAX_METADATA) {
+            String oldestKey = null;
+            long oldestTime = Long.MAX_VALUE;
+            for (Map.Entry<String, Metadata> entry : items.entrySet()) {
+                long updatedAt = entry.getValue() == null ? 0 : entry.getValue().updatedAt;
+                if (oldestKey != null && updatedAt >= oldestTime) continue;
+                oldestKey = entry.getKey();
+                oldestTime = updatedAt;
+            }
+            if (oldestKey == null) return;
+            items.remove(oldestKey);
+        }
+    }
+
     private static void save(List<Playlist> items) {
         Prefers.put(KEY_PLAYLISTS, App.gson().toJson(normalize(items)));
     }
@@ -154,5 +209,11 @@ public final class AudioPlaylistStore {
         public String artist = "";
         public String pic = "";
         public String lyrics = "";
+    }
+
+    public static class Metadata {
+        public String title = "";
+        public String artist = "";
+        public long updatedAt;
     }
 }

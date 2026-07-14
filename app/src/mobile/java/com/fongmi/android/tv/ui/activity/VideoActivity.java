@@ -1278,6 +1278,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     public void onItemClick(Episode item) {
         if (shouldEnterFullscreen(item)) return;
+        syncCurrentAudioPlaylistMetadata();
         Flag flag = getFlag();
         if (mFlagAdapter != null) mFlagAdapter.toggle(item);
         if (flag != null) setEpisodeAdapter(flag.getEpisodes());
@@ -2080,10 +2081,22 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (mAudioQueueAdapter == null) return;
         Flag flag = getFlag();
         List<Episode> items = flag == null ? new ArrayList<>() : flag.getEpisodes();
+        restoreLearnedAudioQueueMetadata(items);
         int selected = getSelectedEpisodePosition(items);
         mAudioQueueAdapter.setItems(items, selected);
         if (mAudioQueueList != null && selected >= 0) {
             mAudioQueueList.post(() -> mAudioQueueList.scrollToPosition(selected));
+        }
+    }
+
+    private void restoreLearnedAudioQueueMetadata(List<Episode> items) {
+        if (items == null) return;
+        for (Episode item : items) {
+            AudioPlaylistStore.Metadata metadata = AudioPlaylistStore.getMetadata(item.getUrl());
+            if (metadata == null || TextUtils.isEmpty(metadata.title)) continue;
+            String key = audioQueueEpisodeKey(item);
+            mAudioQueueTitles.put(key, metadata.title);
+            if (!TextUtils.isEmpty(metadata.artist)) mAudioQueueArtists.put(key, metadata.artist);
         }
     }
 
@@ -2138,7 +2151,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 return;
             }
             Episode item = items.get(position);
-            boolean active = position == selected;
+            boolean active = position == selected || TextUtils.equals(audioQueueEpisodeKey(item), Objects.toString(mPlaybackEpisodeKey, ""));
             holder.title.setText((position + 1) + ". " + getAudioQueueDisplayName(item, active));
             holder.title.setTextColor(active ? SHEET_TEXT_PRIMARY : SHEET_TEXT_SECONDARY);
             holder.remove.setVisibility(View.VISIBLE);
@@ -4607,9 +4620,10 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void syncCurrentAudioPlaylistMetadata() {
         if (!mAudioStageVisible || service() == null) return;
         Episode episode = getPlaybackEpisode();
-        if (episode == null || !isAudioQueueEpisode(episode)) return;
+        if (episode == null) return;
+        AudioPlaylistStore.Entry entry = findCurrentAudioPlaylistEntry(episode);
         String track = getCurrentTrackMetadata();
-        if (TextUtils.isEmpty(track)) return;
+        if (TextUtils.isEmpty(track) || !isCurrentAudioQueueTrack(track, episode)) return;
         String[] parts = splitCurrentTrack(track);
         String title = parts[0];
         String artist = parts[1];
@@ -4620,7 +4634,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (!changed) return;
         mAudioQueueTitles.put(key, title);
         if (!TextUtils.isEmpty(artist)) mAudioQueueArtists.put(key, artist);
-        AudioPlaylistStore.Entry entry = findCurrentAudioPlaylistEntry(episode);
+        AudioPlaylistStore.putMetadata(episode.getUrl(), title, artist);
         if (entry != null) {
             entry.title = title;
             if (!TextUtils.isEmpty(artist)) entry.artist = artist;
@@ -4648,7 +4662,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         String artist = mAudioQueueArtists.get(audioQueueEpisodeKey(episode));
         if (active) {
             String track = getCurrentTrackMetadata();
-            if (!TextUtils.isEmpty(track)) {
+            if (!TextUtils.isEmpty(track) && isCurrentAudioQueueTrack(track, episode)) {
                 String[] parts = splitCurrentTrack(track);
                 if (isUsefulAudioQueueTitle(parts[0], episode)) {
                     title = parts[0];
@@ -4674,6 +4688,27 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean isAudioQueuePlaceholderName(String name) {
         String value = Objects.toString(name, "").trim();
         return value.matches("(?i)^(?:\\[?p\\s*0*\\d{1,4}\\]?|0*\\d{1,4})[.．、_\\-\\s]*$");
+    }
+
+    private boolean isCurrentAudioQueueTrack(String track, Episode episode) {
+        String episodeNumber = audioQueueTrackNumber(episode == null ? "" : episode.getDisplayName(), true);
+        if (TextUtils.isEmpty(episodeNumber)) return true;
+        String trackNumber = audioQueueTrackNumber(track, false);
+        return TextUtils.isEmpty(trackNumber) || TextUtils.equals(trackNumber, episodeNumber);
+    }
+
+    private String audioQueueTrackNumber(String text, boolean placeholder) {
+        String value = Objects.toString(text, "").trim();
+        String number;
+        if (placeholder) {
+            if (!isAudioQueuePlaceholderName(value)) return "";
+            number = value.replaceAll("\\D", "");
+        } else {
+            number = value.replaceFirst("^\\s*(\\d{1,4})[.．、\\s]+.*$", "$1");
+            if (TextUtils.equals(number, value)) return "";
+        }
+        number = number.replaceFirst("^0+(?!$)", "");
+        return number;
     }
 
     private boolean isAudioQueueCollectionTitle(String title) {
