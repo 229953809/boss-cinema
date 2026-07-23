@@ -27,4 +27,15 @@
     <color name="white_80">#CCFFFFFF</color>
     <color name="white_90">#E6FFFFFF</color>
 
+
+    <!-- 老板影院品牌色 -->
+    <color name="gold">#FFD700</color>
+    <color name="gold_dark">#B8860B</color>
+    <color name="gold_light">#FFEC8B</color>
+    <color name="gold_accent">#DAA520</color>
+    <color name="brand_primary">#FFD700</color>
+    <color name="brand_primary_dark">#B8860B</color>
+    <color name="brand_background">#1A1A2E</color>
+    <color name="brand_surface">#16213E</color>
+
 </resources>
