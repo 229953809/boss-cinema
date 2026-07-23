@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 深色圆形背景 -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- 金色外圈 -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,54m-35,0a35,35 0,1 1,70 0a35,35 0,1 1,-70 0"
+        android:strokeWidth="2"
+        android:strokeColor="#B8860B" />
+    <!-- 金色三角播放键 -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M44,38L44,70L68,54Z" />
+</vector>
