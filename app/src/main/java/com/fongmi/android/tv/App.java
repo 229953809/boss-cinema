@@ -88,9 +88,6 @@ public class App extends Application implements Application.ActivityLifecycleCal
     }
 
     @Override
-    // 老板影院 - 内置默认视频源
-    private static final String DEFAULT_CONFIG = "https://肥猫.love";
-
     public void onCreate() {
         super.onCreate();
         Setting.applyLanguage();
